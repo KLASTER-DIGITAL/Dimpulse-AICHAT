@@ -7,6 +7,7 @@ import { Chat, Message } from "@shared/schema";
 
 import ChatContainer from "@/components/ChatGPT/ChatContainer";
 import ChatInput from "@/components/ChatGPT/ChatInput";
+import EmptyState from "@/components/ChatGPT/EmptyState";
 
 const Home = () => {
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
@@ -76,7 +77,7 @@ const Home = () => {
         chatId,
         role: "assistant",
         content: "typing",
-        createdAt: new Date().toISOString(),
+        createdAt: new Date(),
         typing: true
       });
       
@@ -151,19 +152,40 @@ const Home = () => {
     }
   };
   
+  // Получить приветственное сообщение в зависимости от времени суток
+  const getTimeOfDayGreeting = (): string => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) return "Доброе утро";
+    if (hour >= 12 && hour < 18) return "Добрый день";
+    if (hour >= 18 && hour < 23) return "Добрый вечер";
+    return "Доброй ночи";
+  };
+
   return (
     <div className="flex h-screen w-full bg-black text-[#ECECF1] flex-col">
       {/* Main Content */}
       <div className="flex-1 flex flex-col h-full relative">
-        {/* Chat Container */}
-        <ChatContainer 
-          messages={chatData?.messages || []}
-          isLoading={isLoadingChat || sendMessageMutation.isPending}
-          isEmpty={!chatData?.messages?.length}
-          tempTypingMessage={tempTypingMessage}
-        />
+        {/* Показываем приветственный экран вместо чата, если нет сообщений */}
+        {!chatData?.messages?.length ? (
+          <div className="flex flex-col items-center justify-center h-full">
+            <div className="text-center mb-32">
+              <h1 className="text-4xl font-semibold mb-2">{getTimeOfDayGreeting()}, Leads.</h1>
+              <p className="text-2xl text-gray-300">Чем я могу помочь сегодня?</p>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Chat Container */}
+            <ChatContainer 
+              messages={chatData?.messages || []}
+              isLoading={isLoadingChat || sendMessageMutation.isPending}
+              isEmpty={false}
+              tempTypingMessage={tempTypingMessage}
+            />
+          </>
+        )}
         
-        {/* Chat Input */}
+        {/* Chat Input - всегда отображается */}
         <ChatInput 
           onSendMessage={handleSendMessage}
           onVoiceInput={handleVoiceInput}
