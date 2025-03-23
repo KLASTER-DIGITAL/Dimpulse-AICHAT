@@ -81,9 +81,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await new Promise(resolve => setTimeout(resolve, 300));
       
       // Подготовка данных для отправки на webhook
-      const requestBody: any = { message: content };
+      const requestBody: any = { 
+        message: content,
+        // Добавляем структурированное сообщение с текстом и голосом
+        message_data: {
+          text: content,
+          // voice будет null если нет аудиоданных
+          voice: audioData || null
+        }
+      };
       
-      // Если есть аудио данные, добавляем их как отдельную переменную
+      // Если есть аудио данные, добавляем их также как отдельную переменную
+      // для обратной совместимости
       if (audioData) {
         requestBody.audio = audioData;
         console.log("Including audio data in webhook request (audio data length: " + (audioData?.length || 0) + " characters)");
@@ -91,7 +100,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log("Sending webhook request:", {
         url: webhookUrl,
-        body: { message: content, hasAudio: !!audioData }
+        body: { 
+          message: content, 
+          hasAudio: !!audioData,
+          hasVoice: !!audioData,
+          messageData: requestBody.message_data
+        }
       });
       console.log("Request payload size:", JSON.stringify(requestBody).length, "bytes");
       
