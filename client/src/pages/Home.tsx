@@ -104,21 +104,10 @@ const Home = () => {
     sendMessageMutation.mutate({ chatId: currentChatId, message });
   };
 
-  // Handle voice input - используется для обработки транскрипции аудио
+  // Handle voice input
   const handleVoiceInput = (transcript: string) => {
     if (transcript && !sendMessageMutation.isPending) {
       handleSendMessage(transcript);
-      
-      // Обновляем заголовок чата, если это первое сообщение
-      if (chatData?.messages?.length === 0) {
-        // Укорачиваем текст для заголовка
-        const shortTitle = transcript.length > 30 
-          ? transcript.substring(0, 30) + '...' 
-          : transcript;
-          
-        // Здесь можно добавить запрос на обновление заголовка чата
-        // Сейчас заголовок обновляется автоматически через обновление запроса
-      }
     }
   };
   

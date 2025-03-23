@@ -4,10 +4,6 @@ import { storage } from "./storage";
 import { randomUUID } from "crypto";
 import { insertChatSchema, insertMessageSchema } from "@shared/schema";
 import fetch from "node-fetch";
-import multer from "multer";
-import * as fs from "fs";
-import * as path from "path";
-import * as os from "os";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Get all chats (for the sidebar)
@@ -57,25 +53,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Функция для активации webhook перед запросом
   async function activateWebhook() {
     try {
-      // Если используем webhook-test, нужно сначала его активировать
-      const webhookUrl = 'https://n8n.klaster.digital/webhook-test/4a1fed67-dcfb-4eb8-a71b-d47b1d651509';
-      console.log("Pre-activating webhook-test...");
-      
-      try {
-        // Отправляем простой запрос для активации webhook-test с другим форматом данных
-        await fetch(webhookUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            action: 'activate_webhook',
-            system_message: 'Предварительная активация веб-хука',
-            timestamp: new Date().toISOString()
-          }),
-        });
-      } catch (activationError) {
-        // Ошибка ожидаема и может быть проигнорирована
-        console.log("Pre-activation expected to fail, webhook should be ready now");
-      }
+      // Сначала делаем запрос для активации webhook (теперь не требуется)
+      console.log("Using regular webhook, pre-activation not needed...");
       
       // Ждем 500 миллисекунд, чтобы убедиться, что webhook активировался
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -108,25 +87,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let aiResponse = "К сожалению, сервис обработки сообщений в данный момент недоступен. Для активации сервиса необходимо нажать кнопку 'Test workflow' в интерфейсе n8n.";
       
       // Отправляем запрос к webhook
-      const webhookUrl = 'https://n8n.klaster.digital/webhook-test/4a1fed67-dcfb-4eb8-a71b-d47b1d651509';
+      const webhookUrl = 'https://n8n.klaster.digital/webhook/4a1fed67-dcfb-4eb8-a71b-d47b1d651509';
       
       // Активируем webhook перед запросом
       await activateWebhook();
       
-      // Используем строковый формат данных
-      const requestBody = content;
-      console.log("===== SENDING TEXT MESSAGE TO WEBHOOK =====");
-      console.log("URL:", webhookUrl);
-      console.log("Request body:", JSON.stringify(requestBody, null, 2));
-      console.log("============================================");
+      console.log("Sending webhook request:", {
+        url: webhookUrl,
+        body: { message: content }
+      });
       
       try {
         const response = await fetch(webhookUrl, {
           method: 'POST',
           headers: {
-            'Content-Type': 'text/plain',  // Простой текстовый формат
+            'Content-Type': 'application/json',
           },
-          body: requestBody, // Отправляем как текст без JSON.stringify
+          body: JSON.stringify({ message: content }),
         });
         
         console.log("Webhook response status:", response.status);
@@ -232,177 +209,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Message error:", error);
       res.status(500).json({ message: "Failed to process message" });
-    }
-  });
-
-  // Настройка multer для загрузки аудиофайлов
-  const upload = multer({
-    storage: multer.diskStorage({
-      destination: (req, file, cb) => {
-        const tempDir = path.join(os.tmpdir(), 'audio-uploads');
-        if (!fs.existsSync(tempDir)) {
-          fs.mkdirSync(tempDir, { recursive: true });
-        }
-        cb(null, tempDir);
-      },
-      filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-        cb(null, `audio-${uniqueSuffix}${path.extname(file.originalname)}`);
-      }
-    }),
-    limits: {
-      fileSize: 10 * 1024 * 1024 // 10MB максимальный размер файла
-    },
-    fileFilter: (req, file, cb) => {
-      // Принимаем только аудиофайлы
-      if (file.mimetype.startsWith('audio/')) {
-        cb(null, true);
-      } else {
-        cb(new Error('Только аудиофайлы!'));
-      }
-    }
-  });
-
-  // Эндпоинт для транскрипции аудио через webhook
-  app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ error: 'Аудиофайл не найден' });
-      }
-
-      const audioFilePath = req.file.path;
-      console.log('Аудиофайл сохранен:', audioFilePath);
-      
-      // Конвертируем файл в base64
-      const audioFileContent = fs.readFileSync(audioFilePath);
-      const audioBase64 = audioFileContent.toString('base64');
-      
-      // Формируем данные для отправки на webhook
-      // Здесь мы отправляем путь к файлу, а не сам файл
-      // Для реального использования можно либо:
-      // 1. Конвертировать файл в base64 и отправлять его
-      // 2. Загрузить файл в облачное хранилище и отправить ссылку
-      // 3. Использовать сторонний сервис транскрипции
-      
-      // В данном случае отправляем информацию о файле на webhook
-      const webhookUrl = 'https://n8n.klaster.digital/webhook-test/4a1fed67-dcfb-4eb8-a71b-d47b1d651509';
-      
-      // Активируем webhook перед запросом
-      await activateWebhook();
-      
-      // Создаем объект для отправки на webhook (используется для логирования и отправки)
-      const voiceRequestBody = {
-        message: "Транскрибировать аудио", // добавляем поле message для совместимости с n8n
-        audio_base64: audioBase64,
-        audio_filename: req.file.originalname,
-        type: 'voice_message',  // используем тот же формат, что и для текстовых сообщений
-        source: 'chat',
-        transcription_request: true,
-        timestamp: new Date().toISOString()
-      };
-      
-      console.log('===== SENDING VOICE MESSAGE TO WEBHOOK =====');
-      console.log('URL:', webhookUrl);
-      console.log('Request headers:', { 'Content-Type': 'application/json' });
-      console.log('Request body structure:', {
-        message: voiceRequestBody.message,
-        audio_base64: '[BASE64_AUDIO_DATA]', // Не показываем полностью в логах
-        audio_filename: req.file.originalname,
-        type: voiceRequestBody.type,
-        source: voiceRequestBody.source,
-        transcription_request: true,
-        audio_file_size: audioFileContent.length + ' байт',
-        mime_type: req.file.mimetype,
-        timestamp: voiceRequestBody.timestamp
-      });
-      console.log('============================================');
-      
-      // Отправляем на webhook
-      const response = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(voiceRequestBody), // Используем созданный ранее объект
-      });
-      
-      console.log('Webhook response status:', response.status);
-      
-      // Пытаемся получить ответ от webhook
-      let transcript = '';
-      
-      try {
-        // Проверка статуса ответа
-        if (response.status === 404) {
-          transcript = "К сожалению, сервис обработки голосовых сообщений в данный момент недоступен. Для активации сервиса необходимо нажать кнопку 'Test workflow' в интерфейсе n8n.";
-          console.log("Webhook not registered for audio processing");
-        } else if (!response.ok) {
-          transcript = "Сервер обработки аудио вернул ошибку. Пожалуйста, попробуйте позже.";
-          console.log(`Server returned error: ${response.status}`);
-        } else {
-          // Пытаемся получить данные JSON
-          try {
-            const data = await response.json();
-            console.log('Webhook response data:', JSON.stringify(data, null, 2));
-            
-            // Обрабатываем различные варианты ответа от webhook
-            if (data && data.transcript) {
-              transcript = data.transcript;
-            } else if (data && data.text) {
-              transcript = data.text;
-            } else if (data && data.content) {
-              transcript = data.content;
-            } else if (data && data.message) {
-              transcript = data.message;
-            } else if (Array.isArray(data) && data[0]) {
-              if (typeof data[0] === 'string') {
-                transcript = data[0];
-              } else if (data[0].transcript) {
-                transcript = data[0].transcript;
-              } else if (data[0].text) {
-                transcript = data[0].text;
-              } else if (data[0].content) {
-                transcript = data[0].content;
-              }
-            } else {
-              // Если не нашли подходящий формат, используем текст по умолчанию
-              transcript = 'Не удалось распознать текст аудиосообщения. Пожалуйста, попробуйте еще раз.';
-            }
-          } catch (jsonError) {
-            console.log('Ошибка при обработке JSON от webhook:', jsonError);
-            
-            // Пытаемся получить текст ответа, если это не JSON
-            try {
-              const textResponse = await response.text();
-              if (textResponse && textResponse.length > 0) {
-                console.log('Webhook text response:', textResponse);
-                transcript = textResponse;
-              } else {
-                transcript = 'Ошибка распознавания аудио: сервер вернул пустой ответ.';
-              }
-            } catch (textError) {
-              console.log('Ошибка при получении текста ответа:', textError);
-              transcript = 'Произошла ошибка при обработке аудио. Пожалуйста, попробуйте еще раз.';
-            }
-          }
-        }
-      } catch (error) {
-        console.log('Ошибка при обработке ответа от webhook:', error);
-        transcript = 'Сервис обработки аудио в данный момент недоступен. Пожалуйста, попробуйте позже.';
-      }
-      
-      // Очищаем временный файл
-      try {
-        fs.unlinkSync(audioFilePath);
-        console.log('Временный файл удален:', audioFilePath);
-      } catch (unlinkError) {
-        console.log('Ошибка при удалении временного файла:', unlinkError);
-      }
-      
-      res.json({ transcript });
-    } catch (error) {
-      console.error('Ошибка при обработке аудио:', error);
-      res.status(500).json({ error: 'Ошибка при обработке аудио', details: error.message });
     }
   });
 
