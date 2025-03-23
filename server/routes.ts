@@ -138,8 +138,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (response.status === 404 && data && data.message && 
               data.message.includes("webhook") && 
               data.message.includes("not registered")) {
-            aiResponse = "🔄 Для активации сервиса необходимо:\n\n1. Открыть интерфейс n8n по адресу:\n   https://n8n.klaster.digital\n\n2. Найти поток с webhook ID:\n   4a1fed67-dcfb-4eb8-a71b-d47b1d651509\n\n3. Нажать кнопку 'Test workflow'\n\n4. Вернуться сюда и отправить сообщение";
-            console.log("Using detailed Russian error message for webhook not registered");
+            console.log("Webhook not registered - returning typing status");
+            return res.status(201).json({
+              id: -1,
+              chatId,
+              role: "assistant",
+              content: "typing",
+              createdAt: new Date().toISOString(),
+              typing: true
+            });
           }
           // Обработка всех возможных форматов ответа от webhook
           else if (data) {
