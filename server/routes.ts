@@ -89,7 +89,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.createMessage(userMessageData);
       
       // Значение по умолчанию для сообщения об ошибке
-      let aiResponse = "К сожалению, сервис обработки сообщений в данный момент недоступен. Для активации сервиса необходимо нажать кнопку 'Test workflow' в интерфейсе n8n.";
+      let aiResponse = "🔄 Для активации сервиса необходимо:\n\n1. Открыть интерфейс n8n по адресу:\n   https://n8n.klaster.digital\n\n2. Найти поток с webhook ID:\n   4a1fed67-dcfb-4eb8-a71b-d47b1d651509\n\n3. Нажать кнопку 'Test workflow'\n\n4. Вернуться сюда и отправить сообщение";
       
       // Отправляем запрос к webhook
       const webhookUrl = 'https://n8n.klaster.digital/webhook-test/4a1fed67-dcfb-4eb8-a71b-d47b1d651509';
@@ -132,8 +132,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (response.status === 404 && data && data.message && 
               data.message.includes("webhook") && 
               data.message.includes("not registered")) {
-            aiResponse = "К сожалению, сервис обработки сообщений в данный момент недоступен. Для активации сервиса необходимо нажать кнопку 'Test workflow' в интерфейсе n8n.";
-            console.log("Using Russian error message for webhook not registered");
+            aiResponse = "🔄 Для активации сервиса необходимо:\n\n1. Открыть интерфейс n8n по адресу:\n   https://n8n.klaster.digital\n\n2. Найти поток с webhook ID:\n   4a1fed67-dcfb-4eb8-a71b-d47b1d651509\n\n3. Нажать кнопку 'Test workflow'\n\n4. Вернуться сюда и отправить сообщение";
+            console.log("Using detailed Russian error message for webhook not registered");
           }
           // Обработка всех возможных форматов ответа от webhook
           else if (data) {
@@ -184,7 +184,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
             
             // Если ответ не обработан ни одним из вариантов, но есть объект JSON
-            if (aiResponse === "К сожалению, сервис обработки сообщений в данный момент недоступен. Для активации сервиса необходимо нажать кнопку 'Test workflow' в интерфейсе n8n." &&
+            if (aiResponse === "🔄 Для активации сервиса необходимо:\n\n1. Открыть интерфейс n8n по адресу:\n   https://n8n.klaster.digital\n\n2. Найти поток с webhook ID:\n   4a1fed67-dcfb-4eb8-a71b-d47b1d651509\n\n3. Нажать кнопку 'Test workflow'\n\n4. Вернуться сюда и отправить сообщение" &&
                 !(response.status === 404 && data && data.message && 
                   data.message.includes("webhook") && 
                   data.message.includes("not registered"))) {
