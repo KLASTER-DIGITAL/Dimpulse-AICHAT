@@ -197,28 +197,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
               aiResponse = textResponse;
             } else if (response.status === 200) {
               // Если статус 200, но ответ пустой, просто ждем ответа от webhook
-              aiResponse = "Ожидание ответа от сервера...";
-              // Не создаем сообщение от ассистента, если нет ответа
+              aiResponse = "typing";
+              // Не создаем сообщение от ассистента, если нет ответа - вместо этого отправляем специальный статус
               return res.status(201).json({
                 id: -1,
                 chatId,
                 role: "assistant",
                 content: aiResponse,
-                createdAt: new Date().toISOString()
+                createdAt: new Date().toISOString(),
+                typing: true
               });
             }
           } catch (textError) {
             console.log("Error getting text from webhook:", textError);
             // Если не можем получить текст, ждем ответа от webhook
             if (response.status === 200) {
-              aiResponse = "Ожидание ответа от сервера...";
+              aiResponse = "typing";
               // Не создаем сообщение от ассистента, если нет ответа
               return res.status(201).json({
                 id: -1,
                 chatId,
                 role: "assistant",
                 content: aiResponse,
-                createdAt: new Date().toISOString()
+                createdAt: new Date().toISOString(),
+                typing: true
               });
             }
           }
