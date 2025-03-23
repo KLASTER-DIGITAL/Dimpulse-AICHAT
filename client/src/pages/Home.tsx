@@ -174,9 +174,43 @@ const Home = () => {
         {/* Показываем приветственный экран вместо чата, если нет сообщений */}
         {!chatData?.messages?.length ? (
           <div className="flex flex-col items-center justify-center h-full">
-            <div className="text-center mb-32 animate-fadeIn">
+            <div className="text-center animate-fadeIn">
               <h1 className="text-4xl font-semibold mb-2 animate-textAppear">{getTimeOfDayGreeting()}!</h1>
-              <p className="text-2xl text-gray-300 animate-textAppear animation-delay-300">Какие у вас задачи? Давайте мы поможем решить!</p>
+              <p className="text-2xl text-gray-300 mb-10 animate-textAppear animation-delay-300">Какие у вас задачи? Давайте мы поможем решить!</p>
+              
+              {/* Форма запроса под приветственным сообщением */}
+              <div className="w-full max-w-lg mx-auto mt-10 animate-fadeIn animation-delay-600">
+                <form 
+                  className="relative" 
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const input = (e.target as HTMLFormElement).elements.namedItem('message') as HTMLInputElement;
+                    if (input.value.trim()) {
+                      handleSendMessage(input.value.trim());
+                      input.value = '';
+                    }
+                  }}
+                >
+                  <div className="rounded-full border border-gray-600 bg-[#101010] flex items-center pr-2">
+                    <input 
+                      type="text" 
+                      name="message"
+                      placeholder="Опишите вашу задачу..."
+                      className="flex-1 bg-transparent text-white border-none px-4 py-3 focus:outline-none rounded-full"
+                      disabled={sendMessageMutation.isPending}
+                    />
+                    <button 
+                      type="submit" 
+                      className="p-2 rounded-full text-gray-400 hover:text-white"
+                      disabled={sendMessageMutation.isPending}
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M22 2L11 13M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
           </div>
         ) : (

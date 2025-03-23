@@ -26,24 +26,32 @@ function WelcomeScreen() {
         
         {/* Input field at the bottom */}
         <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 w-full max-w-3xl px-4 animate-fadeIn animation-delay-600">
-          <div className="relative flex items-center">
-            <input 
-              type="text" 
-              placeholder="Опишите вашу задачу..."
-              className="w-full bg-[#40414F] text-white placeholder-gray-400 py-3 px-4 pr-10 rounded-md focus:outline-none"
-              readOnly
-              onClick={() => window.location.href = "/chat/new"}
-            />
-            <button 
-              className="absolute right-3 text-gray-400"
-              onClick={() => window.location.href = "/chat/new"}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M22 2L11 13"></path>
-                <path d="M22 2l-7 20-4-9-9-4 20-7z"></path>
-              </svg>
-            </button>
-          </div>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              // Создать новый чат при отправке формы
+              window.location.href = `/`;
+            }}
+          >
+            <div className="relative flex items-center">
+              <input 
+                type="text" 
+                placeholder="Опишите вашу задачу..."
+                className="w-full bg-[#40414F] text-white placeholder-gray-400 py-3 px-4 pr-10 rounded-md focus:outline-none"
+                readOnly
+                onClick={() => window.location.href = "/"}
+              />
+              <button 
+                type="submit"
+                className="absolute right-3 text-gray-400"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 2L11 13"></path>
+                  <path d="M22 2l-7 20-4-9-9-4 20-7z"></path>
+                </svg>
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     </div>
