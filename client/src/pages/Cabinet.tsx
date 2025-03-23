@@ -153,10 +153,11 @@ const Cabinet = () => {
   // Мутация для сохранения только настроек интеграции
   const saveIntegrationMutation = useMutation({
     mutationFn: async (integration: Settings['integration']) => {
-      return await apiRequest<Settings>("/api/settings/integration", {
+      const result = await apiRequest("/api/settings/integration", {
         method: "PUT",
         data: { integration },
       });
+      return result as Settings;
     },
     onSuccess: () => {
       toast({
