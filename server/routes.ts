@@ -71,8 +71,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await storage.createMessage(userMessageData);
       
-      // Значение по умолчанию для сообщения об ошибке
-      let aiResponse = "🔄 Для активации сервиса необходимо:\n\n1. Открыть интерфейс n8n по адресу:\n   https://n8n.klaster.digital\n\n2. Найти поток с webhook ID:\n   4a1fed67-dcfb-4eb8-a71b-d47b1d651509\n\n3. Нажать кнопку 'Test workflow'\n\n4. Вернуться сюда и отправить сообщение";
+      // Это значение будет использоваться, только если обнаружена ошибка 404 с сообщением о неактивном webhook
+      // В других случаях будем ждать ответа от webhook
+      let aiResponse = "";
       
       // Отправляем запрос к webhook
       const webhookUrl = 'https://n8n.klaster.digital/webhook-test/4a1fed67-dcfb-4eb8-a71b-d47b1d651509';
@@ -181,10 +182,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
             
             // Если ответ не обработан ни одним из вариантов, но есть объект JSON
-            if (aiResponse === "🔄 Для активации сервиса необходимо:\n\n1. Открыть интерфейс n8n по адресу:\n   https://n8n.klaster.digital\n\n2. Найти поток с webhook ID:\n   4a1fed67-dcfb-4eb8-a71b-d47b1d651509\n\n3. Нажать кнопку 'Test workflow'\n\n4. Вернуться сюда и отправить сообщение" &&
-                !(response.status === 404 && data && data.message && 
-                  data.message.includes("webhook") && 
-                  data.message.includes("not registered"))) {
+            if (aiResponse === "" && data) {
               // Преобразуем весь объект в строку как запасной вариант
               aiResponse = JSON.stringify(data);
             }
@@ -197,10 +195,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log("Webhook text response:", textResponse);
             if (textResponse && textResponse.length > 0) {
               aiResponse = textResponse;
+            } else if (response.status === 200) {
+              // Если статус 200, но ответ пустой, просто ждем ответа от webhook
+              aiResponse = "Ожидание ответа от сервера...";
+              // Не создаем сообщение от ассистента, если нет ответа
+              return res.status(201).json({
+                id: -1,
+                chatId,
+                role: "assistant",
+                content: aiResponse,
+                createdAt: new Date().toISOString()
+              });
             }
           } catch (textError) {
             console.log("Error getting text from webhook:", textError);
-            // Оставляем сообщение по умолчанию
+            // Если не можем получить текст, ждем ответа от webhook
+            if (response.status === 200) {
+              aiResponse = "Ожидание ответа от сервера...";
+              // Не создаем сообщение от ассистента, если нет ответа
+              return res.status(201).json({
+                id: -1,
+                chatId,
+                role: "assistant",
+                content: aiResponse,
+                createdAt: new Date().toISOString()
+              });
+            }
           }
         }
       } catch (error) {
