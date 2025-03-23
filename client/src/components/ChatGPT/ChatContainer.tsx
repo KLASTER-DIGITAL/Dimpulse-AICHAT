@@ -18,7 +18,16 @@ const ChatContainer = ({ messages, isLoading, isEmpty, tempTypingMessage }: Chat
     if (containerRef.current) {
       containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, tempTypingMessage]);
+  
+  // Диагностический лог для отслеживания сообщений
+  useEffect(() => {
+    console.log("ChatContainer: сообщения и состояние", {
+      messageCount: messages?.length || 0,
+      isLoading,
+      isEmpty
+    });
+  }, [messages, isLoading, isEmpty]);
 
   return (
     <div 
@@ -26,14 +35,14 @@ const ChatContainer = ({ messages, isLoading, isEmpty, tempTypingMessage }: Chat
       ref={containerRef}
       className="flex-1 bg-black overflow-y-auto scrollbar-thin py-4 px-4 md:px-8 pb-32 mb-16"
     >
-      {isEmpty && !isLoading ? (
+      {isEmpty && !isLoading && (!messages || messages.length === 0) ? (
         <div className="h-full flex items-center justify-center">
           <h1 className="text-2xl font-semibold text-white mb-24">Чем я могу помочь?</h1>
         </div>
       ) : (
         <div id="messages-container" className="max-w-3xl mx-auto">
-          {messages.map((message, index) => (
-            <ChatMessage key={index} message={message} />
+          {messages && messages.length > 0 && messages.map((message, index) => (
+            <ChatMessage key={`msg-${message.id || index}`} message={message} />
           ))}
           
           {tempTypingMessage && (
