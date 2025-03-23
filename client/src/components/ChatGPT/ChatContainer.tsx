@@ -7,9 +7,10 @@ interface ChatContainerProps {
   messages: Message[];
   isLoading: boolean;
   isEmpty: boolean;
+  tempTypingMessage?: (Message & { typing?: boolean }) | null;
 }
 
-const ChatContainer = ({ messages, isLoading, isEmpty }: ChatContainerProps) => {
+const ChatContainer = ({ messages, isLoading, isEmpty, tempTypingMessage }: ChatContainerProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when messages change

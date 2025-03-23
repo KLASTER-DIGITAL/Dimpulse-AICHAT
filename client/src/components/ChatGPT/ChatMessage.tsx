@@ -1,6 +1,5 @@
 import { Message } from "@shared/schema";
 import MarkdownRenderer from "./MarkdownRenderer";
-import GPTLogo from "./GPTLogo";
 import TypingAnimation from "./TypingAnimation";
 
 interface ChatMessageProps {
@@ -21,11 +20,6 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
         </div>
       ) : (
         <div className="flex items-start">
-          <div 
-            className="w-8 h-8 rounded-full bg-[#10A37F] flex-shrink-0 flex items-center justify-center text-white mr-4"
-          >
-            <GPTLogo />
-          </div>
           <div className="flex-1 text-white">
             {isTyping ? (
               <TypingAnimation />

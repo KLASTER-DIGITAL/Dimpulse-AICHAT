@@ -56,6 +56,9 @@ const Home = () => {
     }
   });
   
+  // Временное сообщение для анимации печати
+  const [tempTypingMessage, setTempTypingMessage] = useState<Message & { typing?: boolean } | null>(null);
+  
   // Send a message
   const sendMessageMutation = useMutation({
     mutationFn: async ({ chatId, message, audioData }: { chatId: string, message: string, audioData?: string }) => {
@@ -67,18 +70,41 @@ const Home = () => {
         Object.assign(payload, { audioData });
       }
       
+      // Добавляем временное сообщение с анимацией печати
+      setTempTypingMessage({
+        id: -1,
+        chatId,
+        role: "assistant",
+        content: "typing",
+        createdAt: new Date().toISOString(),
+        typing: true
+      });
+      
       const res = await apiRequest('POST', `/api/chats/${chatId}/messages`, payload);
       const data = await res.json();
       console.log("Ответ от сервера:", data);
+      
+      // Если получили сообщение с typing: true, значит это промежуточное состояние
+      if (data && data.typing) {
+        console.log("Получено состояние набора текста, оставляем анимацию");
+        return null;
+      }
+      
+      // Если получили обычный ответ, убираем временное сообщение
+      setTempTypingMessage(null);
       return data;
     },
     onSuccess: (data) => {
-      console.log("Мутация успешна, обновляем запросы");
-      queryClient.invalidateQueries({ queryKey: [`/api/chats/${currentChatId}`] });
-      queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
+      if (data) {
+        console.log("Мутация успешна, обновляем запросы");
+        queryClient.invalidateQueries({ queryKey: [`/api/chats/${currentChatId}`] });
+        queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
+      }
     },
     onError: (error) => {
       console.error("Ошибка отправки сообщения:", error);
+      // Убираем анимацию печати при ошибке
+      setTempTypingMessage(null);
       toast({
         title: "Ошибка",
         description: "Не удалось отправить сообщение",
