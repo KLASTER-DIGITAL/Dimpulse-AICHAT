@@ -19,17 +19,17 @@ function WelcomeScreen() {
   return (
     <div className="flex h-screen w-full bg-black text-[#ECECF1] flex-col">
       <div className="flex flex-col items-center justify-center h-full">
-        <div className="text-center mb-32">
-          <h1 className="text-4xl font-semibold mb-2">{getTimeOfDayGreeting()}!</h1>
-          <p className="text-2xl text-gray-300">Какие у вас задачи? Давайте мы поможем решить!</p>
+        <div className="text-center mb-32 animate-fadeIn">
+          <h1 className="text-4xl font-semibold mb-2 animate-textAppear">{getTimeOfDayGreeting()}!</h1>
+          <p className="text-2xl text-gray-300 animate-textAppear animation-delay-300">Какие у вас задачи? Давайте мы поможем решить!</p>
         </div>
         
         {/* Input field at the bottom */}
-        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 w-full max-w-3xl px-4">
+        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 w-full max-w-3xl px-4 animate-fadeIn animation-delay-600">
           <div className="relative flex items-center">
             <input 
               type="text" 
-              placeholder="Что ты хочешь узнать?"
+              placeholder="Опишите вашу задачу..."
               className="w-full bg-[#40414F] text-white placeholder-gray-400 py-3 px-4 pr-10 rounded-md focus:outline-none"
               readOnly
               onClick={() => window.location.href = "/chat/new"}
