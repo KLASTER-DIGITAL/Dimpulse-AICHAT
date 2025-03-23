@@ -4,7 +4,7 @@ const EmptyState = () => {
   return (
     <div id="empty-state" className="h-full flex flex-col items-center justify-center">
       <div className="w-14 h-14 rounded-full bg-[#10A37F] flex items-center justify-center mb-3">
-        <svg stroke="white" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" className="h-6 w-6">
+        <svg stroke="white" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
         </svg>
       </div>

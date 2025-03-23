@@ -64,7 +64,7 @@ const ChatInput = ({ onSendMessage, isLoading }: ChatInputProps) => {
             className="absolute right-2 bottom-1.5 p-1 rounded-md text-gray-400 hover:text-[#ECECF1] disabled:hover:text-gray-400 disabled:opacity-40"
             disabled={!message.trim() || isLoading}
           >
-            <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" className="h-5 w-5" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg">
+            <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg">
               <line x1="22" y1="2" x2="11" y2="13"></line>
               <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
             </svg>
