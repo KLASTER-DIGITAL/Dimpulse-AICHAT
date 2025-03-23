@@ -1,13 +1,15 @@
 import { Message } from "@shared/schema";
 import MarkdownRenderer from "./MarkdownRenderer";
 import GPTLogo from "./GPTLogo";
+import TypingAnimation from "./TypingAnimation";
 
 interface ChatMessageProps {
-  message: Message;
+  message: Message & { typing?: boolean };
 }
 
 const ChatMessage = ({ message }: ChatMessageProps) => {
   const isUser = message.role === "user";
+  const isTyping = message.typing === true || message.content === "typing";
   
   return (
     <div className={`message ${isUser ? "user-message" : "ai-message"} mb-6`}>
@@ -25,9 +27,13 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
             <GPTLogo />
           </div>
           <div className="flex-1 text-white">
-            <div className="markdown">
-              <MarkdownRenderer content={message.content} />
-            </div>
+            {isTyping ? (
+              <TypingAnimation />
+            ) : (
+              <div className="markdown">
+                <MarkdownRenderer content={message.content} />
+              </div>
+            )}
           </div>
         </div>
       )}
