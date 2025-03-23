@@ -252,8 +252,23 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
           size: file.size
         };
         
-        // Добавляем файл в массив файлов
-        setUploadedFiles(prevFiles => [...prevFiles, fileInfo]);
+        // Добавляем файл в массив файлов и показываем его пользователю
+        setUploadedFiles(prevFiles => {
+          // Добавляем новый файл в массив
+          const newFiles = [...prevFiles, fileInfo];
+          
+          // Показываем файлы в интерфейсе (принудительно устанавливаем видимость)
+          setTimeout(() => {
+            // Элемент с прикрепленными файлами
+            const fileContainer = document.querySelector(".bg-\\[\\#202020\\].rounded-md");
+            if (fileContainer) {
+              // Убеждаемся, что контейнер виден
+              (fileContainer as HTMLElement).style.display = 'block';
+            }
+          }, 100);
+          
+          return newFiles;
+        });
         
         // Помечаем, что есть новые файлы, ожидающие отправки
         setPendingFiles(true);
@@ -423,7 +438,8 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
               type="submit" 
               id="send-button"
               className="p-2 rounded-full text-gray-400 hover:text-white disabled:hover:text-gray-500 disabled:opacity-40 focus:outline-none"
-              disabled={(!message.trim() && !isRecording) || isLoading}
+              disabled={((!message.trim() || (!message.trim() && uploadedFiles.length > 0)) && !isRecording) || isLoading}
+              title={uploadedFiles.length > 0 && !message.trim() ? "Необходимо добавить текстовое сообщение" : "Отправить сообщение"}
             >
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M22 2L11 13M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>

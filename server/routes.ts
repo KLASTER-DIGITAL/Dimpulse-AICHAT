@@ -113,6 +113,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         requestBody.file = fileData.content;
         requestBody.file_name = fileData.name;
         requestBody.file_type = fileData.type;
+        // Также добавим адрес сообщения с указанием, что к нему прикреплен файл
+        requestBody.message = `${content} [с приложенным файлом: ${fileData.name}]`;
         console.log(`Including file data in webhook request (${fileData.name}, type: ${fileData.type})`);
       }
       
@@ -124,6 +126,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           requestBody.file = filesData[0].content;
           requestBody.file_name = filesData[0].name;
           requestBody.file_type = filesData[0].type;
+          // Также добавим адрес сообщения с указанием количества файлов
+          requestBody.message = `${content} [с приложенными файлами (${filesData.length})]`;
         }
         
         // Также добавляем все файлы как массив для возможной обработки
