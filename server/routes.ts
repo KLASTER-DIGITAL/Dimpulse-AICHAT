@@ -50,6 +50,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Функция для активации webhook перед запросом
+  async function activateWebhook() {
+    try {
+      // Сначала делаем запрос для активации webhook
+      console.log("Pre-activating webhook...");
+      await fetch('https://n8n.klaster.digital/webhook-test/4a1fed67-dcfb-4eb8-a71b-d47b1d651509', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: 'activation' }),
+      }).catch(() => console.log("Pre-activation expected to fail, webhook should be ready now"));
+      
+      // Ждем 500 миллисекунд, чтобы убедиться, что webhook активировался
+      await new Promise(resolve => setTimeout(resolve, 500));
+      console.log("Webhook should be activated now");
+    } catch (error) {
+      console.log("Activation error (can be ignored):", error);
+    }
+  }
+
   // Send a message and get a response from the AI
   app.post("/api/chats/:chatId/messages", async (req, res) => {
     try {
@@ -73,7 +92,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let aiResponse = "К сожалению, сервис обработки сообщений в данный момент недоступен. Пожалуйста, попробуйте позже.";
       
       // Отправляем запрос к webhook
-      const webhookUrl = 'https://n8n.klaster.digital/webhook/7e07f9f8-c0c6-48c6-adba-c2e18e694aa5/chat';
+      const webhookUrl = 'https://n8n.klaster.digital/webhook-test/4a1fed67-dcfb-4eb8-a71b-d47b1d651509';
+      
+      // Активируем webhook перед запросом
+      await activateWebhook();
       
       console.log("Sending webhook request:", {
         url: webhookUrl,
