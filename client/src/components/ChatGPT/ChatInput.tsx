@@ -51,6 +51,8 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
         type: uploadedFiles[0].type
       } : undefined;
       
+      console.log(`Отправляем сообщение: "${message.trim()}" с ${uploadedFiles.length} файлами`);
+      
       // Если есть несколько файлов, включаем их все в сообщение
       onSendMessage(
         message.trim(), 
@@ -69,6 +71,9 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
       if (textareaRef.current) {
         textareaRef.current.style.height = "auto";
       }
+    } else if (uploadedFiles.length > 0 && !message.trim()) {
+      // Если есть файлы, но нет сообщения - показываем предупреждение
+      alert("Пожалуйста, введите текстовое сообщение вместе с прикрепленными файлами.");
     }
   };
 
