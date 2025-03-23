@@ -58,9 +58,16 @@ const Home = () => {
   
   // Send a message
   const sendMessageMutation = useMutation({
-    mutationFn: async ({ chatId, message }: { chatId: string, message: string }) => {
-      console.log("Отправка сообщения:", { chatId, message });
-      const res = await apiRequest('POST', `/api/chats/${chatId}/messages`, { content: message });
+    mutationFn: async ({ chatId, message, audioData }: { chatId: string, message: string, audioData?: string }) => {
+      console.log("Отправка сообщения:", { chatId, message, hasAudio: !!audioData });
+      const payload = { content: message };
+      
+      // Если есть аудиоданные, добавляем их в запрос
+      if (audioData) {
+        Object.assign(payload, { audioData });
+      }
+      
+      const res = await apiRequest('POST', `/api/chats/${chatId}/messages`, payload);
       const data = await res.json();
       console.log("Ответ от сервера:", data);
       return data;
@@ -93,7 +100,7 @@ const Home = () => {
   }, [params?.id, chats, isLoadingChats, navigate]);
   
   // Handle sending a message
-  const handleSendMessage = (message: string) => {
+  const handleSendMessage = (message: string, audioData?: string) => {
     if (!currentChatId) {
       createChatMutation.mutate();
       // We need to wait for the chat to be created before sending a message
@@ -101,7 +108,7 @@ const Home = () => {
       return;
     }
     
-    sendMessageMutation.mutate({ chatId: currentChatId, message });
+    sendMessageMutation.mutate({ chatId: currentChatId, message, audioData });
   };
 
   // Handle voice input

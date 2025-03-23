@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 
 interface ChatInputProps {
-  onSendMessage: (message: string) => void;
+  onSendMessage: (message: string, audioData?: string) => void;
   onVoiceInput?: (transcript: string) => void;
   onFileUpload?: (fileContent: string) => void;
   isLoading: boolean;
@@ -29,8 +29,12 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (message.trim() && !isLoading) {
-      onSendMessage(message.trim());
+      // Отправка сообщения с аудиоданными, если они доступны
+      onSendMessage(message.trim(), audioData || undefined);
+      
+      // Сбрасываем состояние
       setMessage("");
+      setAudioData(null);
       
       // Reset height
       if (textareaRef.current) {
@@ -46,44 +50,115 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
     }
   };
   
+  // Добавляем ссылку на аудиоданные
+  const [audioData, setAudioData] = useState<string | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  
   const toggleVoiceRecording = () => {
     if (!onVoiceInput) return;
     
     if (!isRecording) {
       // Start recording
       setIsRecording(true);
+      setAudioData(null);
       
-      // Check if browser supports SpeechRecognition
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      
-      if (SpeechRecognition) {
-        const recognition = new SpeechRecognition();
-        recognition.lang = 'ru-RU';
-        recognition.continuous = false;
-        recognition.interimResults = false;
-        
-        recognition.onresult = (event: any) => {
-          const transcript = event.results[0][0].transcript;
-          setMessage(transcript);
-          setIsRecording(false);
-        };
-        
-        recognition.onerror = () => {
-          setIsRecording(false);
-        };
-        
-        recognition.onend = () => {
-          setIsRecording(false);
-        };
-        
-        recognition.start();
+      // Проверяем, поддерживает ли браузер запись аудио
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        // Запрашиваем доступ к микрофону
+        navigator.mediaDevices.getUserMedia({ audio: true })
+          .then((stream) => {
+            // Создаем распознавание речи
+            const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+            
+            if (SpeechRecognition) {
+              const recognition = new SpeechRecognition();
+              recognition.lang = 'ru-RU';
+              recognition.continuous = false;
+              recognition.interimResults = false;
+              
+              // Запускаем запись аудио
+              audioChunksRef.current = [];
+              mediaRecorderRef.current = new MediaRecorder(stream);
+              
+              mediaRecorderRef.current.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                  audioChunksRef.current.push(event.data);
+                }
+              };
+              
+              mediaRecorderRef.current.onstop = () => {
+                // Преобразуем запись в base64 строку для отправки
+                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
+                const reader = new FileReader();
+                reader.readAsDataURL(audioBlob);
+                reader.onloadend = () => {
+                  const base64Audio = reader.result as string;
+                  // Убираем префикс data:audio/wav;base64, для получения чистого base64
+                  const base64AudioData = base64Audio.split(',')[1];
+                  setAudioData(base64AudioData);
+                };
+              };
+              
+              mediaRecorderRef.current.start();
+              
+              recognition.onresult = (event: any) => {
+                const transcript = event.results[0][0].transcript;
+                setMessage(transcript);
+                
+                // Останавливаем запись аудио
+                if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+                  mediaRecorderRef.current.stop();
+                  
+                  // Останавливаем все треки
+                  stream.getTracks().forEach(track => track.stop());
+                }
+                
+                setIsRecording(false);
+              };
+              
+              recognition.onerror = () => {
+                setIsRecording(false);
+                // Останавливаем запись аудио при ошибке
+                if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+                  mediaRecorderRef.current.stop();
+                  stream.getTracks().forEach(track => track.stop());
+                }
+              };
+              
+              recognition.onend = () => {
+                setIsRecording(false);
+                // Останавливаем запись аудио если распознавание закончилось
+                if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+                  mediaRecorderRef.current.stop();
+                  stream.getTracks().forEach(track => track.stop());
+                }
+              };
+              
+              recognition.start();
+            } else {
+              alert('Ваш браузер не поддерживает распознавание речи');
+              setIsRecording(false);
+              stream.getTracks().forEach(track => track.stop());
+            }
+          })
+          .catch((error) => {
+            console.error('Ошибка доступа к микрофону:', error);
+            alert('Не удалось получить доступ к микрофону');
+            setIsRecording(false);
+          });
       } else {
-        alert('Ваш браузер не поддерживает голосовой ввод');
+        alert('Ваш браузер не поддерживает запись аудио');
         setIsRecording(false);
       }
     } else {
       // Stop recording
       setIsRecording(false);
+      
+      // Останавливаем запись аудио
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
     }
   };
   

@@ -53,8 +53,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Функция для активации webhook перед запросом
   async function activateWebhook() {
     try {
-      // Сначала делаем запрос для активации webhook (теперь не требуется)
-      console.log("Using regular webhook, pre-activation not needed...");
+      // Сначала делаем запрос для активации webhook
+      console.log("Pre-activating webhook...");
+      await fetch('https://n8n.klaster.digital/webhook-test/4a1fed67-dcfb-4eb8-a71b-d47b1d651509', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: 'activation' }),
+      }).catch(() => console.log("Pre-activation expected to fail, webhook should be ready now"));
       
       // Ждем 500 миллисекунд, чтобы убедиться, что webhook активировался
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -68,7 +73,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/chats/:chatId/messages", async (req, res) => {
     try {
       const chatId = req.params.chatId;
-      const { content } = req.body;
+      const { content, audioData } = req.body;
       
       if (!content || typeof content !== 'string') {
         return res.status(400).json({ message: "Message content is required" });
@@ -87,14 +92,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let aiResponse = "К сожалению, сервис обработки сообщений в данный момент недоступен. Для активации сервиса необходимо нажать кнопку 'Test workflow' в интерфейсе n8n.";
       
       // Отправляем запрос к webhook
-      const webhookUrl = 'https://n8n.klaster.digital/webhook/4a1fed67-dcfb-4eb8-a71b-d47b1d651509';
+      const webhookUrl = 'https://n8n.klaster.digital/webhook-test/4a1fed67-dcfb-4eb8-a71b-d47b1d651509';
       
       // Активируем webhook перед запросом
       await activateWebhook();
       
+      // Подготовка данных для отправки на webhook
+      const requestBody: any = { message: content };
+      
+      // Если есть аудио данные, добавляем их как отдельную переменную
+      if (audioData) {
+        requestBody.audio = audioData;
+        console.log("Including audio data in webhook request");
+      }
+      
       console.log("Sending webhook request:", {
         url: webhookUrl,
-        body: { message: content }
+        body: requestBody
       });
       
       try {
@@ -103,7 +117,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ message: content }),
+          body: JSON.stringify(requestBody),
         });
         
         console.log("Webhook response status:", response.status);
