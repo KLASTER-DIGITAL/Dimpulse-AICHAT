@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation, useParams } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -14,6 +14,15 @@ const Home = () => {
   const [location, navigate] = useLocation();
   const params = useParams<{ id: string }>();
   const { toast } = useToast();
+  
+  // Получаем параметры из URL для режима встраивания (embed)
+  const embedMode = useMemo(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    return {
+      isEmbed: urlParams.get('embed') === 'true',
+      theme: urlParams.get('theme') || 'dark'
+    };
+  }, []);
   
   // Get all chats
   const { data: chats = [], isLoading: isLoadingChats } = useQuery<Chat[]>({
@@ -245,8 +254,45 @@ const Home = () => {
     return "Доброй ночи";
   };
 
+  // Определяем стили для разных тем в режиме embed
+  const getEmbedStyles = () => {
+    if (!embedMode.isEmbed) return {};
+    
+    switch (embedMode.theme) {
+      case 'light':
+        return {
+          backgroundColor: '#ffffff',
+          color: '#202123',
+          borderColor: '#e5e5e5'
+        };
+      case 'dark':
+        return {
+          backgroundColor: '#202123',
+          color: '#ffffff',
+          borderColor: '#444444'
+        };
+      case 'transparent':
+        return {
+          backgroundColor: 'transparent',
+          color: '#ffffff',
+          borderColor: 'rgba(255,255,255,0.2)'
+        };
+      default:
+        return {
+          backgroundColor: '#202123',
+          color: '#ffffff',
+          borderColor: '#444444'
+        };
+    }
+  };
+  
+  const embedStyles = getEmbedStyles();
+  
   return (
-    <div className="flex h-screen w-full bg-black text-[#ECECF1] flex-col">
+    <div 
+      className={`flex h-screen w-full ${embedMode.isEmbed ? '' : 'bg-black'} text-[#ECECF1] flex-col`}
+      style={embedMode.isEmbed ? embedStyles : {}}
+    >
       {/* Main Content */}
       <div className="flex-1 flex flex-col h-full relative">
         {/* Показываем приветственный экран вместо чата, если нет сообщений */}
