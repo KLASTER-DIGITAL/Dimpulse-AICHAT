@@ -21,7 +21,7 @@ const Home = () => {
   
   // Get current chat and its messages
   const { data: chatData, isLoading: isLoadingChat, refetch } = useQuery<{ chat: Chat, messages: Message[] }>({
-    queryKey: ['/api/chats', currentChatId],
+    queryKey: [`/api/chats/${currentChatId}`],
     enabled: !!currentChatId,
   });
   
@@ -67,7 +67,7 @@ const Home = () => {
     },
     onSuccess: (data) => {
       console.log("Мутация успешна, обновляем запросы");
-      queryClient.invalidateQueries({ queryKey: ['/api/chats', currentChatId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/chats/${currentChatId}`] });
       queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
     },
     onError: (error) => {
