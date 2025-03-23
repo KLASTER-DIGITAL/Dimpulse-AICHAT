@@ -36,12 +36,13 @@ const ChatContainer = ({ messages, isLoading, isEmpty, tempTypingMessage }: Chat
             <ChatMessage key={index} message={message} />
           ))}
           
-          {isLoading && (
+          {tempTypingMessage && (
+            <ChatMessage key="typing" message={tempTypingMessage} />
+          )}
+          
+          {isLoading && !tempTypingMessage && (
             <div className="message ai-message mb-6">
               <div className="flex items-start">
-                <div className="w-8 h-8 rounded-full bg-[#10A37F] flex-shrink-0 flex items-center justify-center text-white mr-4">
-                  <GPTLogo />
-                </div>
                 <div className="flex-1 markdown">
                   <TypingAnimation />
                 </div>

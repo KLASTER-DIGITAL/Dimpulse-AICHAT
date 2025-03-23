@@ -160,6 +160,7 @@ const Home = () => {
           messages={chatData?.messages || []}
           isLoading={isLoadingChat || sendMessageMutation.isPending}
           isEmpty={!chatData?.messages?.length}
+          tempTypingMessage={tempTypingMessage}
         />
         
         {/* Chat Input */}

@@ -82,6 +82,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await new Promise(resolve => setTimeout(resolve, 300));
       
       // Подготовка данных для отправки на webhook
+      const requestTime = new Date().toISOString();
       const requestBody: any = { 
         message: content,
         // Добавляем структурированное сообщение с текстом и голосом
@@ -89,7 +90,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           text: content,
           // voice будет null если нет аудиоданных
           voice: audioData || null
-        }
+        },
+        // Добавляем время запроса для аналитики
+        timestamp: requestTime,
+        request_time: requestTime
       };
       
       // Если есть аудио данные, добавляем их также как отдельную переменную
