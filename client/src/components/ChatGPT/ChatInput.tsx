@@ -277,12 +277,12 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
         const fileCount = uploadedFiles.length + 1;
         if (fileCount === 1) {
           if (file.type.startsWith('image/')) {
-            setMessage(`Введите сообщение к изображению "${file.name}"`);
+            setMessage(`Опишите что на изображении`);
           } else {
-            setMessage(`Введите сообщение к файлу "${file.name}"`);
+            setMessage(`Опишите что во вложении`);
           }
         } else {
-          setMessage(`Введите сообщение к прикрепленным файлам (${fileCount})`);
+          setMessage(`Опишите что в приложенных файлах`);
         }
         
         // НЕ вызываем обработчик загрузки файла - ждем сообщение пользователя
@@ -411,7 +411,7 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
               id="message-input" 
               rows={1} 
               className="flex-1 bg-transparent text-white border-none px-3 py-3 focus:outline-none resize-none"
-              placeholder="Опишите вашу задачу..."
+              placeholder="Опишите что во вложении..."
               style={{ maxHeight: "200px", minHeight: "24px" }}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
