@@ -26,22 +26,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Применяем middleware для CORS ко всем маршрутам
   app.use(corsMiddleware);
   
-  // Обработчик для widget.js
-  app.get("/widget.js", (req, res) => {
-    try {
-      const widgetPath = path.join(process.cwd(), "client", "public", "widget.js");
-      if (fs.existsSync(widgetPath)) {
-        res.setHeader('Content-Type', 'application/javascript');
-        res.sendFile(widgetPath);
-      } else {
-        console.error("Widget file not found at path:", widgetPath);
-        res.status(404).send("Widget not found");
-      }
-    } catch (error) {
-      console.error("Error serving widget.js:", error);
-      res.status(500).send("Error serving widget");
-    }
-  });
+  // Убрали отсюда обработчик для widget.js, так как он теперь определен ниже в более универсальном виде
   // Get all chats (for the sidebar)
   app.get("/api/chats", async (req, res) => {
     try {
@@ -413,6 +398,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(result);
     } catch (error) {
       res.status(400).json({ message: "Failed to update integration settings" });
+    }
+  });
+
+  // Обработчик для widget.js - отдельный маршрут для доступа к виджету
+  app.get('/widget.js', (req, res) => {
+    try {
+      const widgetPath = path.join(process.cwd(), 'client', 'public', 'widget.js');
+      if (fs.existsSync(widgetPath)) {
+        res.setHeader('Content-Type', 'application/javascript');
+        res.sendFile(widgetPath);
+      } else {
+        console.error("Widget file not found at path:", widgetPath);
+        res.status(404).send("Widget not found");
+      }
+    } catch (error) {
+      console.error("Error serving widget.js:", error);
+      res.status(500).send("Error serving widget");
+    }
+  });
+  
+  // Обработка URLs для клиентской маршрутизации (React Router)
+  // Только для конкретных путей, чтобы не перехватывать запросы Vite в development
+  app.get(['/login', '/cabinet', '/chat/*'], (req, res, next) => {
+    // Важно: не перехватываем запросы к файлам для development-сервера
+    if (req.path.includes('.') || req.path.startsWith('/src/') || req.path.startsWith('/node_modules/')) {
+      return next();
+    }
+    
+    // Находим путь к index.html в зависимости от окружения
+    let indexPath;
+    if (process.env.NODE_ENV === 'production') {
+      indexPath = path.join(process.cwd(), 'dist/client/index.html');
+    } else {
+      indexPath = path.join(process.cwd(), 'client/index.html');
+    }
+    
+    if (fs.existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      next();
     }
   });
 
