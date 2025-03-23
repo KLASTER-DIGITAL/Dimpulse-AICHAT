@@ -73,7 +73,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let aiResponse = "К сожалению, сервис обработки сообщений в данный момент недоступен. Пожалуйста, попробуйте позже.";
       
       // Отправляем запрос к webhook
-      const webhookUrl = 'https://n8n.klaster.digital/webhook-test/4a1fed67-dcfb-4eb8-a71b-d47b1d651509';
+      const webhookUrl = 'https://n8n.klaster.digital/webhook/7e07f9f8-c0c6-48c6-adba-c2e18e694aa5/chat';
       
       console.log("Sending webhook request:", {
         url: webhookUrl,
