@@ -4,14 +4,9 @@
   const position = scriptTag.getAttribute('data-position') || 'right';
   const theme = scriptTag.getAttribute('data-theme') || 'dark';
   
-  // Определяем если устройство мобильное
-  const isMobile = window.innerWidth <= 768;
-  
   // Создаем стили для виджета с поддержкой пульсации и улучшенными темами
   const style = document.createElement('style');
   style.textContent = `
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
-    
     .chat-widget-button {
       position: fixed;
       bottom: 20px;
@@ -59,28 +54,18 @@
     
     .chat-widget-container {
       position: fixed;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      ${isMobile ? `
-        bottom: 0;
-        ${position === 'right' ? 'right: 0' : 'left: 0'};
-        width: 100%;
-        height: 85%;
-        border-radius: 12px 12px 0 0;
-      ` : `
-        bottom: 90px;
-        ${position === 'right' ? 'right: 20px' : 'left: 20px'};
-        width: 380px;
-        height: 550px;
-        border-radius: 12px;
-      `}
+      bottom: 90px;
+      ${position === 'right' ? 'right: 20px' : 'left: 20px'};
+      width: 350px;
+      height: 500px;
       background-color: ${theme === 'light' ? '#ffffff' : '#202123'};
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
       z-index: 9998;
       overflow: hidden;
       display: none;
       flex-direction: column;
       border: 1px solid ${theme === 'light' ? '#e5e5e5' : '#333333'};
-      transition: all 0.3s ease;
     }
     
     .chat-widget-container.open {
@@ -115,12 +100,6 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      border-radius: 50%;
-      transition: background-color 0.2s;
-    }
-
-    .chat-widget-close:hover {
-      background-color: ${theme === 'light' ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.1)'};
     }
     
     .chat-widget-iframe {
@@ -129,21 +108,6 @@
       height: 100%;
       border: none;
       background-color: ${theme === 'light' ? '#ffffff' : '#202123'};
-    }
-    
-    /* Медиа-запросы для адаптивности */
-    @media (max-width: 480px) {
-      .chat-widget-button {
-        width: 50px;
-        height: 50px;
-        bottom: 15px;
-        ${position === 'right' ? 'right: 15px' : 'left: 15px'};
-      }
-      
-      .chat-widget-icon {
-        width: 24px;
-        height: 24px;
-      }
     }
   `;
   
