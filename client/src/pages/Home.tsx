@@ -177,24 +177,6 @@ const Home = () => {
             <div className="text-center mb-32 animate-fadeIn">
               <h1 className="text-4xl font-semibold mb-2 animate-textAppear">{getTimeOfDayGreeting()}!</h1>
               <p className="text-2xl text-gray-300 animate-textAppear animation-delay-300">Какие у вас задачи? Давайте мы поможем решить!</p>
-              
-              {/* Центрированное поле ввода для чата */}
-              <div className="mt-8 w-full max-w-lg mx-auto animate-fadeIn animation-delay-600">
-                <div className="border border-gray-600 bg-[#101010] rounded-full p-2 mx-auto flex items-center">
-                  <input 
-                    type="text" 
-                    placeholder="Опишите вашу задачу..."
-                    className="flex-1 bg-transparent text-white border-none px-3 py-2 focus:outline-none"
-                    readOnly
-                    onClick={() => window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'})}
-                  />
-                  <button className="p-2 rounded-full text-gray-400 hover:text-white" onClick={() => window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'})}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M22 2L11 13M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  </button>
-                </div>
-              </div>
             </div>
           </div>
         ) : (

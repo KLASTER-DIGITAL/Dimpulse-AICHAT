@@ -200,7 +200,7 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
   };
   
   return (
-    <div className="p-4 fixed bottom-0 left-0 right-0">
+    <div className={`p-4 fixed ${!isLoading ? "bottom-0" : ""} left-0 right-0`}>
       <div className="max-w-3xl mx-auto">
         <form id="chat-form" className="relative bg-black" onSubmit={handleSubmit}>
           <div className="rounded-full border border-gray-600 bg-[#101010] flex items-center pr-2">
