@@ -53,13 +53,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Функция для активации webhook перед запросом
   async function activateWebhook() {
     try {
-      // Сначала делаем запрос для активации webhook
-      console.log("Pre-activating webhook...");
-      await fetch('https://n8n.klaster.digital/webhook-test/4a1fed67-dcfb-4eb8-a71b-d47b1d651509', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: 'activation' }),
-      }).catch(() => console.log("Pre-activation expected to fail, webhook should be ready now"));
+      // Сначала делаем запрос для активации webhook (теперь не требуется)
+      console.log("Using regular webhook, pre-activation not needed...");
       
       // Ждем 500 миллисекунд, чтобы убедиться, что webhook активировался
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -89,10 +84,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.createMessage(userMessageData);
       
       // Значение по умолчанию для сообщения об ошибке
-      let aiResponse = "К сожалению, сервис обработки сообщений в данный момент недоступен. Пожалуйста, попробуйте позже.";
+      let aiResponse = "К сожалению, сервис обработки сообщений в данный момент недоступен. Для активации сервиса необходимо нажать кнопку 'Test workflow' в интерфейсе n8n.";
       
       // Отправляем запрос к webhook
-      const webhookUrl = 'https://n8n.klaster.digital/webhook-test/4a1fed67-dcfb-4eb8-a71b-d47b1d651509';
+      const webhookUrl = 'https://n8n.klaster.digital/webhook/4a1fed67-dcfb-4eb8-a71b-d47b1d651509';
       
       // Активируем webhook перед запросом
       await activateWebhook();
@@ -118,8 +113,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const data = await response.json();
           console.log("Webhook response data:", JSON.stringify(data, null, 2));
           
+          // Проверяем, получили ли мы ответ о незарегистрированном webhook
+          if (response.status === 404 && data && data.message && 
+              data.message.includes("webhook") && 
+              data.message.includes("not registered")) {
+            aiResponse = "К сожалению, сервис обработки сообщений в данный момент недоступен. Для активации сервиса необходимо нажать кнопку 'Test workflow' в интерфейсе n8n.";
+            console.log("Using Russian error message for webhook not registered");
+          }
           // Обработка всех возможных форматов ответа от webhook
-          if (data) {
+          else if (data) {
             // Вариант 1: Массив объектов с форматированными данными
             if (Array.isArray(data)) {
               const item = data[0];
@@ -157,8 +159,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             } else if (data.content) {
               aiResponse = data.content;
             }
-            // Вариант 5: Объект с полем message
-            else if (data.message) {
+            // Вариант 5: Объект с полем message (если это не сообщение об ошибке webhook)
+            else if (data.message && !data.message.includes("webhook") && !data.message.includes("not registered")) {
               aiResponse = data.message;
             }
             // Вариант 6: Необработанный текст JSON
@@ -167,7 +169,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
             
             // Если ответ не обработан ни одним из вариантов, но есть объект JSON
-            if (aiResponse === "К сожалению, сервис обработки сообщений в данный момент недоступен. Пожалуйста, попробуйте позже.") {
+            if (aiResponse === "К сожалению, сервис обработки сообщений в данный момент недоступен. Для активации сервиса необходимо нажать кнопку 'Test workflow' в интерфейсе n8n." &&
+                !(response.status === 404 && data && data.message && 
+                  data.message.includes("webhook") && 
+                  data.message.includes("not registered"))) {
               // Преобразуем весь объект в строку как запасной вариант
               aiResponse = JSON.stringify(data);
             }
