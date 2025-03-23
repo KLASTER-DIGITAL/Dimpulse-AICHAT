@@ -94,11 +94,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Проверим формат ответа
           console.log("Webhook response:", data);
           
+          // Обработка различных форматов ответов от webhook
+          if (Array.isArray(data)) {
+            // Формат 1: [{ index: 0, message: { role: 'assistant', content: '...' }, ... }]
+            if (data[0] && data[0].message && data[0].message.content) {
+              aiResponse = data[0].message.content;
+            }
+            // Формат 2: [{ output: '...' }]
+            else if (data[0] && data[0].output) {
+              aiResponse = data[0].output;
+            }
+            else {
+              aiResponse = "Получен ответ от сервера, но формат не распознан.";
+            }
+          }
           // Если ответ содержит строку "Workflow was started", это означает, что запрос был принят
-          if (data && data.message === "Workflow was started") {
+          else if (data && data.message === "Workflow was started") {
             // Создаем имитацию ответа от ИИ на основе запроса
-            // Примечание: в реальном приложении здесь был бы код для ожидания ответа от внешнего API
-            
             console.log("Webhook сообщил о начале процесса, формируем ответ");
             
             // Простая обработка запроса
