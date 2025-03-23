@@ -76,7 +76,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const webhookUrl = 'https://n8n.klaster.digital/webhook-test/4a1fed67-dcfb-4eb8-a71b-d47b1d651509';
         
         try {
-          // Используем POST-запрос с JSON-телом
           const response = await fetch(webhookUrl, {
             method: 'POST',
             headers: {
@@ -90,23 +89,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           
           const data = await response.json() as any;
-          
-          // Проверим формат ответа
           console.log("Webhook response:", data);
           
-          // Обработка различных форматов ответов от webhook
           if (Array.isArray(data)) {
-            // Формат 1: [{ index: 0, message: { role: 'assistant', content: '...' }, ... }]
-            if (data[0] && data[0].message && data[0].message.content) {
+            if (data[0]?.message?.content) {
               aiResponse = data[0].message.content;
-            }
-            // Формат 2: [{ output: '...' }]
-            else if (data[0] && data[0].output) {
+            } else if (data[0]?.output) {
               aiResponse = data[0].output;
+            } else if (data[0]?.choices?.[0]?.message?.content) {
+              aiResponse = data[0].choices[0].message.content;
+            } else if (typeof data[0] === 'string') {
+              aiResponse = data[0];
+            } else {
+              aiResponse = "Извините, произошла ошибка при обработке ответа.";
             }
-            else {
-              aiResponse = "Получен ответ от сервера, но формат не распознан.";
-            }
+          } else if (data?.choices?.[0]?.message?.content) {
+            aiResponse = data.choices[0].message.content;
+          } else if (data?.response) {
+            aiResponse = data.response;
+          } else if (data?.message) {
+            aiResponse = data.message;
           }
           // Если ответ содержит строку "Workflow was started", это означает, что запрос был принят
           else if (data && data.message === "Workflow was started") {
