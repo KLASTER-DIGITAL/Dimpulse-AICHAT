@@ -46,7 +46,7 @@ const Home = () => {
     },
     onSuccess: (newChat: Chat) => {
       queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
-      navigate(`/chat/${newChat.id}`);
+      setCurrentChatId(newChat.id);
     },
     onError: () => {
       toast({
@@ -127,15 +127,26 @@ const Home = () => {
   }, [params?.id]);
   
   // Handle sending a message
-  const handleSendMessage = (message: string, audioData?: string) => {
+  const handleSendMessage = async (message: string, audioData?: string) => {
     if (!currentChatId) {
-      createChatMutation.mutate();
-      // We need to wait for the chat to be created before sending a message
-      // This will be handled by the useEffect above
-      return;
+      // Если нет текущего чата, создаем новый
+      try {
+        const newChat = await createChatMutation.mutateAsync();
+        console.log("Создан новый чат:", newChat);
+        // После создания чата сразу отправляем сообщение
+        sendMessageMutation.mutate({ chatId: newChat.id, message, audioData });
+      } catch (error) {
+        console.error("Ошибка при создании чата:", error);
+        toast({
+          title: "Ошибка",
+          description: "Не удалось создать чат и отправить сообщение",
+          variant: "destructive",
+        });
+      }
+    } else {
+      // Если чат уже существует, просто отправляем сообщение
+      sendMessageMutation.mutate({ chatId: currentChatId, message, audioData });
     }
-    
-    sendMessageMutation.mutate({ chatId: currentChatId, message, audioData });
   };
 
   // Handle voice input
@@ -220,7 +231,7 @@ const Home = () => {
         )}
         
         {/* Chat Input - отображается только если чат не пуст */}
-        {chatData?.messages?.length > 0 && (
+        {chatData && chatData.messages && chatData.messages.length > 0 && (
           <ChatInput 
             onSendMessage={handleSendMessage}
             onVoiceInput={handleVoiceInput}
