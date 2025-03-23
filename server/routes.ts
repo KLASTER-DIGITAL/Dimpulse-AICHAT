@@ -75,6 +75,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const webhookUrl = 'https://n8n.klaster.digital/webhook-test/4a1fed67-dcfb-4eb8-a71b-d47b1d651509';
         
+        console.log("Sending webhook request:", {
+          url: webhookUrl,
+          body: { message: content }
+        });
+        
         try {
           const response = await fetch(webhookUrl, {
             method: 'POST',
@@ -84,12 +89,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             body: JSON.stringify({ message: content }),
           });
           
+          console.log("Webhook response status:", response.status);
+          
           if (!response.ok) {
             throw new Error(`Webhook responded with status: ${response.status}`);
           }
           
           const data = await response.json() as any;
-          console.log("Webhook response:", data);
+          console.log("Webhook response data:", JSON.stringify(data, null, 2));
           
           if (Array.isArray(data)) {
             if (data[0]?.message?.content) {
