@@ -106,15 +106,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log("Including audio data in webhook request (audio data length: " + (audioData?.length || 0) + " characters)");
       }
       
-      // Если есть файл, добавляем его как отдельную переменную
+      // Если есть файл, добавляем его как отдельную переменную верхнего уровня (не вложенный объект)
       const fileData = req.body.fileData;
       if (fileData) {
-        requestBody.file = {
-          content: fileData.content,
-          name: fileData.name,
-          type: fileData.type
-        };
+        // Добавляем файл как отдельный параметр верхнего уровня для n8n
+        requestBody.file = fileData.content;
+        requestBody.file_name = fileData.name;
+        requestBody.file_type = fileData.type;
         console.log(`Including file data in webhook request (${fileData.name}, type: ${fileData.type})`);
+      }
+      
+      // Если есть массив файлов, обрабатываем его
+      const filesData = req.body.filesData;
+      if (filesData && filesData.length > 0) {
+        // Если файл еще не установлен (из fileData), используем первый файл как основной
+        if (!fileData) {
+          requestBody.file = filesData[0].content;
+          requestBody.file_name = filesData[0].name;
+          requestBody.file_type = filesData[0].type;
+        }
+        
+        // Также добавляем все файлы как массив для возможной обработки
+        requestBody.files = filesData.map(f => ({
+          content: f.content,
+          name: f.name,
+          type: f.type
+        }));
+        
+        console.log(`Including multiple files (${filesData.length}) in webhook request`);
       }
       
       console.log("Sending webhook request:", {
