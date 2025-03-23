@@ -204,18 +204,31 @@ const Home = () => {
     }
   };
   
-  // Handle file upload - теперь только сохраняет файл, но не отправляет его сразу
+  // State для хранения файлов на главном экране
+  const [welcomeFiles, setWelcomeFiles] = useState<Array<{
+    content: string;
+    name: string;
+    type: string;
+    preview?: string;
+  }>>([]);
+
+  // Handle file upload - теперь сохраняет файл для отображения на экране приветствия
   const handleFileUpload = (fileContent: string, fileName: string, fileType: string) => {
     if (fileContent && !sendMessageMutation.isPending) {
-      // Только логируем о получении файла, но не отправляем его
+      // Логируем о получении файла
       console.log(`Файл подготовлен: ${fileName}, размер: ${(fileContent.length / 1024).toFixed(2)} КБ`);
       
-      // Весь функционал отправки перенесен в ChatInput компонент
-      // Этот метод теперь только для совместимости с кодом приветственной страницы
-      if (!currentChatId) {
-        // Если нет текущего чата, просто создаем новый, но не отправляем файл
-        createChatMutation.mutate();
-      }
+      // Добавляем файл в массив для отображения
+      const fileInfo = {
+        content: fileContent,
+        name: fileName,
+        type: fileType,
+        preview: fileType.startsWith('image/') ? fileContent : undefined
+      };
+      
+      setWelcomeFiles(prev => [...prev, fileInfo]);
+      
+      // Не создаем чат сразу - ждем отправки сообщения пользователем
     }
   };
   
@@ -239,6 +252,39 @@ const Home = () => {
               <h1 className="text-4xl font-semibold mb-2 animate-textAppear">{getTimeOfDayGreeting()}!</h1>
               <p className="text-2xl text-gray-300 mb-10 animate-textAppear animation-delay-300">Какие у вас задачи? Давайте мы поможем решить!</p>
               
+              {/* Отображение прикрепленных файлов */}
+              {welcomeFiles.length > 0 && (
+                <div className="flex flex-wrap justify-center gap-2 mb-4 max-w-lg mx-auto">
+                  {welcomeFiles.map((file, index) => (
+                    <div key={index} className="relative inline-block">
+                      <div className="w-16 h-16 bg-[#202123] rounded-xl overflow-hidden border border-gray-600 flex items-center justify-center">
+                        {file.type.startsWith('image/') && file.preview ? (
+                          <img src={file.preview} alt={file.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                            <polyline points="10 9 9 9 8 9"></polyline>
+                          </svg>
+                        )}
+                      </div>
+                      <button 
+                        type="button" 
+                        className="absolute -top-2 -right-2 bg-gray-800 rounded-full w-5 h-5 flex items-center justify-center text-white"
+                        onClick={() => setWelcomeFiles(files => files.filter((_, i) => i !== index))}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="18" y1="6" x2="6" y2="18"></line>
+                          <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
               {/* Форма запроса под приветственным сообщением */}
               <div className="w-full max-w-lg mx-auto mt-10 animate-fadeIn animation-delay-600">
                 <form 
@@ -247,8 +293,36 @@ const Home = () => {
                     e.preventDefault();
                     const input = (e.target as HTMLFormElement).elements.namedItem('message') as HTMLInputElement;
                     if (input.value.trim()) {
-                      handleSendMessage(input.value.trim());
+                      // Если есть прикрепленные файлы, отправляем их вместе с сообщением
+                      if (welcomeFiles.length > 0) {
+                        // Для обратной совместимости с ChatInput компонентом используем первый файл
+                        const fileData = {
+                          content: welcomeFiles[0].content,
+                          name: welcomeFiles[0].name,
+                          type: welcomeFiles[0].type
+                        };
+                        
+                        // Отправляем все файлы в виде массива
+                        const filesData = welcomeFiles.map(file => ({
+                          content: file.content,
+                          name: file.name,
+                          type: file.type,
+                          size: file.content.length
+                        }));
+                        
+                        // Отправляем сообщение с файлами
+                        handleSendMessage(input.value.trim(), undefined, fileData, filesData);
+                        
+                        // Очищаем список файлов после отправки
+                        setWelcomeFiles([]);
+                      } else {
+                        // Если файлов нет, отправляем просто текстовое сообщение
+                        handleSendMessage(input.value.trim());
+                      }
                       input.value = '';
+                    } else if (welcomeFiles.length > 0) {
+                      // Если есть файлы, но нет сообщения - показываем предупреждение
+                      alert("Пожалуйста, введите текстовое сообщение вместе с прикрепленными файлами.");
                     }
                   }}
                 >
