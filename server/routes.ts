@@ -113,14 +113,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Активируем webhook перед запросом
       await activateWebhook();
       
-      // Подробное логирование отправляемых данных
-      const requestBody = { 
-        message: content, // Используем стандартное поле message для совместимости с n8n
-        type: 'text_message',
-        source: 'chat',
-        chat_id: chatId,
-        timestamp: new Date().toISOString()
-      };
+      // Используем строковый формат данных
+      const requestBody = content;
       console.log("===== SENDING TEXT MESSAGE TO WEBHOOK =====");
       console.log("URL:", webhookUrl);
       console.log("Request body:", JSON.stringify(requestBody, null, 2));
@@ -130,9 +124,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const response = await fetch(webhookUrl, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
+            'Content-Type': 'text/plain',  // Простой текстовый формат
           },
-          body: JSON.stringify(requestBody), // Используем новый формат сообщения
+          body: requestBody, // Отправляем как текст без JSON.stringify
         });
         
         console.log("Webhook response status:", response.status);
