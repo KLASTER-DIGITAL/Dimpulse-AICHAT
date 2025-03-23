@@ -69,35 +69,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await storage.createMessage(userMessageData);
       
-      // Send request to n8n webhook
-      let aiResponse: string;
+      // Значение по умолчанию для сообщения об ошибке
+      let aiResponse = "К сожалению, сервис обработки сообщений в данный момент недоступен. Пожалуйста, попробуйте позже.";
+      
+      // Отправляем запрос к webhook
+      const webhookUrl = 'https://n8n.klaster.digital/webhook-test/4a1fed67-dcfb-4eb8-a71b-d47b1d651509';
+      
+      console.log("Sending webhook request:", {
+        url: webhookUrl,
+        body: { message: content }
+      });
       
       try {
-        const webhookUrl = 'https://n8n.klaster.digital/webhook-test/4a1fed67-dcfb-4eb8-a71b-d47b1d651509';
-        
-        console.log("Sending webhook request:", {
-          url: webhookUrl,
-          body: { message: content }
+        const response = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ message: content }),
         });
         
+        console.log("Webhook response status:", response.status);
+        
+        // Пытаемся получить данные JSON
+        let data;
         try {
-          const response = await fetch(webhookUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ message: content }),
-          });
-          
-          console.log("Webhook response status:", response.status);
-          
-          if (!response.ok) {
-            throw new Error(`Webhook responded with status: ${response.status}`);
-          }
-          
-          const data = await response.json() as any;
+          data = await response.json();
           console.log("Webhook response data:", JSON.stringify(data, null, 2));
           
+          // Обрабатываем различные форматы ответов от webhook
           if (Array.isArray(data)) {
             if (data[0]?.message?.content) {
               aiResponse = data[0].message.content;
@@ -107,34 +107,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
               aiResponse = data[0].choices[0].message.content;
             } else if (typeof data[0] === 'string') {
               aiResponse = data[0];
-            } else {
-              aiResponse = "Извините, произошла ошибка при обработке ответа.";
-            }
+            } 
           } else if (data?.choices?.[0]?.message?.content) {
             aiResponse = data.choices[0].message.content;
           } else if (data?.response) {
             aiResponse = data.response;
-          } else if (data?.message) {
+          } else if (data?.message && data.message !== "Workflow was started") {
             aiResponse = data.message;
           }
-          // Если получили ответ "Workflow was started", сообщаем что сервис недоступен
-          else if (data && data.message === "Workflow was started") {
-            console.log("Webhook сообщил о начале процесса, но нет конкретного ответа");
-            aiResponse = "К сожалению, сервис обработки сообщений в данный момент недоступен. Пожалуйста, попробуйте позже.";
-          
-          } else {
-            // Если получили другой ответ от webhook
-            aiResponse = data && 'response' in data ? data.response : 
-                        data && 'message' in data ? data.message : 
-                        "Извините, я не смог сгенерировать ответ на ваш запрос.";
-          }
-        } catch (error) {
-          console.log("Webhook unreachable");
-          aiResponse = "К сожалению, сервис обработки сообщений в данный момент недоступен. Пожалуйста, попробуйте позже.";
+        } catch (jsonError) {
+          console.log("Error parsing JSON from webhook:", jsonError);
+          // Оставляем сообщение по умолчанию
         }
-      } catch (webhookError) {
-        console.error("Webhook error:", webhookError);
-        aiResponse = "Извините, произошла ошибка при обработке вашего запроса. Попробуйте еще раз позже.";
+      } catch (error) {
+        console.log("Error contacting webhook:", error);
+        // Оставляем сообщение по умолчанию
       }
       
       // Create AI message
