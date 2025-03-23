@@ -62,11 +62,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("Pre-activating webhook-test...");
       
       try {
-        // Отправляем простой запрос для активации webhook-test
+        // Отправляем простой запрос для активации webhook-test с другим форматом данных
         await fetch(webhookUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: 'activation' }),
+          body: JSON.stringify({ 
+            action: 'activate_webhook',
+            system_message: 'Предварительная активация веб-хука',
+            timestamp: new Date().toISOString()
+          }),
         });
       } catch (activationError) {
         // Ошибка ожидаема и может быть проигнорирована
@@ -110,7 +114,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await activateWebhook();
       
       // Подробное логирование отправляемых данных
-      const requestBody = { message: content };
+      const requestBody = { 
+        user_message: content,
+        message_type: 'text',
+        chat_id: chatId,
+        timestamp: new Date().toISOString()
+      };
       console.log("===== SENDING TEXT MESSAGE TO WEBHOOK =====");
       console.log("URL:", webhookUrl);
       console.log("Request body:", JSON.stringify(requestBody, null, 2));
@@ -122,7 +131,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ message: content }),
+          body: JSON.stringify(requestBody), // Используем новый формат сообщения
         });
         
         console.log("Webhook response status:", response.status);
