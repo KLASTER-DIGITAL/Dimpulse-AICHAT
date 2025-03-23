@@ -10,6 +10,7 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
   const [displayedText, setDisplayedText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const previousContentRef = useRef<string>("");
+  const typewriterTimerRef = useRef<number | null>(null);
 
   // Function to convert markdown to HTML
   const convertMarkdownToHtml = (markdown: string) => {
@@ -62,13 +63,36 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
     return html;
   };
 
+  // Очистка таймера при размонтировании компонента
+  useEffect(() => {
+    return () => {
+      if (typewriterTimerRef.current) {
+        clearTimeout(typewriterTimerRef.current);
+      }
+    };
+  }, []);
+
   // Преобразование контента в HTML
   useEffect(() => {
+    // Очищаем предыдущий таймер, если он существует
+    if (typewriterTimerRef.current) {
+      clearTimeout(typewriterTimerRef.current);
+      typewriterTimerRef.current = null;
+    }
+
     const isNewMessage = content !== previousContentRef.current;
     previousContentRef.current = content;
     
     const html = convertMarkdownToHtml(content);
     setFormattedText(html);
+    
+    // Отключаем эффект печатания для сообщений, полученных от webhook
+    // Это поможет избежать проблем с отображением ответов
+    if (content.includes('webhook') || content.includes('n8n') || content.includes('{"choices"') || content.length > 1000) {
+      setDisplayedText(html);
+      setIsTyping(false);
+      return;
+    }
     
     // Если это новое сообщение, запускаем эффект печатания
     if (isNewMessage && content.length > 0) {
@@ -80,7 +104,8 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
       const strippedHtml = html.replace(/<[^>]*>/g, ''); // Убираем HTML-теги для подсчета символов
       
       // Вычисляем скорость печатания в зависимости от длины текста
-      const typingSpeed = Math.max(10, Math.min(30, 300 / strippedHtml.length));
+      // Более быстрое печатание для длинных текстов
+      const typingSpeed = Math.max(5, Math.min(20, 100 / Math.max(1, strippedHtml.length / 100)));
       
       const typeWriter = () => {
         if (i < html.length) {
@@ -98,9 +123,10 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
             i++;
           }
           
-          setTimeout(typeWriter, typingSpeed);
+          typewriterTimerRef.current = window.setTimeout(typeWriter, typingSpeed) as unknown as number;
         } else {
           setIsTyping(false);
+          typewriterTimerRef.current = null;
         }
       };
       
