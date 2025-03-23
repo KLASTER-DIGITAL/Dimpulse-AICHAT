@@ -16,15 +16,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Получить приветственное сообщение в зависимости от времени суток
-  const getTimeOfDayGreeting = (): string => {
-    const hour = new Date().getHours();
-    if (hour >= 5 && hour < 12) return "Доброе утро";
-    if (hour >= 12 && hour < 18) return "Добрый день";
-    if (hour >= 18 && hour < 23) return "Добрый вечер";
-    return "Доброй ночи";
-  };
-
   // Create a new chat
   app.post("/api/chats", async (req, res) => {
     try {
@@ -37,16 +28,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const chat = await storage.createChat(chatData);
       
-      // Создаем первое приветственное сообщение от ассистента
-      const greeting = `${getTimeOfDayGreeting()}, Leads.\nЧем я могу помочь сегодня?`;
-      
-      const messageData = insertMessageSchema.parse({
-        chatId: chat.id,
-        role: "assistant",
-        content: greeting
-      });
-      
-      await storage.createMessage(messageData);
+      // Больше не создаем автоматическое первое сообщение
+      // Вместо этого, приветствие будет показываться на фронтенде
       
       res.status(201).json(chat);
     } catch (error) {

@@ -117,14 +117,20 @@ const Home = () => {
   // Set current chat ID from URL param or create a new chat if needed
   useEffect(() => {
     if (params?.id) {
-      setCurrentChatId(params.id);
+      if (params.id === 'new') {
+        // Если это /chat/new, создаем новый чат
+        createChatMutation.mutate();
+      } else {
+        // Иначе используем id из URL
+        setCurrentChatId(params.id);
+      }
     } else if (chats.length > 0 && !isLoadingChats) {
       navigate(`/chat/${chats[0].id}`);
-    } else if (!isLoadingChats && chats.length === 0) {
-      // Create a new chat if there are no chats
+    } else if (!isLoadingChats && chats.length === 0 && location !== "/") {
+      // Create a new chat if there are no chats and we're not on the home page
       createChatMutation.mutate();
     }
-  }, [params?.id, chats, isLoadingChats, navigate]);
+  }, [params?.id, chats, isLoadingChats, navigate, location]);
   
   // Handle sending a message
   const handleSendMessage = (message: string, audioData?: string) => {
