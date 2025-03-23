@@ -92,39 +92,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log("Webhook response status:", response.status);
         
         // Пытаемся получить данные JSON
-        let data;
         try {
-          data = await response.json();
+          const data = await response.json();
           console.log("Webhook response data:", JSON.stringify(data, null, 2));
           
-          // Если ответ содержит сообщение об ошибке, всегда используем стандартное сообщение
-          if (response.status === 404) {
-            aiResponse = "К сожалению, сервис обработки сообщений в данный момент недоступен. Пожалуйста, попробуйте позже.";
-            console.log("Webhook returned 404, showing standard error message");
-          }
-          // Обрабатываем различные форматы ответов от webhook
-          else if (Array.isArray(data)) {
-            if (data[0] && typeof data[0].message === 'object' && data[0].message.content) {
-              aiResponse = data[0].message.content;
-            } else if (data[0] && data[0].output) {
-              aiResponse = data[0].output;
-            } else if (data[0] && data[0].choices && data[0].choices[0] && 
-                       data[0].choices[0].message && data[0].choices[0].message.content) {
-              aiResponse = data[0].choices[0].message.content;
-            } else if (typeof data[0] === 'string') {
-              aiResponse = data[0];
+          // Обработка всех возможных форматов ответа от webhook
+          if (data) {
+            // Вариант 1: Массив объектов с форматированными данными
+            if (Array.isArray(data)) {
+              const item = data[0];
+              if (item) {
+                if (typeof item === 'string') {
+                  aiResponse = item;
+                } else if (item.message && item.message.content) {
+                  aiResponse = item.message.content;
+                } else if (item.output) {
+                  aiResponse = item.output;
+                } else if (item.choices && item.choices[0] && item.choices[0].message && item.choices[0].message.content) {
+                  aiResponse = item.choices[0].message.content;
+                } else if (item.text) {
+                  aiResponse = item.text;
+                } else if (item.result) {
+                  aiResponse = item.result;
+                }
+              }
+            } 
+            // Вариант 2: Объект в формате OpenAI API
+            else if (data.choices && data.choices[0]) {
+              if (data.choices[0].message && data.choices[0].message.content) {
+                aiResponse = data.choices[0].message.content;
+              } else if (data.choices[0].text) {
+                aiResponse = data.choices[0].text;
+              }
             }
-          } else if (data && data.choices && data.choices[0] && 
-                    data.choices[0].message && data.choices[0].message.content) {
-            aiResponse = data.choices[0].message.content;
-          } else if (data && data.response) {
-            aiResponse = data.response;
-          } else if (data && data.message && data.message !== "Workflow was started") {
-            aiResponse = data.message;
+            // Вариант 3: Простой объект с ответом
+            else if (data.response) {
+              aiResponse = data.response;
+            }
+            // Вариант 4: Объект с полем text или content
+            else if (data.text) {
+              aiResponse = data.text;
+            } else if (data.content) {
+              aiResponse = data.content;
+            }
+            // Вариант 5: Объект с полем message
+            else if (data.message) {
+              aiResponse = data.message;
+            }
+            // Вариант 6: Необработанный текст JSON
+            else if (typeof data === 'string') {
+              aiResponse = data;
+            }
+            
+            // Если ответ не обработан ни одним из вариантов, но есть объект JSON
+            if (aiResponse === "К сожалению, сервис обработки сообщений в данный момент недоступен. Пожалуйста, попробуйте позже.") {
+              // Преобразуем весь объект в строку как запасной вариант
+              aiResponse = JSON.stringify(data);
+            }
           }
         } catch (jsonError) {
           console.log("Error parsing JSON from webhook:", jsonError);
-          // Оставляем сообщение по умолчанию
+          // Пробуем получить текст ответа, если это не JSON
+          try {
+            const textResponse = await response.text();
+            console.log("Webhook text response:", textResponse);
+            if (textResponse && textResponse.length > 0) {
+              aiResponse = textResponse;
+            }
+          } catch (textError) {
+            console.log("Error getting text from webhook:", textError);
+            // Оставляем сообщение по умолчанию
+          }
         }
       } catch (error) {
         console.log("Error contacting webhook:", error);
