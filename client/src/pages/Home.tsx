@@ -376,7 +376,7 @@ const Home = () => {
                     <input 
                       type="text" 
                       name="message"
-                      placeholder="Опишите что во вложении..."
+                      placeholder="Опишите вашу задачу..."
                       className="flex-1 bg-transparent text-white border-none px-4 py-3 focus:outline-none rounded-full"
                       disabled={sendMessageMutation.isPending}
                     />
