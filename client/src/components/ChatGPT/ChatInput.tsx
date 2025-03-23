@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 
 interface ChatInputProps {
-  onSendMessage: (message: string, audioData?: string) => void;
+  onSendMessage: (message: string, audioData?: string, fileData?: { content: string, name: string, type: string }) => void;
   onVoiceInput?: (transcript: string) => void;
-  onFileUpload?: (fileContent: string) => void;
+  onFileUpload?: (fileContent: string, fileName: string, fileType: string) => void;
   isLoading: boolean;
 }
 
@@ -168,6 +168,14 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
     }
   };
   
+  // Состояние для хранения прикрепленного файла
+  const [uploadedFile, setUploadedFile] = useState<{
+    content: string;
+    name: string;
+    type: string;
+    preview?: string;
+  } | null>(null);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!onFileUpload) return;
     
@@ -179,16 +187,36 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
     reader.onload = (event) => {
       const content = event.target?.result as string;
       if (content) {
-        onFileUpload(content);
+        // Сохраняем информацию о файле
+        const fileInfo = {
+          content,
+          name: file.name,
+          type: file.type,
+          preview: file.type.startsWith('image/') ? content : undefined
+        };
+        
+        // Сохраняем файл в состоянии
+        setUploadedFile(fileInfo);
+        
+        // Обновляем сообщение с информацией о файле
+        if (file.type.startsWith('image/')) {
+          setMessage(`Изображение: ${file.name}`);
+        } else {
+          setMessage(`Файл: ${file.name}`);
+        }
+        
+        // Вызываем обработчик загрузки файла
+        onFileUpload(content, file.name, file.type);
       }
     };
     
+    // Обрабатываем различные типы файлов
     if (file.type === 'text/plain' || file.type === 'application/json' || 
-        file.type === 'text/html' || file.type === 'text/markdown') {
-      reader.readAsText(file);
+        file.type === 'text/html' || file.type === 'text/markdown' || 
+        file.type === 'application/pdf') {
+      reader.readAsDataURL(file); // Используем DataURL для всех файлов
     } else if (file.type.startsWith('image/')) {
-      // Обрабатываем как изображение
-      setMessage(`Загружено изображение: ${file.name}`);
+      reader.readAsDataURL(file);
     } else {
       alert('Формат файла не поддерживается');
     }
