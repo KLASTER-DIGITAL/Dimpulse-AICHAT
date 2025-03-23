@@ -61,8 +61,7 @@ function WelcomeScreen() {
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={WelcomeScreen} />
-      <Route path="/chat/new" component={Home} />
+      <Route path="/" component={Home} />
       <Route path="/chat/:id" component={Home} />
       <Route component={NotFound} />
     </Switch>
