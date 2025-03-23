@@ -1,24 +1,20 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation, useParams } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Chat, Message } from "@shared/schema";
-import { nanoid } from "nanoid";
 
-import Sidebar from "@/components/ChatGPT/Sidebar";
 import ChatContainer from "@/components/ChatGPT/ChatContainer";
 import ChatInput from "@/components/ChatGPT/ChatInput";
-import MobileHeader from "@/components/ChatGPT/MobileHeader";
 
 const Home = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [location, navigate] = useLocation();
   const params = useParams<{ id: string }>();
   const { toast } = useToast();
   
-  // Get all chats for the sidebar
+  // Get all chats
   const { data: chats = [], isLoading: isLoadingChats } = useQuery<Chat[]>({
     queryKey: ['/api/chats'],
   });
@@ -41,8 +37,8 @@ const Home = () => {
     },
     onError: () => {
       toast({
-        title: "Error",
-        description: "Failed to create a new chat",
+        title: "Ошибка",
+        description: "Не удалось создать новый чат",
         variant: "destructive",
       });
     }
@@ -60,8 +56,8 @@ const Home = () => {
     },
     onError: () => {
       toast({
-        title: "Error",
-        description: "Failed to send message",
+        title: "Ошибка",
+        description: "Не удалось отправить сообщение",
         variant: "destructive",
       });
     }
@@ -73,14 +69,11 @@ const Home = () => {
       setCurrentChatId(params.id);
     } else if (chats.length > 0 && !isLoadingChats) {
       navigate(`/chat/${chats[0].id}`);
+    } else if (!isLoadingChats && chats.length === 0) {
+      // Create a new chat if there are no chats
+      createChatMutation.mutate();
     }
   }, [params?.id, chats, isLoadingChats, navigate]);
-  
-  // Handle creating a new chat
-  const handleNewChat = () => {
-    createChatMutation.mutate();
-    setSidebarOpen(false);
-  };
   
   // Handle sending a message
   const handleSendMessage = (message: string) => {
@@ -93,37 +86,37 @@ const Home = () => {
     
     sendMessageMutation.mutate({ chatId: currentChatId, message });
   };
+
+  // Handle voice input
+  const handleVoiceInput = (transcript: string) => {
+    if (transcript && !sendMessageMutation.isPending) {
+      handleSendMessage(transcript);
+    }
+  };
+  
+  // Handle file upload
+  const handleFileUpload = (fileContent: string) => {
+    if (fileContent && !sendMessageMutation.isPending) {
+      handleSendMessage(`Содержимое загруженного файла:\n${fileContent}`);
+    }
+  };
   
   return (
-    <div className="flex h-screen w-full bg-[#050509] text-[#ECECF1]">
-      {/* Sidebar */}
-      <Sidebar 
-        chats={chats}
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        onNewChat={handleNewChat}
-        currentChatId={currentChatId}
-      />
-      
+    <div className="flex h-screen w-full bg-black text-[#ECECF1] flex-col">
       {/* Main Content */}
-      <div className="flex-1 flex flex-col h-full relative bg-[#343541]">
-        {/* Mobile Header */}
-        <MobileHeader
-          onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-          onNewChat={handleNewChat}
-          title={chatData?.chat?.title || "New Chat"}
-        />
-        
+      <div className="flex-1 flex flex-col h-full relative">
         {/* Chat Container */}
         <ChatContainer 
           messages={chatData?.messages || []}
-          isLoading={isLoadingChat}
+          isLoading={isLoadingChat || sendMessageMutation.isPending}
           isEmpty={!chatData?.messages?.length}
         />
         
         {/* Chat Input */}
         <ChatInput 
           onSendMessage={handleSendMessage}
+          onVoiceInput={handleVoiceInput}
+          onFileUpload={handleFileUpload}
           isLoading={sendMessageMutation.isPending}
         />
       </div>
