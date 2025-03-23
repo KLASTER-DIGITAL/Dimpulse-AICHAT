@@ -138,6 +138,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Подготовка данных для отправки на webhook
       const requestTime = new Date().toISOString();
+      
+      // Создаем уникальный идентификатор сессии для пользователя на основе chatId
+      // Это позволит n8n сохранять историю диалогов для каждого пользователя
+      const sessionId = chatId;
+      
       const requestBody: any = { 
         message: content,
         // Добавляем структурированное сообщение с текстом и голосом
@@ -148,7 +153,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
         // Добавляем время запроса для аналитики
         timestamp: requestTime,
-        request_time: requestTime
+        request_time: requestTime,
+        // Добавляем идентификатор сессии для работы памяти в n8n
+        session_id: sessionId
       };
       
       // Если есть аудио данные, добавляем их также как отдельную переменную
@@ -197,7 +204,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           message: content, 
           hasAudio: !!audioData,
           hasVoice: !!audioData,
-          messageData: requestBody.message_data
+          messageData: requestBody.message_data,
+          sessionId: sessionId
         }
       });
       console.log("Request payload size:", JSON.stringify(requestBody).length, "bytes");
