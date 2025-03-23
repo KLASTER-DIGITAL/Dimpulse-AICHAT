@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect } from "react";
+import AudioRecorder from "./AudioRecorder";
+import { useToast } from "@/hooks/use-toast";
 
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
@@ -10,8 +12,10 @@ interface ChatInputProps {
 const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: ChatInputProps) => {
   const [message, setMessage] = useState("");
   const [isRecording, setIsRecording] = useState(false);
+  const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
   
   // Auto-resize textarea based on content
   const autoResize = () => {
@@ -46,44 +50,28 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
     }
   };
   
+  // Функция для переключения записи голоса
   const toggleVoiceRecording = () => {
     if (!onVoiceInput) return;
     
-    if (!isRecording) {
-      // Start recording
-      setIsRecording(true);
+    // Переключаем видимость компонента записи голоса
+    setShowVoiceRecorder(!showVoiceRecorder);
+  };
+  
+  // Обработка транскрибированного аудио
+  const handleAudioTranscribed = (transcript: string) => {
+    if (transcript && onVoiceInput) {
+      // Закрываем окно аудиозаписи
+      setShowVoiceRecorder(false);
       
-      // Check if browser supports SpeechRecognition
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      // Отправляем транскрипцию
+      onVoiceInput(transcript);
       
-      if (SpeechRecognition) {
-        const recognition = new SpeechRecognition();
-        recognition.lang = 'ru-RU';
-        recognition.continuous = false;
-        recognition.interimResults = false;
-        
-        recognition.onresult = (event: any) => {
-          const transcript = event.results[0][0].transcript;
-          setMessage(transcript);
-          setIsRecording(false);
-        };
-        
-        recognition.onerror = () => {
-          setIsRecording(false);
-        };
-        
-        recognition.onend = () => {
-          setIsRecording(false);
-        };
-        
-        recognition.start();
-      } else {
-        alert('Ваш браузер не поддерживает голосовой ввод');
-        setIsRecording(false);
-      }
-    } else {
-      // Stop recording
-      setIsRecording(false);
+      // Показываем уведомление
+      toast({
+        title: "Аудио распознано",
+        description: `Текст аудиосообщения: "${transcript.substring(0, 50)}${transcript.length > 50 ? '...' : ''}"`,
+      });
     }
   };
   
@@ -127,6 +115,16 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
   return (
     <div className="p-4 fixed bottom-0 left-0 right-0">
       <div className="max-w-3xl mx-auto">
+        {/* Компонент записи голоса */}
+        {showVoiceRecorder && (
+          <div className="mb-4">
+            <AudioRecorder 
+              onAudioTranscribed={handleAudioTranscribed} 
+              isLoading={isLoading} 
+            />
+          </div>
+        )}
+        
         <form id="chat-form" className="relative bg-black" onSubmit={handleSubmit}>
           <div className="rounded-full border border-gray-600 bg-[#101010] flex items-center pr-2">
             {/* Кнопка прикрепления файла */}
@@ -166,7 +164,7 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
             {/* Кнопка отправки голосового сообщения */}
             <button 
               type="button" 
-              className={`p-2 rounded-full ${isRecording ? 'text-red-500' : 'text-gray-400 hover:text-white'} focus:outline-none`}
+              className={`p-2 rounded-full ${showVoiceRecorder ? 'text-green-500' : 'text-gray-400 hover:text-white'} focus:outline-none`}
               onClick={toggleVoiceRecording}
               disabled={isLoading}
             >
