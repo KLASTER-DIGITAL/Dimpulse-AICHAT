@@ -97,22 +97,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
           data = await response.json();
           console.log("Webhook response data:", JSON.stringify(data, null, 2));
           
+          // Если ответ содержит сообщение об ошибке, всегда используем стандартное сообщение
+          if (response.status === 404) {
+            aiResponse = "К сожалению, сервис обработки сообщений в данный момент недоступен. Пожалуйста, попробуйте позже.";
+            console.log("Webhook returned 404, showing standard error message");
+          }
           // Обрабатываем различные форматы ответов от webhook
-          if (Array.isArray(data)) {
-            if (data[0]?.message?.content) {
+          else if (Array.isArray(data)) {
+            if (data[0] && typeof data[0].message === 'object' && data[0].message.content) {
               aiResponse = data[0].message.content;
-            } else if (data[0]?.output) {
+            } else if (data[0] && data[0].output) {
               aiResponse = data[0].output;
-            } else if (data[0]?.choices?.[0]?.message?.content) {
+            } else if (data[0] && data[0].choices && data[0].choices[0] && 
+                       data[0].choices[0].message && data[0].choices[0].message.content) {
               aiResponse = data[0].choices[0].message.content;
             } else if (typeof data[0] === 'string') {
               aiResponse = data[0];
-            } 
-          } else if (data?.choices?.[0]?.message?.content) {
+            }
+          } else if (data && data.choices && data.choices[0] && 
+                    data.choices[0].message && data.choices[0].message.content) {
             aiResponse = data.choices[0].message.content;
-          } else if (data?.response) {
+          } else if (data && data.response) {
             aiResponse = data.response;
-          } else if (data?.message && data.message !== "Workflow was started") {
+          } else if (data && data.message && data.message !== "Workflow was started") {
             aiResponse = data.message;
           }
         } catch (jsonError) {
