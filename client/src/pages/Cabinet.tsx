@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useLocation } from "wouter";
 
 // UI компоненты
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -53,6 +54,7 @@ const defaultSettings: Settings = {
 const Cabinet = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
   
   // Запрос настроек с сервера
   const { data: settings, isLoading } = useQuery({
@@ -232,8 +234,21 @@ const Cabinet = () => {
     <div className="bg-black min-h-screen text-white">
       {/* Хедер */}
       <header className="border-b border-gray-800 py-4">
-        <div className="container mx-auto px-4">
+        <div className="container mx-auto px-4 flex justify-between items-center">
           <h1 className="text-2xl font-semibold">Личный кабинет</h1>
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              localStorage.removeItem("isAuthenticated");
+              toast({
+                title: "Выход из системы",
+                description: "Вы успешно вышли из системы",
+              });
+              navigate("/login");
+            }}
+          >
+            Выйти
+          </Button>
         </div>
       </header>
 
