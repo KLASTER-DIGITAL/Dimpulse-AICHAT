@@ -277,12 +277,12 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
         const fileCount = uploadedFiles.length + 1;
         if (fileCount === 1) {
           if (file.type.startsWith('image/')) {
-            setMessage(`Опишите что на изображении`);
+            setMessage(`Чем еще могу помочь?`);
           } else {
-            setMessage(`Опишите что во вложении`);
+            setMessage(`Чем еще могу помочь?`);
           }
         } else {
-          setMessage(`Опишите что в приложенных файлах`);
+          setMessage(`Чем еще могу помочь?`);
         }
         
         // НЕ вызываем обработчик загрузки файла - ждем сообщение пользователя
