@@ -1,7 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 
 interface ChatInputProps {
-  onSendMessage: (message: string, audioData?: string, fileData?: { content: string, name: string, type: string }) => void;
+  onSendMessage: (
+    message: string, 
+    audioData?: string, 
+    fileData?: { content: string, name: string, type: string },
+    filesData?: Array<{ content: string, name: string, type: string, size: number }>
+  ) => void;
   onVoiceInput?: (transcript: string) => void;
   onFileUpload?: (fileContent: string, fileName: string, fileType: string) => void;
   isLoading: boolean;
@@ -29,21 +34,35 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (message.trim() && !isLoading) {
-      // Отправка сообщения с аудиоданными и/или файлом, если они доступны
+      // Отправка сообщения с аудиоданными и/или файлами, если они доступны
+      const filesData = uploadedFiles.length > 0 ? 
+        uploadedFiles.map(file => ({
+          content: file.content,
+          name: file.name,
+          type: file.type,
+          size: file.size
+        })) : 
+        undefined;
+      
+      // Для обратной совместимости используем первый файл если он есть
+      const fileData = uploadedFiles.length > 0 ? {
+        content: uploadedFiles[0].content,
+        name: uploadedFiles[0].name,
+        type: uploadedFiles[0].type
+      } : undefined;
+      
+      // Если есть несколько файлов, включаем их все в сообщение
       onSendMessage(
         message.trim(), 
         audioData || undefined, 
-        uploadedFile ? {
-          content: uploadedFile.content,
-          name: uploadedFile.name,
-          type: uploadedFile.type
-        } : undefined
+        fileData,
+        filesData
       );
       
       // Сбрасываем состояние
       setMessage("");
       setAudioData(null);
-      setUploadedFile(null);
+      setUploadedFiles([]);
       
       // Reset height
       if (textareaRef.current) {
@@ -177,19 +196,38 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
     }
   };
   
-  // Состояние для хранения прикрепленного файла
-  const [uploadedFile, setUploadedFile] = useState<{
+  // Состояние для хранения прикрепленных файлов (до 10 файлов)
+  const [uploadedFiles, setUploadedFiles] = useState<{
     content: string;
     name: string;
     type: string;
     preview?: string;
-  } | null>(null);
+    size: number;
+  }[]>([]);
+  
+  // Для обратной совместимости оставляем одиночный файл
+  const uploadedFile = uploadedFiles.length > 0 ? uploadedFiles[0] : null;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!onFileUpload) return;
     
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    const file = files[0]; // Пока обрабатываем только один файл за раз
+    
+    // Проверка размера файла (лимит 20MB = 20 * 1024 * 1024 байт)
+    const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB в байтах
+    if (file.size > MAX_FILE_SIZE) {
+      alert(`Файл слишком большой. Максимальный размер файла - 20MB. Ваш файл: ${(file.size / (1024 * 1024)).toFixed(2)}MB`);
+      return;
+    }
+    
+    // Проверка количества файлов (максимум 10)
+    if (uploadedFiles.length >= 10) {
+      alert('Вы уже прикрепили максимальное количество файлов (10). Удалите некоторые файлы, чтобы добавить новые.');
+      return;
+    }
     
     const reader = new FileReader();
     
@@ -201,17 +239,23 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
           content,
           name: file.name,
           type: file.type,
-          preview: file.type.startsWith('image/') ? content : undefined
+          preview: file.type.startsWith('image/') ? content : undefined,
+          size: file.size
         };
         
-        // Сохраняем файл в состоянии
-        setUploadedFile(fileInfo);
+        // Добавляем файл в массив файлов
+        setUploadedFiles(prevFiles => [...prevFiles, fileInfo]);
         
-        // Обновляем сообщение с информацией о файле
-        if (file.type.startsWith('image/')) {
-          setMessage(`Изображение: ${file.name}`);
+        // Обновляем сообщение с информацией о файлах
+        const fileCount = uploadedFiles.length + 1;
+        if (fileCount === 1) {
+          if (file.type.startsWith('image/')) {
+            setMessage(`Изображение: ${file.name}`);
+          } else {
+            setMessage(`Файл: ${file.name}`);
+          }
         } else {
-          setMessage(`Файл: ${file.name}`);
+          setMessage(`Прикреплено файлов: ${fileCount}`);
         }
         
         // Вызываем обработчик загрузки файла
@@ -239,46 +283,75 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
   return (
     <div className={`p-4 fixed ${!isLoading ? "bottom-0" : ""} left-0 right-0`}>
       <div className="max-w-3xl mx-auto">
-        {/* Отображение прикрепленного файла */}
-        {uploadedFile && (
+        {/* Отображение прикрепленных файлов */}
+        {uploadedFiles.length > 0 && (
           <div className="bg-[#202020] rounded-md mb-2 p-2 relative">
-            <div className="flex items-center">
-              {uploadedFile.type.startsWith('image/') && uploadedFile.preview ? (
-                <div className="w-16 h-16 mr-3 rounded-md overflow-hidden">
-                  <img 
-                    src={uploadedFile.preview} 
-                    alt={uploadedFile.name}
-                    className="w-full h-full object-cover" 
-                  />
-                </div>
-              ) : (
-                <div className="w-16 h-16 flex items-center justify-center mr-3 bg-[#2b2b2b] rounded-md">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                    <polyline points="14 2 14 8 20 8"></polyline>
-                    <line x1="16" y1="13" x2="8" y2="13"></line>
-                    <line x1="16" y1="17" x2="8" y2="17"></line>
-                    <polyline points="10 9 9 9 8 9"></polyline>
-                  </svg>
-                </div>
-              )}
-              <div className="flex-1">
-                <div className="text-sm text-white font-medium truncate">{uploadedFile.name}</div>
-                <div className="text-xs text-gray-400">
-                  {uploadedFile.type.split('/')[1].toUpperCase()} файл
-                </div>
+            {/* Счетчик файлов, если их больше одного */}
+            {uploadedFiles.length > 1 && (
+              <div className="mb-2 text-sm text-white font-medium">
+                Прикреплено файлов: {uploadedFiles.length} / 10
               </div>
-              <button 
-                type="button" 
-                className="ml-2 text-gray-400 hover:text-white p-1"
-                onClick={() => setUploadedFile(null)}
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </button>
+            )}
+            
+            {/* Контейнер для всех файлов */}
+            <div className="flex flex-col space-y-2">
+              {/* Отображаем каждый файл в списке */}
+              {uploadedFiles.map((file, index) => (
+                <div key={index} className="flex items-center">
+                  {file.type.startsWith('image/') && file.preview ? (
+                    <div className="w-16 h-16 mr-3 rounded-md overflow-hidden">
+                      <img 
+                        src={file.preview} 
+                        alt={file.name}
+                        className="w-full h-full object-cover" 
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-16 h-16 flex items-center justify-center mr-3 bg-[#2b2b2b] rounded-md">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                      </svg>
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <div className="text-sm text-white font-medium truncate">{file.name}</div>
+                    <div className="text-xs text-gray-400">
+                      {file.type.split('/')[1].toUpperCase()} файл • {(file.size / 1024).toFixed(0)} КБ
+                    </div>
+                  </div>
+                  <button 
+                    type="button" 
+                    className="ml-2 text-gray-400 hover:text-white p-1"
+                    onClick={() => {
+                      // Удаляем только конкретный файл из списка
+                      setUploadedFiles(prevFiles => prevFiles.filter((_, i) => i !== index));
+                    }}
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                  </button>
+                </div>
+              ))}
             </div>
+            
+            {/* Кнопка удаления всех файлов */}
+            {uploadedFiles.length > 1 && (
+              <div className="mt-2 flex justify-end">
+                <button 
+                  type="button" 
+                  className="text-xs text-gray-400 hover:text-white px-2 py-1"
+                  onClick={() => setUploadedFiles([])}
+                >
+                  Удалить все файлы
+                </button>
+              </div>
+            )}
           </div>
         )}
         

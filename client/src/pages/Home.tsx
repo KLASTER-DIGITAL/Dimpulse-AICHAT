@@ -270,7 +270,14 @@ const Home = () => {
                               handleFileUpload(content, file.name, file.type);
                             }
                           };
-                          reader.readAsDataURL(file);
+                          
+                          // Определяем метод чтения в зависимости от типа файла
+                          if (file.type.startsWith('image/') || 
+                              file.type === 'application/pdf') {
+                            reader.readAsDataURL(file);
+                          } else {
+                            reader.readAsText(file);
+                          }
                           // Очищаем input для возможности повторной загрузки того же файла
                           e.target.value = '';
                         }}
