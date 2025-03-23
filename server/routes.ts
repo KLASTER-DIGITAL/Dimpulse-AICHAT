@@ -115,8 +115,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Подробное логирование отправляемых данных
       const requestBody = { 
-        user_message: content,
-        message_type: 'text',
+        message: content, // Используем стандартное поле message для совместимости с n8n
+        type: 'text_message',
+        source: 'chat',
         chat_id: chatId,
         timestamp: new Date().toISOString()
       };
@@ -297,22 +298,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Создаем объект для отправки на webhook (используется для логирования и отправки)
       const voiceRequestBody = {
+        message: "Транскрибировать аудио", // добавляем поле message для совместимости с n8n
         audio_base64: audioBase64,
         audio_filename: req.file.originalname,
-        message_type: 'voice',
-        transcription_request: true
+        type: 'voice_message',  // используем тот же формат, что и для текстовых сообщений
+        source: 'chat',
+        transcription_request: true,
+        timestamp: new Date().toISOString()
       };
       
       console.log('===== SENDING VOICE MESSAGE TO WEBHOOK =====');
       console.log('URL:', webhookUrl);
       console.log('Request headers:', { 'Content-Type': 'application/json' });
       console.log('Request body structure:', {
+        message: voiceRequestBody.message,
         audio_base64: '[BASE64_AUDIO_DATA]', // Не показываем полностью в логах
         audio_filename: req.file.originalname,
-        message_type: 'voice',
+        type: voiceRequestBody.type,
+        source: voiceRequestBody.source,
         transcription_request: true,
         audio_file_size: audioFileContent.length + ' байт',
-        mime_type: req.file.mimetype
+        mime_type: req.file.mimetype,
+        timestamp: voiceRequestBody.timestamp
       });
       console.log('============================================');
       
