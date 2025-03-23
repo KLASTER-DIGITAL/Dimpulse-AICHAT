@@ -204,35 +204,17 @@ const Home = () => {
     }
   };
   
-  // Handle file upload
+  // Handle file upload - теперь только сохраняет файл, но не отправляет его сразу
   const handleFileUpload = (fileContent: string, fileName: string, fileType: string) => {
     if (fileContent && !sendMessageMutation.isPending) {
+      // Только логируем о получении файла, но не отправляем его
+      console.log(`Файл подготовлен: ${fileName}, размер: ${(fileContent.length / 1024).toFixed(2)} КБ`);
+      
+      // Весь функционал отправки перенесен в ChatInput компонент
+      // Этот метод теперь только для совместимости с кодом приветственной страницы
       if (!currentChatId) {
-        // Если нет текущего чата, создаем новый и отправляем сообщение с файлом
-        createChatMutation.mutate(undefined, {
-          onSuccess: (newChat) => {
-            sendMessageMutation.mutate({
-              chatId: newChat.id,
-              message: `Файл: ${fileName}`,
-              fileData: {
-                content: fileContent,
-                name: fileName,
-                type: fileType
-              }
-            });
-          }
-        });
-      } else {
-        // Если чат существует, отправляем сообщение с файлом
-        sendMessageMutation.mutate({
-          chatId: currentChatId,
-          message: `Файл: ${fileName}`,
-          fileData: {
-            content: fileContent,
-            name: fileName,
-            type: fileType
-          }
-        });
+        // Если нет текущего чата, просто создаем новый, но не отправляем файл
+        createChatMutation.mutate();
       }
     }
   };

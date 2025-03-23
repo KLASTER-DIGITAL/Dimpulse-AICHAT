@@ -257,16 +257,17 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
         const fileCount = uploadedFiles.length + 1;
         if (fileCount === 1) {
           if (file.type.startsWith('image/')) {
-            setMessage(`Изображение: ${file.name}`);
+            setMessage(`Введите сообщение к изображению "${file.name}"`);
           } else {
-            setMessage(`Файл: ${file.name}`);
+            setMessage(`Введите сообщение к файлу "${file.name}"`);
           }
         } else {
-          setMessage(`Прикреплено файлов: ${fileCount}`);
+          setMessage(`Введите сообщение к прикрепленным файлам (${fileCount})`);
         }
         
         // НЕ вызываем обработчик загрузки файла - ждем сообщение пользователя
-        // onFileUpload(content, file.name, file.type);
+        // Только для отладки - уведомляем о типе файла
+        console.log(`Прикреплен файл "${file.name}" (${file.size} байт), тип: ${file.type}`);
       }
     };
     
