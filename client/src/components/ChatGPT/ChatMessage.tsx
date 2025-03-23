@@ -10,7 +10,6 @@ interface ChatMessageProps {
 const ChatMessage = ({ message }: ChatMessageProps) => {
   const isUser = message.role === "user";
   const isTyping = message.typing === true || message.content === "typing";
-  const messageRef = useRef<HTMLDivElement>(null);
   const [processedContent, setProcessedContent] = useState(message.content || "");
   
   // Обработка JSON в сообщениях, если это ответ от webhook
@@ -53,19 +52,9 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
     }
   }, [message.content, isUser]);
   
-  // Добавляем класс анимации после монтирования
-  useEffect(() => {
-    if (messageRef.current) {
-      setTimeout(() => {
-        messageRef.current?.classList.add('message-appear');
-      }, 10);
-    }
-  }, []);
-  
   return (
     <div 
-      ref={messageRef}
-      className={`message ${isUser ? "user-message" : "ai-message"} mb-6 opacity-0 transition-opacity duration-300`}
+      className={`message ${isUser ? "user-message" : "ai-message"} mb-6`}
     >
       {isUser ? (
         <div className="flex justify-end mb-4">
@@ -74,7 +63,7 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
           </div>
         </div>
       ) : (
-        <div className="flex items-start">
+        <div className="flex items-start message-animation">
           <div className="mr-2 mt-1 flex-shrink-0">
             <div className="w-8 h-8 bg-emerald-600 rounded-full flex items-center justify-center text-white">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -102,8 +91,19 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
 // Добавляем глобальные стили для красивой анимации появления
 const styleEl = document.createElement('style');
 styleEl.innerHTML = `
-  .message-appear {
-    opacity: 1;
+  @keyframes slideInFromBottom {
+    0% {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .message-animation {
+    animation: slideInFromBottom 0.3s ease-out forwards;
   }
   
   .markdown pre {

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 
 interface MarkdownRendererProps {
   content: string;
@@ -7,10 +7,6 @@ interface MarkdownRendererProps {
 // This is a simple markdown renderer without external dependencies
 const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
   const [formattedText, setFormattedText] = useState("");
-  const [displayedText, setDisplayedText] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
-  const previousContentRef = useRef<string>("");
-  const typewriterTimerRef = useRef<number | null>(null);
 
   // Function to convert markdown to HTML
   const convertMarkdownToHtml = (markdown: string) => {
@@ -63,87 +59,34 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
     return html;
   };
 
-  // Очистка таймера при размонтировании компонента
-  useEffect(() => {
-    return () => {
-      if (typewriterTimerRef.current) {
-        clearTimeout(typewriterTimerRef.current);
-      }
-    };
-  }, []);
-
   // Преобразование контента в HTML
   useEffect(() => {
-    // Очищаем предыдущий таймер, если он существует
-    if (typewriterTimerRef.current) {
-      clearTimeout(typewriterTimerRef.current);
-      typewriterTimerRef.current = null;
-    }
-
-    const isNewMessage = content !== previousContentRef.current;
-    previousContentRef.current = content;
-    
-    const html = convertMarkdownToHtml(content);
-    setFormattedText(html);
-    
-    // Отключаем эффект печатания для сообщений, полученных от webhook
-    // Это поможет избежать проблем с отображением ответов
-    if (content.includes('webhook') || content.includes('n8n') || content.includes('{"choices"') || content.length > 1000) {
-      setDisplayedText(html);
-      setIsTyping(false);
-      return;
-    }
-    
-    // Если это новое сообщение, запускаем эффект печатания
-    if (isNewMessage && content.length > 0) {
-      setIsTyping(true);
-      setDisplayedText('');
-      
-      // Симуляция эффекта печатания
-      let i = 0;
-      const strippedHtml = html.replace(/<[^>]*>/g, ''); // Убираем HTML-теги для подсчета символов
-      
-      // Вычисляем скорость печатания в зависимости от длины текста
-      // Более быстрое печатание для длинных текстов
-      const typingSpeed = Math.max(5, Math.min(20, 100 / Math.max(1, strippedHtml.length / 100)));
-      
-      const typeWriter = () => {
-        if (i < html.length) {
-          // Находим следующий HTML-тег
-          if (html[i] === '<') {
-            const closingTagIndex = html.indexOf('>', i);
-            if (closingTagIndex !== -1) {
-              setDisplayedText(prevText => prevText + html.substring(i, closingTagIndex + 1));
-              i = closingTagIndex + 1;
-            } else {
-              i++;
-            }
-          } else {
-            setDisplayedText(prevText => prevText + html[i]);
-            i++;
-          }
-          
-          typewriterTimerRef.current = window.setTimeout(typeWriter, typingSpeed) as unknown as number;
-        } else {
-          setIsTyping(false);
-          typewriterTimerRef.current = null;
-        }
-      };
-      
-      typeWriter();
-    } else {
-      // Если это не новое сообщение или пустое, показываем всё сразу
-      setDisplayedText(html);
-      setIsTyping(false);
+    if (content) {
+      const html = convertMarkdownToHtml(content);
+      setFormattedText(html);
     }
   }, [content]);
 
   return (
     <div 
-      className="text-base whitespace-pre-wrap"
-      dangerouslySetInnerHTML={{ __html: isTyping ? displayedText : formattedText }}
+      className="text-base whitespace-pre-wrap animate-fadeIn"
+      dangerouslySetInnerHTML={{ __html: formattedText }}
     />
   );
 };
+
+// Добавляем глобальные стили для анимации плавного появления
+const styleEl = document.createElement('style');
+styleEl.innerHTML = `
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  .animate-fadeIn {
+    animation: fadeIn 0.5s ease-out forwards;
+  }
+`;
+document.head.appendChild(styleEl);
 
 export default MarkdownRenderer;
