@@ -57,8 +57,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Функция для активации webhook перед запросом
   async function activateWebhook() {
     try {
-      // Сначала делаем запрос для активации webhook (теперь не требуется)
-      console.log("Using regular webhook, pre-activation not needed...");
+      // Если используем webhook-test, нужно сначала его активировать
+      const webhookUrl = 'https://n8n.klaster.digital/webhook-test/4a1fed67-dcfb-4eb8-a71b-d47b1d651509';
+      console.log("Pre-activating webhook-test...");
+      
+      try {
+        // Отправляем простой запрос для активации webhook-test
+        await fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: 'activation' }),
+        });
+      } catch (activationError) {
+        // Ошибка ожидаема и может быть проигнорирована
+        console.log("Pre-activation expected to fail, webhook should be ready now");
+      }
       
       // Ждем 500 миллисекунд, чтобы убедиться, что webhook активировался
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -91,7 +104,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let aiResponse = "К сожалению, сервис обработки сообщений в данный момент недоступен. Для активации сервиса необходимо нажать кнопку 'Test workflow' в интерфейсе n8n.";
       
       // Отправляем запрос к webhook
-      const webhookUrl = 'https://n8n.klaster.digital/webhook/4a1fed67-dcfb-4eb8-a71b-d47b1d651509';
+      const webhookUrl = 'https://n8n.klaster.digital/webhook-test/4a1fed67-dcfb-4eb8-a71b-d47b1d651509';
       
       // Активируем webhook перед запросом
       await activateWebhook();
@@ -262,7 +275,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // 3. Использовать сторонний сервис транскрипции
       
       // В данном случае отправляем информацию о файле на webhook
-      const webhookUrl = 'https://n8n.klaster.digital/webhook/4a1fed67-dcfb-4eb8-a71b-d47b1d651509';
+      const webhookUrl = 'https://n8n.klaster.digital/webhook-test/4a1fed67-dcfb-4eb8-a71b-d47b1d651509';
       
       console.log('Отправляем информацию о голосовом сообщении на webhook:', {
         url: webhookUrl
