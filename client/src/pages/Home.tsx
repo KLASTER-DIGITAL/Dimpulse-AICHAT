@@ -178,7 +178,7 @@ const Home = () => {
       <div className="flex-1 flex flex-col h-full relative">
         {/* Показываем приветственный экран вместо чата, если нет сообщений */}
         {!chatData?.messages?.length ? (
-          <div className="flex flex-col items-center justify-center h-full">
+          <div className="flex flex-col items-center justify-center h-full relative">
             <div className="text-center animate-fadeIn">
               <h1 className="text-4xl font-semibold mb-2 animate-textAppear">{getTimeOfDayGreeting()}!</h1>
               <p className="text-2xl text-gray-300 mb-10 animate-textAppear animation-delay-300">Какие у вас задачи? Давайте мы поможем решить!</p>
@@ -197,6 +197,45 @@ const Home = () => {
                   }}
                 >
                   <div className="rounded-full border border-gray-600 bg-[#101010] flex items-center pr-2">
+                    {/* Кнопка прикрепления файла */}
+                    <button
+                      type="button"
+                      className="p-2 text-gray-400 hover:text-white focus:outline-none"
+                      onClick={() => {
+                        // Клик по скрытому input file
+                        const fileInput = document.getElementById('welcome-file-input') as HTMLInputElement;
+                        if (fileInput) fileInput.click();
+                      }}
+                      disabled={sendMessageMutation.isPending}
+                    >
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      <input
+                        id="welcome-file-input"
+                        type="file"
+                        className="hidden"
+                        accept=".txt,.json,.md,.jpg,.jpeg,.png,.pdf"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            const content = event.target?.result as string;
+                            if (content && handleFileUpload) {
+                              handleFileUpload(content);
+                            }
+                          };
+                          reader.readAsText(file);
+                          // Очищаем input для возможности повторной загрузки того же файла
+                          e.target.value = '';
+                        }}
+                        disabled={sendMessageMutation.isPending}
+                      />
+                    </button>
+                    
+                    {/* Поле ввода */}
                     <input 
                       type="text" 
                       name="message"
@@ -204,6 +243,42 @@ const Home = () => {
                       className="flex-1 bg-transparent text-white border-none px-4 py-3 focus:outline-none rounded-full"
                       disabled={sendMessageMutation.isPending}
                     />
+                    
+                    {/* Кнопка голосового ввода */}
+                    <button
+                      type="button"
+                      className="p-2 text-gray-400 hover:text-white focus:outline-none"
+                      onClick={() => {
+                        // Проверяем наличие поддержки распознавания речи
+                        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+                        if (SpeechRecognition) {
+                          const recognition = new SpeechRecognition();
+                          recognition.lang = 'ru-RU';
+                          recognition.continuous = false;
+                          recognition.interimResults = false;
+                          
+                          recognition.onresult = (event: any) => {
+                            const transcript = event.results[0][0].transcript;
+                            if (transcript && handleVoiceInput) {
+                              handleVoiceInput(transcript);
+                            }
+                          };
+                          
+                          recognition.start();
+                        } else {
+                          alert("Ваш браузер не поддерживает распознавание речи");
+                        }
+                      }}
+                      disabled={sendMessageMutation.isPending}
+                    >
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                        <line x1="12" y1="19" x2="12" y2="22"/>
+                      </svg>
+                    </button>
+                    
+                    {/* Кнопка отправки */}
                     <button 
                       type="submit" 
                       className="p-2 rounded-full text-gray-400 hover:text-white"
