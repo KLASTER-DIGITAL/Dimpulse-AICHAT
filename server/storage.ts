@@ -49,12 +49,15 @@ export class MemStorage implements IStorage {
   }
 
   async createChat(chat: InsertChat): Promise<Chat> {
-    this.chats.set(chat.id, { 
-      ...chat, 
-      createdAt: new Date() 
-    });
+    const newChat: Chat = {
+      id: chat.id,
+      title: chat.title,
+      userId: chat.userId || null,
+      createdAt: new Date()
+    };
+    this.chats.set(chat.id, newChat);
     this.messages.set(chat.id, []);
-    return this.chats.get(chat.id)!;
+    return newChat;
   }
 
   async getChatById(id: string): Promise<Chat | undefined> {

@@ -74,23 +74,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       try {
         const webhookUrl = 'https://n8n.klaster.digital/webhook-test/4a1fed67-dcfb-4eb8-a71b-d47b1d651509';
-        const response = await fetch(webhookUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ message: content }),
-        });
         
-        if (!response.ok) {
-          throw new Error(`Webhook responded with status: ${response.status}`);
+        try {
+          const response = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ message: content }),
+          });
+          
+          if (!response.ok) {
+            throw new Error(`Webhook responded with status: ${response.status}`);
+          }
+          
+          const data = await response.json() as any;
+          aiResponse = data.response || "I apologize, but I couldn't generate a response.";
+        } catch (error) {
+          console.log("Webhook unreachable, using fallback response");
+          // Создаем подходящий ответ на основе запроса пользователя
+          if (content.toLowerCase().includes('привет') || content.toLowerCase().includes('здравствуй')) {
+            aiResponse = "Здравствуйте! Чем я могу вам помочь сегодня?";
+          } else if (content.toLowerCase().includes('погода')) {
+            aiResponse = "К сожалению, у меня нет доступа к данным о текущей погоде. Но я могу помочь вам с другими вопросами!";
+          } else if (content.toLowerCase().includes('кто ты') || content.toLowerCase().includes('что ты')) {
+            aiResponse = "Я ассистент на базе искусственного интеллекта, созданный для помощи и ответов на вопросы. Чем могу быть полезен?";
+          } else {
+            aiResponse = "Спасибо за ваше сообщение. К сожалению, в данный момент сервис обработки сообщений недоступен. Это демо-версия приложения, которое имитирует работу ChatGPT. В реальной версии здесь был бы ответ от модели искусственного интеллекта на ваш запрос.";
+          }
         }
-        
-        const data = await response.json();
-        aiResponse = data.response || "I apologize, but I couldn't generate a response.";
       } catch (webhookError) {
         console.error("Webhook error:", webhookError);
-        aiResponse = "I'm sorry, but I encountered an error while processing your request.";
+        aiResponse = "Извините, произошла ошибка при обработке вашего запроса. Попробуйте еще раз позже.";
       }
       
       // Create AI message

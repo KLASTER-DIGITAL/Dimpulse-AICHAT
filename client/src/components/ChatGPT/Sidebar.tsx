@@ -65,7 +65,7 @@ const Sidebar = ({ chats, isOpen, onClose, onNewChat, currentChatId }: SidebarPr
             className="flex items-center gap-3 w-full rounded p-3 text-sm hover:bg-gray-700 text-white border border-gray-600"
             onClick={onNewChat}
           >
-            <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" className="h-4 w-4" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg">
+            <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg">
               <line x1="12" y1="5" x2="12" y2="19"></line>
               <line x1="5" y1="12" x2="19" y2="12"></line>
             </svg>
@@ -85,7 +85,7 @@ const Sidebar = ({ chats, isOpen, onClose, onNewChat, currentChatId }: SidebarPr
                         currentChatId === chat.id ? 'bg-gray-700' : ''
                       }`}
                     >
-                      <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" className="h-4 w-4" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg">
+                      <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg">
                         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
                       </svg>
                       <div className="flex-1 text-sm truncate">{chat.title}</div>
