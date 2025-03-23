@@ -103,13 +103,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Если есть аудио данные, добавляем их как отдельную переменную
       if (audioData) {
         requestBody.audio = audioData;
-        console.log("Including audio data in webhook request");
+        console.log("Including audio data in webhook request (audio data length: " + (audioData?.length || 0) + " characters)");
       }
       
       console.log("Sending webhook request:", {
         url: webhookUrl,
-        body: requestBody
+        body: { message: content, hasAudio: !!audioData }
       });
+      console.log("Request payload size:", JSON.stringify(requestBody).length, "bytes");
       
       try {
         const response = await fetch(webhookUrl, {
