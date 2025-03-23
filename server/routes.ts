@@ -101,10 +101,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       // Если есть аудио данные, добавляем их также как отдельную переменную
-      // для обратной совместимости
       if (audioData) {
         requestBody.audio = audioData;
         console.log("Including audio data in webhook request (audio data length: " + (audioData?.length || 0) + " characters)");
+      }
+      
+      // Если есть файл, добавляем его как отдельную переменную
+      const fileData = req.body.fileData;
+      if (fileData) {
+        requestBody.file = {
+          content: fileData.content,
+          name: fileData.name,
+          type: fileData.type
+        };
+        console.log(`Including file data in webhook request (${fileData.name}, type: ${fileData.type})`);
       }
       
       console.log("Sending webhook request:", {

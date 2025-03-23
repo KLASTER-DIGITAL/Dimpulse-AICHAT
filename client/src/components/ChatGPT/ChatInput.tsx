@@ -29,12 +29,21 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (message.trim() && !isLoading) {
-      // Отправка сообщения с аудиоданными, если они доступны
-      onSendMessage(message.trim(), audioData || undefined);
+      // Отправка сообщения с аудиоданными и/или файлом, если они доступны
+      onSendMessage(
+        message.trim(), 
+        audioData || undefined, 
+        uploadedFile ? {
+          content: uploadedFile.content,
+          name: uploadedFile.name,
+          type: uploadedFile.type
+        } : undefined
+      );
       
       // Сбрасываем состояние
       setMessage("");
       setAudioData(null);
+      setUploadedFile(null);
       
       // Reset height
       if (textareaRef.current) {
@@ -230,6 +239,49 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
   return (
     <div className={`p-4 fixed ${!isLoading ? "bottom-0" : ""} left-0 right-0`}>
       <div className="max-w-3xl mx-auto">
+        {/* Отображение прикрепленного файла */}
+        {uploadedFile && (
+          <div className="bg-[#202020] rounded-md mb-2 p-2 relative">
+            <div className="flex items-center">
+              {uploadedFile.type.startsWith('image/') && uploadedFile.preview ? (
+                <div className="w-16 h-16 mr-3 rounded-md overflow-hidden">
+                  <img 
+                    src={uploadedFile.preview} 
+                    alt={uploadedFile.name}
+                    className="w-full h-full object-cover" 
+                  />
+                </div>
+              ) : (
+                <div className="w-16 h-16 flex items-center justify-center mr-3 bg-[#2b2b2b] rounded-md">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                    <polyline points="10 9 9 9 8 9"></polyline>
+                  </svg>
+                </div>
+              )}
+              <div className="flex-1">
+                <div className="text-sm text-white font-medium truncate">{uploadedFile.name}</div>
+                <div className="text-xs text-gray-400">
+                  {uploadedFile.type.split('/')[1].toUpperCase()} файл
+                </div>
+              </div>
+              <button 
+                type="button" 
+                className="ml-2 text-gray-400 hover:text-white p-1"
+                onClick={() => setUploadedFile(null)}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
+        
         <form id="chat-form" className="relative bg-black" onSubmit={handleSubmit}>
           <div className="rounded-full border border-gray-600 bg-[#101010] flex items-center pr-2">
             {/* Кнопка прикрепления файла */}

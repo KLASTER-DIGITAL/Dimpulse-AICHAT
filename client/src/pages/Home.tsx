@@ -62,13 +62,30 @@ const Home = () => {
   
   // Send a message
   const sendMessageMutation = useMutation({
-    mutationFn: async ({ chatId, message, audioData }: { chatId: string, message: string, audioData?: string }) => {
-      console.log("Отправка сообщения:", { chatId, message, hasAudio: !!audioData });
+    mutationFn: async ({ chatId, message, audioData, fileData }: { 
+      chatId: string, 
+      message: string, 
+      audioData?: string,
+      fileData?: { content: string, name: string, type: string } 
+    }) => {
+      console.log("Отправка сообщения:", { 
+        chatId, 
+        message, 
+        hasAudio: !!audioData,
+        hasFile: !!fileData,
+        fileName: fileData?.name
+      });
+      
       const payload = { content: message };
       
       // Если есть аудиоданные, добавляем их в запрос
       if (audioData) {
         Object.assign(payload, { audioData });
+      }
+      
+      // Если есть данные файла, добавляем их в запрос
+      if (fileData) {
+        Object.assign(payload, { fileData });
       }
       
       // Добавляем временное сообщение с анимацией печати
@@ -157,9 +174,35 @@ const Home = () => {
   };
   
   // Handle file upload
-  const handleFileUpload = (fileContent: string) => {
+  const handleFileUpload = (fileContent: string, fileName: string, fileType: string) => {
     if (fileContent && !sendMessageMutation.isPending) {
-      handleSendMessage(`Содержимое загруженного файла:\n${fileContent}`);
+      if (!currentChatId) {
+        // Если нет текущего чата, создаем новый и отправляем сообщение с файлом
+        createChatMutation.mutate(undefined, {
+          onSuccess: (newChat) => {
+            sendMessageMutation.mutate({
+              chatId: newChat.id,
+              message: `Файл: ${fileName}`,
+              fileData: {
+                content: fileContent,
+                name: fileName,
+                type: fileType
+              }
+            });
+          }
+        });
+      } else {
+        // Если чат существует, отправляем сообщение с файлом
+        sendMessageMutation.mutate({
+          chatId: currentChatId,
+          message: `Файл: ${fileName}`,
+          fileData: {
+            content: fileContent,
+            name: fileName,
+            type: fileType
+          }
+        });
+      }
     }
   };
   
@@ -224,10 +267,10 @@ const Home = () => {
                           reader.onload = (event) => {
                             const content = event.target?.result as string;
                             if (content && handleFileUpload) {
-                              handleFileUpload(content);
+                              handleFileUpload(content, file.name, file.type);
                             }
                           };
-                          reader.readAsText(file);
+                          reader.readAsDataURL(file);
                           // Очищаем input для возможности повторной загрузки того же файла
                           e.target.value = '';
                         }}
