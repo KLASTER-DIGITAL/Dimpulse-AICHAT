@@ -21,7 +21,6 @@ const TypingAnimation = () => {
         <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '300ms' }}></div>
         <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '600ms' }}></div>
       </div>
-      <span>Идет обработка{dots}</span>
     </div>
   );
 };

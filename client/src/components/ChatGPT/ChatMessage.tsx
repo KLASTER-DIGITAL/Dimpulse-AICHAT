@@ -22,7 +22,9 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
         <div className="flex items-start">
           <div className="flex-1 text-white">
             {isTyping ? (
-              <TypingAnimation />
+              <div className="flex items-center">
+                <TypingAnimation />
+              </div>
             ) : (
               <div className="markdown">
                 <MarkdownRenderer content={message.content} />
