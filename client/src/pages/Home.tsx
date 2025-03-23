@@ -119,14 +119,12 @@ const Home = () => {
     if (params?.id) {
       // Используем id из URL
       setCurrentChatId(params.id);
-    } else if (chats.length > 0 && !isLoadingChats) {
-      // Если у нас есть чаты и мы находимся на домашней странице, перейти к первому чату
-      navigate(`/chat/${chats[0].id}`);
-    } else if (!isLoadingChats && chats.length === 0) {
-      // Если чатов еще нет, создаем новый чат
-      createChatMutation.mutate();
+    } else {
+      // Убрано автоматическое создание чата при загрузке
+      // Чат будет создан только после отправки первого сообщения
+      setCurrentChatId(null);
     }
-  }, [params?.id, chats, isLoadingChats, navigate]);
+  }, [params?.id]);
   
   // Handle sending a message
   const handleSendMessage = (message: string, audioData?: string) => {
@@ -221,13 +219,15 @@ const Home = () => {
           </>
         )}
         
-        {/* Chat Input - всегда отображается */}
-        <ChatInput 
-          onSendMessage={handleSendMessage}
-          onVoiceInput={handleVoiceInput}
-          onFileUpload={handleFileUpload}
-          isLoading={sendMessageMutation.isPending}
-        />
+        {/* Chat Input - отображается только если чат не пуст */}
+        {chatData?.messages?.length > 0 && (
+          <ChatInput 
+            onSendMessage={handleSendMessage}
+            onVoiceInput={handleVoiceInput}
+            onFileUpload={handleFileUpload}
+            isLoading={sendMessageMutation.isPending}
+          />
+        )}
       </div>
     </div>
   );
