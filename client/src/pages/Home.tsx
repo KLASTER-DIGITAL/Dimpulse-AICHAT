@@ -20,10 +20,22 @@ const Home = () => {
   });
   
   // Get current chat and its messages
-  const { data: chatData, isLoading: isLoadingChat } = useQuery<{ chat: Chat, messages: Message[] }>({
+  const { data: chatData, isLoading: isLoadingChat, refetch } = useQuery<{ chat: Chat, messages: Message[] }>({
     queryKey: ['/api/chats', currentChatId],
     enabled: !!currentChatId,
   });
+  
+  // Автоматическое обновление сообщений каждые 2 секунды, если есть активный чат
+  useEffect(() => {
+    if (!currentChatId) return;
+    
+    const intervalId = setInterval(() => {
+      console.log("Запрашиваем обновления сообщений");
+      refetch();
+    }, 2000);
+    
+    return () => clearInterval(intervalId);
+  }, [currentChatId, refetch]);
   
   // Create a new chat
   const createChatMutation = useMutation({
@@ -47,14 +59,19 @@ const Home = () => {
   // Send a message
   const sendMessageMutation = useMutation({
     mutationFn: async ({ chatId, message }: { chatId: string, message: string }) => {
+      console.log("Отправка сообщения:", { chatId, message });
       const res = await apiRequest('POST', `/api/chats/${chatId}/messages`, { content: message });
-      return res.json();
+      const data = await res.json();
+      console.log("Ответ от сервера:", data);
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log("Мутация успешна, обновляем запросы");
       queryClient.invalidateQueries({ queryKey: ['/api/chats', currentChatId] });
       queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
     },
-    onError: () => {
+    onError: (error) => {
+      console.error("Ошибка отправки сообщения:", error);
       toast({
         title: "Ошибка",
         description: "Не удалось отправить сообщение",
