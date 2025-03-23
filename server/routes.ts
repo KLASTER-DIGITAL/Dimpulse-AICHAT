@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { randomUUID } from "crypto";
-import { insertChatSchema, insertMessageSchema } from "@shared/schema";
+import { insertChatSchema, insertMessageSchema, settingsSchema } from "@shared/schema";
 import fetch from "node-fetch";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -79,8 +79,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // В других случаях будем ждать ответа от webhook
       let aiResponse = "";
       
-      // Отправляем запрос к webhook
-      const webhookUrl = 'https://n8n.klaster.digital/webhook-test/4a1fed67-dcfb-4eb8-a71b-d47b1d651509';
+      // Получаем настройки webhook из хранилища
+      const settings = await storage.getSettings();
+      const webhookUrl = settings.webhook.url;
+      const webhookEnabled = settings.webhook.enabled;
+      
+      // Проверяем, включен ли webhook
+      if (!webhookEnabled) {
+        console.log("Webhook is disabled in settings");
+        return res.status(201).json({
+          id: -1,
+          chatId,
+          role: "assistant",
+          content: "typing",
+          createdAt: new Date().toISOString(),
+          typing: true
+        });
+      }
       
       // Не выполняем предварительную активацию webhook, требуется ручная активация
       await new Promise(resolve => setTimeout(resolve, 300));
@@ -291,6 +306,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Message error:", error);
       res.status(500).json({ message: "Failed to process message" });
+    }
+  });
+
+  // Получение настроек
+  app.get("/api/settings", async (req, res) => {
+    try {
+      const settings = await storage.getSettings();
+      res.json(settings);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch settings" });
+    }
+  });
+
+  // Обновление настроек
+  app.put("/api/settings", async (req, res) => {
+    try {
+      const settings = settingsSchema.parse(req.body);
+      const updatedSettings = await storage.updateSettings(settings);
+      res.json(updatedSettings);
+    } catch (error) {
+      res.status(400).json({ message: "Failed to update settings" });
+    }
+  });
+
+  // Обновление только URL вебхука
+  app.put("/api/settings/webhook", async (req, res) => {
+    try {
+      const { url, enabled } = req.body;
+      if (typeof url !== 'string') {
+        return res.status(400).json({ message: "URL must be a string" });
+      }
+      if (typeof enabled !== 'boolean') {
+        return res.status(400).json({ message: "Enabled must be a boolean" });
+      }
+      
+      const updatedSettings = await storage.updateWebhookUrl(url, enabled);
+      res.json(updatedSettings);
+    } catch (error) {
+      res.status(400).json({ message: "Failed to update webhook URL" });
     }
   });
 

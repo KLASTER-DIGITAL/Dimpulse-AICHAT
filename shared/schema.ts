@@ -48,3 +48,24 @@ export type Message = typeof messages.$inferSelect;
 
 export type InsertChat = z.infer<typeof insertChatSchema>;
 export type Chat = typeof chats.$inferSelect;
+
+// Схема для настроек
+export const settingsSchema = z.object({
+  webhook: z.object({
+    url: z.string().url(),
+    enabled: z.boolean(),
+  }),
+  integration: z.object({
+    iframe: z.object({
+      enabled: z.boolean(),
+      theme: z.enum(["light", "dark", "transparent"]),
+    }),
+    widget: z.object({
+      enabled: z.boolean(),
+      position: z.enum(["left", "right"]),
+      theme: z.enum(["light", "dark"]),
+    }),
+  }),
+});
+
+export type Settings = z.infer<typeof settingsSchema>;

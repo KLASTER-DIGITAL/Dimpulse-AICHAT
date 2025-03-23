@@ -1,4 +1,4 @@
-import { messages, chats, users, type User, type InsertUser, type Message, type InsertMessage, type Chat, type InsertChat } from "@shared/schema";
+import { messages, chats, users, type User, type InsertUser, type Message, type InsertMessage, type Chat, type InsertChat, type Settings, settingsSchema } from "@shared/schema";
 
 export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
@@ -14,6 +14,11 @@ export interface IStorage {
   // Message methods
   createMessage(message: InsertMessage): Promise<Message>;
   getMessagesByChatId(chatId: string): Promise<Message[]>;
+  
+  // Settings methods
+  getSettings(): Promise<Settings>;
+  updateSettings(settings: Settings): Promise<Settings>;
+  updateWebhookUrl(url: string, enabled: boolean): Promise<Settings>;
 }
 
 export class MemStorage implements IStorage {
@@ -22,6 +27,7 @@ export class MemStorage implements IStorage {
   private messages: Map<string, Message[]>;
   private currentUserId: number;
   private currentMessageId: number;
+  private settings: Settings;
 
   constructor() {
     this.users = new Map();
@@ -29,6 +35,25 @@ export class MemStorage implements IStorage {
     this.messages = new Map();
     this.currentUserId = 1;
     this.currentMessageId = 1;
+    
+    // Инициализация настроек по умолчанию
+    this.settings = {
+      webhook: {
+        url: "https://n8n.klaster.digital/webhook-test/4a1fed67-dcfb-4eb8-a71b-d47b1d651509",
+        enabled: true,
+      },
+      integration: {
+        iframe: {
+          enabled: false,
+          theme: "dark",
+        },
+        widget: {
+          enabled: false,
+          position: "left",
+          theme: "dark",
+        },
+      },
+    };
   }
 
   async getUser(id: number): Promise<User | undefined> {
@@ -109,6 +134,22 @@ export class MemStorage implements IStorage {
 
   async getMessagesByChatId(chatId: string): Promise<Message[]> {
     return this.messages.get(chatId) || [];
+  }
+  
+  // Settings methods
+  async getSettings(): Promise<Settings> {
+    return this.settings;
+  }
+  
+  async updateSettings(settings: Settings): Promise<Settings> {
+    this.settings = settings;
+    return this.settings;
+  }
+  
+  async updateWebhookUrl(url: string, enabled: boolean): Promise<Settings> {
+    this.settings.webhook.url = url;
+    this.settings.webhook.enabled = enabled;
+    return this.settings;
   }
 }
 
