@@ -109,10 +109,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Активируем webhook перед запросом
       await activateWebhook();
       
-      console.log("Sending webhook request:", {
-        url: webhookUrl,
-        body: { message: content }
-      });
+      // Подробное логирование отправляемых данных
+      const requestBody = { message: content };
+      console.log("===== SENDING TEXT MESSAGE TO WEBHOOK =====");
+      console.log("URL:", webhookUrl);
+      console.log("Request body:", JSON.stringify(requestBody, null, 2));
+      console.log("============================================");
       
       try {
         const response = await fetch(webhookUrl, {
@@ -267,6 +269,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const audioFilePath = req.file.path;
       console.log('Аудиофайл сохранен:', audioFilePath);
       
+      // Конвертируем файл в base64
+      const audioFileContent = fs.readFileSync(audioFilePath);
+      const audioBase64 = audioFileContent.toString('base64');
+      
       // Формируем данные для отправки на webhook
       // Здесь мы отправляем путь к файлу, а не сам файл
       // Для реального использования можно либо:
@@ -277,13 +283,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // В данном случае отправляем информацию о файле на webhook
       const webhookUrl = 'https://n8n.klaster.digital/webhook-test/4a1fed67-dcfb-4eb8-a71b-d47b1d651509';
       
-      console.log('Отправляем информацию о голосовом сообщении на webhook:', {
-        url: webhookUrl
-      });
+      // Активируем webhook перед запросом
+      await activateWebhook();
       
-      // Конвертируем файл в base64
-      const audioFileContent = fs.readFileSync(audioFilePath);
-      const audioBase64 = audioFileContent.toString('base64');
+      // Создаем объект для отправки на webhook (используется для логирования и отправки)
+      const voiceRequestBody = {
+        audio_base64: audioBase64,
+        audio_filename: req.file.originalname,
+        message_type: 'voice',
+        transcription_request: true
+      };
+      
+      console.log('===== SENDING VOICE MESSAGE TO WEBHOOK =====');
+      console.log('URL:', webhookUrl);
+      console.log('Request headers:', { 'Content-Type': 'application/json' });
+      console.log('Request body structure:', {
+        audio_base64: '[BASE64_AUDIO_DATA]', // Не показываем полностью в логах
+        audio_filename: req.file.originalname,
+        message_type: 'voice',
+        transcription_request: true,
+        audio_file_size: audioFileContent.length + ' байт',
+        mime_type: req.file.mimetype
+      });
+      console.log('============================================');
       
       // Отправляем на webhook
       const response = await fetch(webhookUrl, {
@@ -291,12 +313,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          audio_base64: audioBase64,
-          audio_filename: req.file.originalname,
-          message_type: 'voice',
-          transcription_request: true
-        }),
+        body: JSON.stringify(voiceRequestBody), // Используем созданный ранее объект
       });
       
       console.log('Webhook response status:', response.status);
