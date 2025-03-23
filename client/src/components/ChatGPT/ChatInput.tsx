@@ -411,7 +411,7 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
               id="message-input" 
               rows={1} 
               className="flex-1 bg-transparent text-white border-none px-3 py-3 focus:outline-none resize-none"
-              placeholder="Опишите что во вложении..."
+              placeholder="Чем еще могу помочь?"
               style={{ maxHeight: "200px", minHeight: "24px" }}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
