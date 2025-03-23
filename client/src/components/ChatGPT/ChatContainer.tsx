@@ -24,7 +24,7 @@ const ChatContainer = ({ messages, isLoading, isEmpty, tempTypingMessage }: Chat
     <div 
       id="chat-container" 
       ref={containerRef}
-      className="flex-1 bg-black overflow-y-auto scrollbar-thin py-4 px-4 md:px-8 pb-32"
+      className="flex-1 bg-black overflow-y-auto scrollbar-thin py-4 px-4 md:px-8 pb-32 mb-16"
     >
       {isEmpty && !isLoading ? (
         <div className="h-full flex items-center justify-center">

@@ -230,14 +230,18 @@ const Home = () => {
           </>
         )}
         
-        {/* Chat Input - отображается только если чат не пуст */}
+        {/* Chat Input - всегда отображается в абсолютном позиционировании внизу экрана для чата */}
         {chatData && chatData.messages && chatData.messages.length > 0 && (
-          <ChatInput 
-            onSendMessage={handleSendMessage}
-            onVoiceInput={handleVoiceInput}
-            onFileUpload={handleFileUpload}
-            isLoading={sendMessageMutation.isPending}
-          />
+          <div className="absolute bottom-0 left-0 right-0 mb-4">
+            <div className="max-w-3xl mx-auto px-4">
+              <ChatInput 
+                onSendMessage={handleSendMessage}
+                onVoiceInput={handleVoiceInput}
+                onFileUpload={handleFileUpload}
+                isLoading={sendMessageMutation.isPending}
+              />
+            </div>
+          </div>
         )}
       </div>
     </div>
