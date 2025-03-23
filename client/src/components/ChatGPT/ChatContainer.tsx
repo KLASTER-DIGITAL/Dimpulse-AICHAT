@@ -1,7 +1,8 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { Message } from "@shared/schema";
 import ChatMessage from "./ChatMessage";
 import TypingAnimation from "./TypingAnimation";
+import GPTLogo from "./GPTLogo";
 
 interface ChatContainerProps {
   messages: Message[];
@@ -12,26 +13,56 @@ interface ChatContainerProps {
 
 const ChatContainer = ({ messages, isLoading, isEmpty, tempTypingMessage }: ChatContainerProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [showScrollButton, setShowScrollButton] = useState(false);
+  const [atBottom, setAtBottom] = useState(true);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
-    if (containerRef.current) {
-      containerRef.current.scrollTop = containerRef.current.scrollHeight;
+    if (containerRef.current && atBottom) {
+      scrollToBottom();
     }
   }, [messages]);
+
+  // Проверка положения скролла и отображение кнопки прокрутки
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      // Если до конца скролла осталось менее 100px, считаем что мы у низа
+      const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
+      setAtBottom(isAtBottom);
+      setShowScrollButton(!isAtBottom && scrollHeight > clientHeight + 200);
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Функция для прокрутки вниз
+  const scrollToBottom = () => {
+    if (containerRef.current) {
+      const { scrollHeight } = containerRef.current;
+      containerRef.current.scrollTo({
+        top: scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+  };
 
   return (
     <div 
       id="chat-container" 
       ref={containerRef}
-      className="flex-1 bg-black overflow-y-auto scrollbar-thin py-4 px-4 md:px-8 pb-32 mb-16"
+      className="flex-1 bg-black overflow-y-auto py-4 px-4 md:px-8 pb-32 mb-16 relative"
     >
       {isEmpty && !isLoading ? (
         <div className="h-full flex items-center justify-center">
           <h1 className="text-2xl font-semibold text-white mb-24">Чем я могу помочь?</h1>
         </div>
       ) : (
-        <div id="messages-container" className="max-w-3xl mx-auto">
+        <div id="messages-container" className="max-w-3xl mx-auto relative">
           {messages.map((message, index) => (
             <ChatMessage key={index} message={message} />
           ))}
@@ -50,6 +81,20 @@ const ChatContainer = ({ messages, isLoading, isEmpty, tempTypingMessage }: Chat
             </div>
           )}
         </div>
+      )}
+      
+      {/* Кнопка прокрутки вниз - в стиле ChatGPT */}
+      {showScrollButton && (
+        <button 
+          onClick={scrollToBottom}
+          className="absolute left-1/2 bottom-16 transform -translate-x-1/2 bg-zinc-800/90 hover:bg-zinc-700 text-white rounded-full py-2 px-4 flex items-center gap-2 shadow-lg transition-all duration-200 border border-zinc-700/50 backdrop-blur-sm"
+          aria-label="Прокрутить вниз"
+        >
+          <span className="text-sm font-medium">Прокрутить вниз</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M19 14l-7 7-7-7M19 10l-7 7-7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
       )}
       
       {/* Дополнительные действия под сообщениями */}
@@ -96,8 +141,5 @@ const ChatContainer = ({ messages, isLoading, isEmpty, tempTypingMessage }: Chat
     </div>
   );
 };
-
-// Import GPTLogo component for ChatContainer
-import GPTLogo from "./GPTLogo";
 
 export default ChatContainer;
