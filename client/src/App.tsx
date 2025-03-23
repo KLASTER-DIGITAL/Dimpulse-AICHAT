@@ -20,7 +20,7 @@ function WelcomeScreen() {
     <div className="flex h-screen w-full bg-black text-[#ECECF1] flex-col">
       <div className="flex flex-col items-center justify-center h-full">
         <div className="text-center mb-32">
-          <h1 className="text-4xl font-semibold mb-2">{getTimeOfDayGreeting()}, Leads.</h1>
+          <h1 className="text-4xl font-semibold mb-2">{getTimeOfDayGreeting()}.</h1>
           <p className="text-2xl text-gray-300">Чем я могу помочь сегодня?</p>
         </div>
         
