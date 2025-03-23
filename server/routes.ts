@@ -1,11 +1,47 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { randomUUID } from "crypto";
 import { insertChatSchema, insertMessageSchema, settingsSchema } from "@shared/schema";
 import fetch from "node-fetch";
+import path from "path";
+import fs from "fs";
+
+// Middleware для CORS
+const corsMiddleware = (req: Request, res: Response, next: NextFunction) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+  res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  
+  // Предварительный запрос CORS
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  
+  next();
+};
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Применяем middleware для CORS ко всем маршрутам
+  app.use(corsMiddleware);
+  
+  // Обработчик для widget.js
+  app.get("/widget.js", (req, res) => {
+    try {
+      const widgetPath = path.join(process.cwd(), "client", "public", "widget.js");
+      if (fs.existsSync(widgetPath)) {
+        res.setHeader('Content-Type', 'application/javascript');
+        res.sendFile(widgetPath);
+      } else {
+        console.error("Widget file not found at path:", widgetPath);
+        res.status(404).send("Widget not found");
+      }
+    } catch (error) {
+      console.error("Error serving widget.js:", error);
+      res.status(500).send("Error serving widget");
+    }
+  });
   // Get all chats (for the sidebar)
   app.get("/api/chats", async (req, res) => {
     try {
