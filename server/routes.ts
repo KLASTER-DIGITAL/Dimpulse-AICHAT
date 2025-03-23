@@ -347,6 +347,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(400).json({ message: "Failed to update webhook URL" });
     }
   });
+  
+  // Обновление только настроек интеграции
+  app.put("/api/settings/integration", async (req, res) => {
+    try {
+      const { integration } = req.body;
+      if (!integration || typeof integration !== 'object') {
+        return res.status(400).json({ message: "Integration settings must be an object" });
+      }
+      
+      // Получаем текущие настройки
+      const currentSettings = await storage.getSettings();
+      
+      // Обновляем только настройки интеграции
+      const updatedSettings = {
+        ...currentSettings,
+        integration
+      };
+      
+      const result = await storage.updateSettings(updatedSettings);
+      res.json(result);
+    } catch (error) {
+      res.status(400).json({ message: "Failed to update integration settings" });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;

@@ -55,11 +55,12 @@ const Cabinet = () => {
   const queryClient = useQueryClient();
   
   // Запрос настроек с сервера
-  const { data: settings, isLoading } = useQuery<Settings>({
+  const { data: settings, isLoading } = useQuery({
     queryKey: ["/api/settings"],
     queryFn: async () => {
       try {
-        return await apiRequest<Settings>("/api/settings");
+        const result = await apiRequest("/api/settings");
+        return result as Settings;
       } catch (error) {
         console.error("Ошибка при получении настроек:", error);
         // Если настройки не получены, используем значения по умолчанию
@@ -104,29 +105,31 @@ const Cabinet = () => {
     }
   }, [settings]);
 
-  // Мутация для сохранения настроек
-  const saveSettingsMutation = useMutation({
-    mutationFn: async (updatedSettings: Settings) => {
-      return await apiRequest<Settings>("/api/settings", {
-        method: "POST",
-        data: updatedSettings,
+
+
+  // Мутация для сохранения только настроек webhook
+  const saveWebhookMutation = useMutation({
+    mutationFn: async (data: { url: string; enabled: boolean }) => {
+      const result = await apiRequest("/api/settings/webhook", {
+        method: "PUT",
+        data,
       });
+      return result as Settings;
     },
     onSuccess: () => {
       toast({
-        title: "Настройки сохранены",
+        title: "Настройки вебхука сохранены",
         description: "Ваши изменения успешно применены",
       });
-      // Инвалидируем кеш, чтобы запросить обновленные данные
       queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
     },
     onError: (error) => {
       toast({
         title: "Ошибка сохранения",
-        description: "Не удалось сохранить настройки. Пожалуйста, попробуйте снова.",
+        description: "Не удалось сохранить настройки вебхука. Пожалуйста, попробуйте снова.",
         variant: "destructive",
       });
-      console.error("Ошибка при сохранении настроек:", error);
+      console.error("Ошибка при сохранении настроек вебхука:", error);
     },
   });
 
@@ -141,37 +144,52 @@ const Cabinet = () => {
       return;
     }
 
-    const updatedSettings: Settings = {
-      ...defaultSettings,
-      ...(settings || {}),
-      webhook: {
-        url: webhookUrl,
-        enabled: webhookEnabled,
-      },
-    };
-
-    saveSettingsMutation.mutate(updatedSettings);
+    saveWebhookMutation.mutate({
+      url: webhookUrl,
+      enabled: webhookEnabled,
+    });
   };
+
+  // Мутация для сохранения только настроек интеграции
+  const saveIntegrationMutation = useMutation({
+    mutationFn: async (integration: Settings['integration']) => {
+      return await apiRequest<Settings>("/api/settings/integration", {
+        method: "PUT",
+        data: { integration },
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Настройки интеграции сохранены",
+        description: "Ваши изменения успешно применены",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Ошибка сохранения",
+        description: "Не удалось сохранить настройки интеграции. Пожалуйста, попробуйте снова.",
+        variant: "destructive",
+      });
+      console.error("Ошибка при сохранении настроек интеграции:", error);
+    },
+  });
 
   // Обработчик сохранения настроек интеграции
   const handleSaveIntegration = () => {
-    const updatedSettings: Settings = {
-      ...defaultSettings,
-      ...(settings || {}),
-      integration: {
-        iframe: {
-          enabled: iframeEnabled,
-          theme: iframeTheme,
-        },
-        widget: {
-          enabled: widgetEnabled,
-          position: widgetPosition,
-          theme: widgetTheme,
-        },
+    const integration = {
+      iframe: {
+        enabled: iframeEnabled,
+        theme: iframeTheme,
+      },
+      widget: {
+        enabled: widgetEnabled,
+        position: widgetPosition,
+        theme: widgetTheme,
       },
     };
 
-    saveSettingsMutation.mutate(updatedSettings);
+    saveIntegrationMutation.mutate(integration);
   };
 
   // Генерация кода для iframe интеграции
@@ -261,9 +279,9 @@ const Cabinet = () => {
               <CardFooter>
                 <Button 
                   onClick={handleSaveWebhook}
-                  disabled={saveSettingsMutation.isPending}
+                  disabled={saveWebhookMutation.isPending}
                 >
-                  {saveSettingsMutation.isPending ? "Сохранение..." : "Сохранить настройки"}
+                  {saveWebhookMutation.isPending ? "Сохранение..." : "Сохранить настройки"}
                 </Button>
               </CardFooter>
             </Card>
@@ -407,9 +425,9 @@ const Cabinet = () => {
                 <CardFooter>
                   <Button 
                     onClick={handleSaveIntegration}
-                    disabled={saveSettingsMutation.isPending}
+                    disabled={saveIntegrationMutation.isPending}
                   >
-                    {saveSettingsMutation.isPending ? "Сохранение..." : "Сохранить настройки"}
+                    {saveIntegrationMutation.isPending ? "Сохранение..." : "Сохранить настройки"}
                   </Button>
                 </CardFooter>
               </Card>
