@@ -258,6 +258,8 @@ const Home = () => {
   const getEmbedStyles = () => {
     if (!embedMode.isEmbed) return {};
     
+    console.log("Применяем тему для embed режима:", embedMode.theme);
+    
     switch (embedMode.theme) {
       case 'light':
         return {

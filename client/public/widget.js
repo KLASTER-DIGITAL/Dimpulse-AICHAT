@@ -4,7 +4,7 @@
   const position = scriptTag.getAttribute('data-position') || 'right';
   const theme = scriptTag.getAttribute('data-theme') || 'dark';
   
-  // Создаем стили для виджета
+  // Создаем стили для виджета с поддержкой пульсации и улучшенными темами
   const style = document.createElement('style');
   style.textContent = `
     .chat-widget-button {
@@ -24,10 +24,27 @@
       z-index: 9999;
       transition: all 0.3s ease;
       border: none;
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0% {
+        box-shadow: 0 0 0 0 ${theme === 'light' ? 'rgba(32, 33, 35, 0.4)' : 'rgba(255, 255, 255, 0.4)'};
+        transform: scale(1);
+      }
+      70% {
+        box-shadow: 0 0 0 10px ${theme === 'light' ? 'rgba(32, 33, 35, 0)' : 'rgba(255, 255, 255, 0)'};
+        transform: scale(1.05);
+      }
+      100% {
+        box-shadow: 0 0 0 0 ${theme === 'light' ? 'rgba(32, 33, 35, 0)' : 'rgba(255, 255, 255, 0)'};
+        transform: scale(1);
+      }
     }
     
     .chat-widget-button:hover {
-      transform: scale(1.05);
+      transform: scale(1.1);
+      animation-play-state: paused;
     }
     
     .chat-widget-icon {
@@ -90,6 +107,7 @@
       width: 100%;
       height: 100%;
       border: none;
+      background-color: ${theme === 'light' ? '#ffffff' : '#202123'};
     }
   `;
   
