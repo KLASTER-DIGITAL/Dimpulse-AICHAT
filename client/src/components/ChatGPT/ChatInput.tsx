@@ -63,6 +63,7 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
       setMessage("");
       setAudioData(null);
       setUploadedFiles([]);
+      setPendingFiles(false);
       
       // Reset height
       if (textareaRef.current) {
@@ -207,6 +208,9 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
   
   // Для обратной совместимости оставляем одиночный файл
   const uploadedFile = uploadedFiles.length > 0 ? uploadedFiles[0] : null;
+  
+  // Для отслеживания, были ли добавлены новые файлы после последней отправки
+  const [pendingFiles, setPendingFiles] = useState<boolean>(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!onFileUpload) return;
@@ -246,6 +250,9 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
         // Добавляем файл в массив файлов
         setUploadedFiles(prevFiles => [...prevFiles, fileInfo]);
         
+        // Помечаем, что есть новые файлы, ожидающие отправки
+        setPendingFiles(true);
+        
         // Обновляем сообщение с информацией о файлах
         const fileCount = uploadedFiles.length + 1;
         if (fileCount === 1) {
@@ -258,8 +265,8 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
           setMessage(`Прикреплено файлов: ${fileCount}`);
         }
         
-        // Вызываем обработчик загрузки файла
-        onFileUpload(content, file.name, file.type);
+        // НЕ вызываем обработчик загрузки файла - ждем сообщение пользователя
+        // onFileUpload(content, file.name, file.type);
       }
     };
     

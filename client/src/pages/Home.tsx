@@ -62,17 +62,26 @@ const Home = () => {
   
   // Send a message
   const sendMessageMutation = useMutation({
-    mutationFn: async ({ chatId, message, audioData, fileData }: { 
+    mutationFn: async ({ 
+      chatId, 
+      message, 
+      audioData, 
+      fileData,
+      filesData
+    }: { 
       chatId: string, 
       message: string, 
       audioData?: string,
-      fileData?: { content: string, name: string, type: string } 
+      fileData?: { content: string, name: string, type: string },
+      filesData?: Array<{ content: string, name: string, type: string, size: number }> 
     }) => {
       console.log("Отправка сообщения:", { 
         chatId, 
         message, 
         hasAudio: !!audioData,
         hasFile: !!fileData,
+        hasMultipleFiles: !!filesData && filesData.length > 0,
+        fileCount: filesData?.length || (fileData ? 1 : 0),
         fileName: fileData?.name
       });
       
@@ -86,6 +95,11 @@ const Home = () => {
       // Если есть данные файла, добавляем их в запрос
       if (fileData) {
         Object.assign(payload, { fileData });
+      }
+      
+      // Если есть массив файлов, добавляем их в запрос
+      if (filesData && filesData.length > 0) {
+        Object.assign(payload, { filesData });
       }
       
       // Добавляем временное сообщение с анимацией печати
@@ -144,14 +158,25 @@ const Home = () => {
   }, [params?.id]);
   
   // Handle sending a message
-  const handleSendMessage = async (message: string, audioData?: string) => {
+  const handleSendMessage = async (
+    message: string, 
+    audioData?: string, 
+    fileData?: { content: string, name: string, type: string },
+    filesData?: Array<{ content: string, name: string, type: string, size: number }>
+  ) => {
     if (!currentChatId) {
       // Если нет текущего чата, создаем новый
       try {
         const newChat = await createChatMutation.mutateAsync();
         console.log("Создан новый чат:", newChat);
         // После создания чата сразу отправляем сообщение
-        sendMessageMutation.mutate({ chatId: newChat.id, message, audioData });
+        sendMessageMutation.mutate({ 
+          chatId: newChat.id, 
+          message, 
+          audioData, 
+          fileData,
+          filesData
+        });
       } catch (error) {
         console.error("Ошибка при создании чата:", error);
         toast({
@@ -162,7 +187,13 @@ const Home = () => {
       }
     } else {
       // Если чат уже существует, просто отправляем сообщение
-      sendMessageMutation.mutate({ chatId: currentChatId, message, audioData });
+      sendMessageMutation.mutate({ 
+        chatId: currentChatId, 
+        message, 
+        audioData, 
+        fileData,
+        filesData
+      });
     }
   };
 
