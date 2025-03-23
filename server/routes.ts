@@ -4,6 +4,10 @@ import { storage } from "./storage";
 import { randomUUID } from "crypto";
 import { insertChatSchema, insertMessageSchema } from "@shared/schema";
 import fetch from "node-fetch";
+import multer from "multer";
+import * as fs from "fs";
+import * as path from "path";
+import * as os from "os";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Get all chats (for the sidebar)
@@ -209,6 +213,128 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Message error:", error);
       res.status(500).json({ message: "Failed to process message" });
+    }
+  });
+
+  // Настройка multer для загрузки аудиофайлов
+  const upload = multer({
+    storage: multer.diskStorage({
+      destination: (req, file, cb) => {
+        const tempDir = path.join(os.tmpdir(), 'audio-uploads');
+        if (!fs.existsSync(tempDir)) {
+          fs.mkdirSync(tempDir, { recursive: true });
+        }
+        cb(null, tempDir);
+      },
+      filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+        cb(null, `audio-${uniqueSuffix}${path.extname(file.originalname)}`);
+      }
+    }),
+    limits: {
+      fileSize: 10 * 1024 * 1024 // 10MB максимальный размер файла
+    },
+    fileFilter: (req, file, cb) => {
+      // Принимаем только аудиофайлы
+      if (file.mimetype.startsWith('audio/')) {
+        cb(null, true);
+      } else {
+        cb(new Error('Только аудиофайлы!'));
+      }
+    }
+  });
+
+  // Эндпоинт для транскрипции аудио через webhook
+  app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'Аудиофайл не найден' });
+      }
+
+      const audioFilePath = req.file.path;
+      console.log('Аудиофайл сохранен:', audioFilePath);
+      
+      // Формируем данные для отправки на webhook
+      // Здесь мы отправляем путь к файлу, а не сам файл
+      // Для реального использования можно либо:
+      // 1. Конвертировать файл в base64 и отправлять его
+      // 2. Загрузить файл в облачное хранилище и отправить ссылку
+      // 3. Использовать сторонний сервис транскрипции
+      
+      // В данном случае отправляем информацию о файле на webhook
+      const webhookUrl = 'https://n8n.klaster.digital/webhook/4a1fed67-dcfb-4eb8-a71b-d47b1d651509';
+      
+      console.log('Отправляем информацию о голосовом сообщении на webhook:', {
+        url: webhookUrl
+      });
+      
+      // Конвертируем файл в base64
+      const audioFileContent = fs.readFileSync(audioFilePath);
+      const audioBase64 = audioFileContent.toString('base64');
+      
+      // Отправляем на webhook
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          audio_base64: audioBase64,
+          audio_filename: req.file.originalname,
+          message_type: 'voice',
+          transcription_request: true
+        }),
+      });
+      
+      console.log('Webhook response status:', response.status);
+      
+      // Пытаемся получить ответ от webhook
+      let transcript = '';
+      
+      try {
+        const data = await response.json();
+        console.log('Webhook response data:', JSON.stringify(data, null, 2));
+        
+        // Обрабатываем различные варианты ответа от webhook
+        if (data && data.transcript) {
+          transcript = data.transcript;
+        } else if (data && data.text) {
+          transcript = data.text;
+        } else if (data && data.content) {
+          transcript = data.content;
+        } else if (data && data.message) {
+          transcript = data.message;
+        } else if (Array.isArray(data) && data[0]) {
+          if (typeof data[0] === 'string') {
+            transcript = data[0];
+          } else if (data[0].transcript) {
+            transcript = data[0].transcript;
+          } else if (data[0].text) {
+            transcript = data[0].text;
+          } else if (data[0].content) {
+            transcript = data[0].content;
+          }
+        } else {
+          // Если не нашли подходящий формат, используем текст по умолчанию
+          transcript = 'Не удалось распознать текст аудиосообщения. Пожалуйста, попробуйте еще раз.';
+        }
+      } catch (error) {
+        console.log('Ошибка при обработке ответа от webhook:', error);
+        transcript = 'Произошла ошибка при обработке аудио. Пожалуйста, попробуйте еще раз.';
+      }
+      
+      // Очищаем временный файл
+      try {
+        fs.unlinkSync(audioFilePath);
+        console.log('Временный файл удален:', audioFilePath);
+      } catch (unlinkError) {
+        console.log('Ошибка при удалении временного файла:', unlinkError);
+      }
+      
+      res.json({ transcript });
+    } catch (error) {
+      console.error('Ошибка при обработке аудио:', error);
+      res.status(500).json({ error: 'Ошибка при обработке аудио', details: error.message });
     }
   });
 
