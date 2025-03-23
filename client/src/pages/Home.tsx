@@ -41,8 +41,10 @@ const Home = () => {
   // Create a new chat
   const createChatMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest('POST', '/api/chats', {});
-      return res.json();
+      return await apiRequest('/api/chats', {
+        method: 'POST',
+        data: {}
+      });
     },
     onSuccess: (newChat: Chat) => {
       queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
@@ -112,8 +114,10 @@ const Home = () => {
         typing: true
       });
       
-      const res = await apiRequest('POST', `/api/chats/${chatId}/messages`, payload);
-      const data = await res.json();
+      const data = await apiRequest(`/api/chats/${chatId}/messages`, {
+        method: 'POST',
+        data: payload
+      });
       console.log("Ответ от сервера:", data);
       
       // Если получили сообщение с typing: true, значит это промежуточное состояние
