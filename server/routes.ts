@@ -292,35 +292,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let transcript = '';
       
       try {
-        const data = await response.json();
-        console.log('Webhook response data:', JSON.stringify(data, null, 2));
-        
-        // Обрабатываем различные варианты ответа от webhook
-        if (data && data.transcript) {
-          transcript = data.transcript;
-        } else if (data && data.text) {
-          transcript = data.text;
-        } else if (data && data.content) {
-          transcript = data.content;
-        } else if (data && data.message) {
-          transcript = data.message;
-        } else if (Array.isArray(data) && data[0]) {
-          if (typeof data[0] === 'string') {
-            transcript = data[0];
-          } else if (data[0].transcript) {
-            transcript = data[0].transcript;
-          } else if (data[0].text) {
-            transcript = data[0].text;
-          } else if (data[0].content) {
-            transcript = data[0].content;
-          }
+        // Проверка статуса ответа
+        if (response.status === 404) {
+          transcript = "К сожалению, сервис обработки голосовых сообщений в данный момент недоступен. Для активации сервиса необходимо нажать кнопку 'Test workflow' в интерфейсе n8n.";
+          console.log("Webhook not registered for audio processing");
+        } else if (!response.ok) {
+          transcript = "Сервер обработки аудио вернул ошибку. Пожалуйста, попробуйте позже.";
+          console.log(`Server returned error: ${response.status}`);
         } else {
-          // Если не нашли подходящий формат, используем текст по умолчанию
-          transcript = 'Не удалось распознать текст аудиосообщения. Пожалуйста, попробуйте еще раз.';
+          // Пытаемся получить данные JSON
+          try {
+            const data = await response.json();
+            console.log('Webhook response data:', JSON.stringify(data, null, 2));
+            
+            // Обрабатываем различные варианты ответа от webhook
+            if (data && data.transcript) {
+              transcript = data.transcript;
+            } else if (data && data.text) {
+              transcript = data.text;
+            } else if (data && data.content) {
+              transcript = data.content;
+            } else if (data && data.message) {
+              transcript = data.message;
+            } else if (Array.isArray(data) && data[0]) {
+              if (typeof data[0] === 'string') {
+                transcript = data[0];
+              } else if (data[0].transcript) {
+                transcript = data[0].transcript;
+              } else if (data[0].text) {
+                transcript = data[0].text;
+              } else if (data[0].content) {
+                transcript = data[0].content;
+              }
+            } else {
+              // Если не нашли подходящий формат, используем текст по умолчанию
+              transcript = 'Не удалось распознать текст аудиосообщения. Пожалуйста, попробуйте еще раз.';
+            }
+          } catch (jsonError) {
+            console.log('Ошибка при обработке JSON от webhook:', jsonError);
+            
+            // Пытаемся получить текст ответа, если это не JSON
+            try {
+              const textResponse = await response.text();
+              if (textResponse && textResponse.length > 0) {
+                console.log('Webhook text response:', textResponse);
+                transcript = textResponse;
+              } else {
+                transcript = 'Ошибка распознавания аудио: сервер вернул пустой ответ.';
+              }
+            } catch (textError) {
+              console.log('Ошибка при получении текста ответа:', textError);
+              transcript = 'Произошла ошибка при обработке аудио. Пожалуйста, попробуйте еще раз.';
+            }
+          }
         }
       } catch (error) {
         console.log('Ошибка при обработке ответа от webhook:', error);
-        transcript = 'Произошла ошибка при обработке аудио. Пожалуйста, попробуйте еще раз.';
+        transcript = 'Сервис обработки аудио в данный момент недоступен. Пожалуйста, попробуйте позже.';
       }
       
       // Очищаем временный файл
