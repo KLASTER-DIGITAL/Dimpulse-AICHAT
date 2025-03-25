@@ -31,6 +31,19 @@ interface Settings {
       theme: "light" | "dark";
     };
   };
+  ui: {
+    enabled: boolean;
+    colors: {
+      primary: string;
+      secondary: string;
+      accent: string;
+    };
+    elements: {
+      roundedCorners: boolean;
+      shadows: boolean;
+      animations: boolean;
+    };
+  };
 }
 
 const defaultSettings: Settings = {
@@ -49,6 +62,19 @@ const defaultSettings: Settings = {
       theme: "dark",
     },
   },
+  ui: {
+    enabled: false,
+    colors: {
+      primary: "#10a37f",
+      secondary: "#343541",
+      accent: "#202123"
+    },
+    elements: {
+      roundedCorners: true,
+      shadows: true,
+      animations: true
+    }
+  }
 };
 
 const Cabinet = () => {
@@ -92,18 +118,55 @@ const Cabinet = () => {
   const [widgetTheme, setWidgetTheme] = useState<"light" | "dark">(
     settings?.integration.widget.theme || defaultSettings.integration.widget.theme
   );
+  
+  // UI настройки
+  const [uiEnabled, setUiEnabled] = useState<boolean>(
+    settings?.ui?.enabled || defaultSettings.ui.enabled
+  );
+  const [primaryColor, setPrimaryColor] = useState<string>(
+    settings?.ui?.colors.primary || defaultSettings.ui.colors.primary
+  );
+  const [secondaryColor, setSecondaryColor] = useState<string>(
+    settings?.ui?.colors.secondary || defaultSettings.ui.colors.secondary
+  );
+  const [accentColor, setAccentColor] = useState<string>(
+    settings?.ui?.colors.accent || defaultSettings.ui.colors.accent
+  );
+  const [roundedCorners, setRoundedCorners] = useState<boolean>(
+    settings?.ui?.elements.roundedCorners || defaultSettings.ui.elements.roundedCorners
+  );
+  const [shadows, setShadows] = useState<boolean>(
+    settings?.ui?.elements.shadows || defaultSettings.ui.elements.shadows
+  );
+  const [animations, setAnimations] = useState<boolean>(
+    settings?.ui?.elements.animations || defaultSettings.ui.elements.animations
+  );
 
   // Обновляем локальное состояние когда данные загружены
   // eslint-disable-next-line react-hooks/rules-of-hooks
   React.useEffect(() => {
     if (settings) {
+      // Webhook настройки
       setWebhookUrl(settings.webhook.url);
       setWebhookEnabled(settings.webhook.enabled);
+      
+      // Интеграционные настройки
       setIframeEnabled(settings.integration.iframe.enabled);
       setIframeTheme(settings.integration.iframe.theme);
       setWidgetEnabled(settings.integration.widget.enabled);
       setWidgetPosition(settings.integration.widget.position);
       setWidgetTheme(settings.integration.widget.theme);
+      
+      // UI настройки
+      if (settings.ui) {
+        setUiEnabled(settings.ui.enabled);
+        setPrimaryColor(settings.ui.colors.primary);
+        setSecondaryColor(settings.ui.colors.secondary);
+        setAccentColor(settings.ui.colors.accent);
+        setRoundedCorners(settings.ui.elements.roundedCorners);
+        setShadows(settings.ui.elements.shadows);
+        setAnimations(settings.ui.elements.animations);
+      }
     }
   }, [settings]);
 
@@ -194,6 +257,51 @@ const Cabinet = () => {
 
     saveIntegrationMutation.mutate(integration);
   };
+  
+  // Мутация для сохранения настроек UI
+  const saveUiMutation = useMutation({
+    mutationFn: async (ui: Settings['ui']) => {
+      const result = await apiRequest("/api/settings/ui", {
+        method: "PUT",
+        data: { ui },
+      });
+      return result as Settings;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Настройки интерфейса сохранены",
+        description: "Ваши изменения успешно применены",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Ошибка сохранения",
+        description: "Не удалось сохранить настройки интерфейса. Пожалуйста, попробуйте снова.",
+        variant: "destructive",
+      });
+      console.error("Ошибка при сохранении настроек интерфейса:", error);
+    },
+  });
+  
+  // Обработчик сохранения настроек UI
+  const handleSaveUi = () => {
+    const ui = {
+      enabled: uiEnabled,
+      colors: {
+        primary: primaryColor,
+        secondary: secondaryColor,
+        accent: accentColor,
+      },
+      elements: {
+        roundedCorners: roundedCorners,
+        shadows: shadows,
+        animations: animations,
+      },
+    };
+
+    saveUiMutation.mutate(ui);
+  };
 
   // Генерация кода для iframe интеграции
   const getIframeCode = () => {
@@ -258,6 +366,7 @@ const Cabinet = () => {
           <TabsList className="bg-gray-900 text-white">
             <TabsTrigger value="webhook">Настройка вебхука</TabsTrigger>
             <TabsTrigger value="integration">Интеграция</TabsTrigger>
+            <TabsTrigger value="ui">Настройки UI</TabsTrigger>
           </TabsList>
 
           {/* Раздел настройки вебхука */}
@@ -448,6 +557,174 @@ const Cabinet = () => {
                 </CardFooter>
               </Card>
             </div>
+          </TabsContent>
+          
+          {/* Раздел настроек UI */}
+          <TabsContent value="ui">
+            <Card className="bg-gray-900 text-white border-gray-800">
+              <CardHeader>
+                <CardTitle>Настройки интерфейса</CardTitle>
+                <CardDescription className="text-gray-400">
+                  Настройте внешний вид интерфейса чата в соответствии с вашим дизайном.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="ui-enabled"
+                    checked={uiEnabled}
+                    onCheckedChange={setUiEnabled}
+                  />
+                  <Label htmlFor="ui-enabled">Включить пользовательские настройки интерфейса</Label>
+                </div>
+                
+                {uiEnabled && (
+                  <>
+                    {/* Настройки цветов */}
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-medium">Цветовая схема</h3>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="primary-color">Основной цвет</Label>
+                          <div className="flex space-x-2">
+                            <Input
+                              id="primary-color"
+                              type="color"
+                              value={primaryColor}
+                              onChange={(e) => setPrimaryColor(e.target.value)}
+                              className="w-12 h-10 p-1 bg-gray-800 border-gray-700"
+                            />
+                            <Input
+                              type="text"
+                              value={primaryColor}
+                              onChange={(e) => setPrimaryColor(e.target.value)}
+                              className="flex-1 bg-gray-800 border-gray-700 text-white"
+                            />
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="secondary-color">Вторичный цвет</Label>
+                          <div className="flex space-x-2">
+                            <Input
+                              id="secondary-color"
+                              type="color"
+                              value={secondaryColor}
+                              onChange={(e) => setSecondaryColor(e.target.value)}
+                              className="w-12 h-10 p-1 bg-gray-800 border-gray-700"
+                            />
+                            <Input
+                              type="text"
+                              value={secondaryColor}
+                              onChange={(e) => setSecondaryColor(e.target.value)}
+                              className="flex-1 bg-gray-800 border-gray-700 text-white"
+                            />
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="accent-color">Акцентный цвет</Label>
+                          <div className="flex space-x-2">
+                            <Input
+                              id="accent-color"
+                              type="color"
+                              value={accentColor}
+                              onChange={(e) => setAccentColor(e.target.value)}
+                              className="w-12 h-10 p-1 bg-gray-800 border-gray-700"
+                            />
+                            <Input
+                              type="text"
+                              value={accentColor}
+                              onChange={(e) => setAccentColor(e.target.value)}
+                              className="flex-1 bg-gray-800 border-gray-700 text-white"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-4 p-4 bg-gray-800 rounded-md">
+                        <h4 className="text-md font-medium mb-2">Предпросмотр цветов</h4>
+                        <div className="flex flex-wrap gap-3">
+                          <div 
+                            className="w-24 h-12 rounded" 
+                            style={{ backgroundColor: primaryColor }}
+                            title="Основной цвет"
+                          ></div>
+                          <div 
+                            className="w-24 h-12 rounded" 
+                            style={{ backgroundColor: secondaryColor }}
+                            title="Вторичный цвет"
+                          ></div>
+                          <div 
+                            className="w-24 h-12 rounded" 
+                            style={{ backgroundColor: accentColor }}
+                            title="Акцентный цвет"
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <Separator className="my-4 bg-gray-800" />
+                    
+                    {/* Настройки элементов */}
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-medium">Элементы интерфейса</h3>
+                      
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="rounded-corners">Скругленные углы</Label>
+                          <Switch
+                            id="rounded-corners"
+                            checked={roundedCorners}
+                            onCheckedChange={setRoundedCorners}
+                          />
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="shadows">Тени элементов</Label>
+                          <Switch
+                            id="shadows"
+                            checked={shadows}
+                            onCheckedChange={setShadows}
+                          />
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="animations">Анимации</Label>
+                          <Switch
+                            id="animations"
+                            checked={animations}
+                            onCheckedChange={setAnimations}
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="mt-4 p-4 bg-gray-800 rounded-md">
+                        <h4 className="text-md font-medium mb-2">Пример элемента</h4>
+                        <div 
+                          className={`w-full h-20 border-2 border-white/20 bg-gray-700 flex items-center justify-center 
+                            ${roundedCorners ? 'rounded-xl' : ''} 
+                            ${shadows ? 'shadow-lg' : ''} 
+                            ${animations ? 'transition-all duration-300 hover:scale-[1.02]' : ''}`}
+                          style={{ borderColor: primaryColor }}
+                        >
+                          <span style={{ color: primaryColor }}>Предпросмотр стиля</span>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+              <CardFooter>
+                <Button 
+                  onClick={handleSaveUi}
+                  disabled={saveUiMutation.isPending}
+                >
+                  {saveUiMutation.isPending ? "Сохранение..." : "Сохранить настройки"}
+                </Button>
+              </CardFooter>
+            </Card>
           </TabsContent>
         </Tabs>
       </main>
