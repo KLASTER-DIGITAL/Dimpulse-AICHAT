@@ -53,6 +53,19 @@ export class MemStorage implements IStorage {
           theme: "dark",
         },
       },
+      ui: {
+        enabled: true,
+        colors: {
+          primary: "#19c37d",
+          secondary: "#f9fafb",
+          accent: "#6366f1",
+        },
+        elements: {
+          roundedCorners: true,
+          shadows: true,
+          animations: true,
+        },
+      },
     };
   }
 

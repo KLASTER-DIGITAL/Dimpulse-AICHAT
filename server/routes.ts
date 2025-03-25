@@ -400,6 +400,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(400).json({ message: "Failed to update integration settings" });
     }
   });
+  
+  // Обновление только настроек UI
+  app.put("/api/settings/ui", async (req, res) => {
+    try {
+      const { ui } = req.body;
+      if (!ui || typeof ui !== 'object') {
+        return res.status(400).json({ message: "UI settings must be an object" });
+      }
+      
+      // Получаем текущие настройки
+      const currentSettings = await storage.getSettings();
+      
+      // Обновляем только настройки UI
+      const updatedSettings = {
+        ...currentSettings,
+        ui
+      };
+      
+      const result = await storage.updateSettings(updatedSettings);
+      res.json(result);
+    } catch (error) {
+      res.status(400).json({ message: "Failed to update UI settings" });
+    }
+  });
 
   // Обработчик для widget.js - отдельный маршрут для доступа к виджету
   app.get('/widget.js', (req, res) => {
