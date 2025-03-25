@@ -66,6 +66,19 @@ export const settingsSchema = z.object({
       theme: z.enum(["light", "dark"]),
     }),
   }),
+  ui: z.object({
+    enabled: z.boolean(),
+    colors: z.object({
+      primary: z.string(),
+      secondary: z.string(),
+      accent: z.string(),
+    }),
+    elements: z.object({
+      roundedCorners: z.boolean(),
+      shadows: z.boolean(),
+      animations: z.boolean(),
+    }),
+  }).optional(),
 });
 
 export type Settings = z.infer<typeof settingsSchema>;
