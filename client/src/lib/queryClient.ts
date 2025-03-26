@@ -1,11 +1,45 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 async function throwIfResNotOk(res: Response) {
+  if (res.status === 401) {
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("user");
+    localStorage.setItem("isAuthenticated", "false");
+    
+    // Только если страница не является страницей логина, перенаправляем
+    if (!window.location.pathname.includes("/login")) {
+      window.location.href = "/login";
+    }
+    
+    throw new Error("Unauthorized: You need to login");
+  }
+  
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
     throw new Error(`${res.status}: ${text}`);
   }
 }
+
+// Получение токена авторизации из localStorage
+const getAuthToken = (): string | null => {
+  return localStorage.getItem("authToken");
+};
+
+// Создание заголовков с токеном авторизации
+const createAuthHeaders = (hasContent: boolean = false): HeadersInit => {
+  const headers: HeadersInit = {};
+  
+  if (hasContent) {
+    headers["Content-Type"] = "application/json";
+  }
+  
+  const token = getAuthToken();
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  
+  return headers;
+};
 
 export async function apiRequest(
   url: string,
@@ -16,10 +50,11 @@ export async function apiRequest(
 ): Promise<any> {
   const method = options?.method || 'GET';
   const data = options?.data;
+  const hasContent = !!data;
   
   const res = await fetch(url, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
+    headers: createAuthHeaders(hasContent),
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
@@ -37,6 +72,7 @@ export const getQueryFn: <T>(options: {
     console.log(`Fetching data from: ${queryKey[0]}`);
     const res = await fetch(queryKey[0] as string, {
       credentials: "include",
+      headers: createAuthHeaders(),
     });
     console.log(`Response status: ${res.status}`);
 

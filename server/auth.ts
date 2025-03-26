@@ -179,3 +179,50 @@ export async function logoutUser(token: string): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Получение информации о пользователе по токену
+ * @param token Токен авторизации
+ * @returns Данные пользователя или null в случае ошибки
+ */
+export async function getUserByToken(token: string): Promise<User | null> {
+  try {
+    // Проверяем, что Supabase настроен
+    if (!supabase) {
+      throw new Error('Supabase not configured');
+    }
+    
+    // Проверяем токен через Supabase Auth
+    const { data: userData, error } = await supabase.auth.getUser(token);
+    
+    if (error || !userData.user) {
+      console.error('Get user by token error:', error);
+      return null;
+    }
+    
+    // Получаем данные пользователя из нашей таблицы пользователей
+    const email = userData.user.email;
+    const username = email ? email.split('@')[0] : ''; // Извлекаем username из email
+    
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('username', username)
+      .single();
+    
+    if (userError || !user) {
+      console.error('User data fetch error:', userError);
+      return null;
+    }
+    
+    return {
+      id: user.id,
+      username: user.username,
+      password: '********', // Скрываем пароль в возвращаемых данных
+      lastActive: user.last_active
+    };
+  } catch (error) {
+    console.error('Get user by token error:', error);
+    return null;
+  }
+}

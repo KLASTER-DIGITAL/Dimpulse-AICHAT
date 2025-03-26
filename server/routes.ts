@@ -8,7 +8,7 @@ import path from "path";
 import fs from "fs";
 import { WebSocketServer, WebSocket } from 'ws';
 import { testSupabaseConnection, isSupabaseConfigured } from "./supabase";
-import { authenticateUser, registerUser, logoutUser, authMiddleware } from "./auth";
+import { authenticateUser, registerUser, logoutUser, authMiddleware, getUserByToken } from "./auth";
 
 // Middleware для CORS
 const corsMiddleware = (req: Request, res: Response, next: NextFunction) => {
@@ -148,19 +148,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Authentication token required" });
       }
       
-      // Используем заголовок для проверки токена
-      req.headers.authorization = `Bearer ${token}`;
+      // Получаем информацию о пользователе по токену
+      const user = await getUserByToken(token);
       
-      // Проверяем пользователя через middleware
-      authMiddleware(req, res, () => {
-        // Если пользователь аутентифицирован, возвращаем данные пользователя
-        if ((req as any).user) {
-          return res.json({ user: (req as any).user });
-        }
-        
-        // Если пользователь не найден, возвращаем ошибку
+      if (!user) {
         return res.status(401).json({ message: "Invalid or expired token" });
-      });
+      }
+      
+      // Возвращаем информацию о пользователе
+      return res.json({ user });
     } catch (error) {
       console.error("Auth check error:", error);
       res.status(500).json({ message: "Failed to check authentication" });
@@ -318,7 +314,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         // Также добавляем все файлы как массив для возможной обработки
-        requestBody.files = filesData.map(f => ({
+        requestBody.files = filesData.map((f: { content: string, name: string, type: string, size?: number }) => ({
           content: f.content,
           name: f.name,
           type: f.type
