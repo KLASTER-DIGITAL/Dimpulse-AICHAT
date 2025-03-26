@@ -6,6 +6,7 @@ import { insertChatSchema, insertMessageSchema, settingsSchema } from "@shared/s
 import fetch from "node-fetch";
 import path from "path";
 import fs from "fs";
+import { WebSocketServer, WebSocket } from 'ws';
 
 // Middleware для CORS
 const corsMiddleware = (req: Request, res: Response, next: NextFunction) => {
