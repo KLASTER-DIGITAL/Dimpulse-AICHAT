@@ -41,7 +41,7 @@ const UIStyleProvider: React.FC<UIStyleProviderProps> = ({ children }) => {
   const [cssVars, setCssVars] = useState<Record<string, string>>({});
   
   // Получаем настройки UI с сервера
-  const { data: serverSettings } = useQuery({
+  const { data: serverSettings } = useQuery<Settings>({
     queryKey: ['/api/settings']
   });
   

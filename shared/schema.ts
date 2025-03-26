@@ -78,7 +78,7 @@ export const settingsSchema = z.object({
       shadows: z.boolean(),
       animations: z.boolean(),
     }),
-  }).optional(),
+  }),
 });
 
 export type Settings = z.infer<typeof settingsSchema>;

@@ -384,7 +384,7 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
         )}
         
         <form id="chat-form" className="relative bg-black" onSubmit={handleSubmit}>
-          <div className="rounded-full border border-gray-600 bg-[#101010] flex items-center pr-2">
+          <div className="chat-input-container rounded-full border border-gray-600 bg-[#101010] flex items-center pr-2">
             {/* Кнопка прикрепления файла */}
             <button
               type="button"
@@ -410,7 +410,7 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
               ref={textareaRef}
               id="message-input" 
               rows={1} 
-              className="flex-1 bg-transparent text-white border-none px-3 py-3 focus:outline-none resize-none"
+              className="chat-input flex-1 bg-transparent text-white border-none px-3 py-3 focus:outline-none resize-none"
               placeholder="Чем еще могу помочь?"
               style={{ maxHeight: "200px", minHeight: "24px" }}
               value={message}
@@ -422,7 +422,7 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
             {/* Кнопка отправки голосового сообщения */}
             <button 
               type="button" 
-              className={`p-2 rounded-full ${isRecording ? 'text-red-500' : 'text-gray-400 hover:text-white'} focus:outline-none`}
+              className={`primary p-2 rounded-full ${isRecording ? 'text-red-500' : 'text-gray-400 hover:text-white'} focus:outline-none`}
               onClick={toggleVoiceRecording}
               disabled={isLoading}
             >
@@ -437,7 +437,7 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
             <button 
               type="submit" 
               id="send-button"
-              className="p-2 rounded-full text-gray-400 hover:text-white disabled:hover:text-gray-500 disabled:opacity-40 focus:outline-none"
+              className="primary p-2 rounded-full text-gray-400 hover:text-white disabled:hover:text-gray-500 disabled:opacity-40 focus:outline-none"
               disabled={((!message.trim() || (!message.trim() && uploadedFiles.length > 0)) && !isRecording) || isLoading}
               title={uploadedFiles.length > 0 && !message.trim() ? "Необходимо добавить текстовое сообщение" : "Отправить сообщение"}
             >
