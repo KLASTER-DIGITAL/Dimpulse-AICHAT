@@ -86,6 +86,10 @@ export const settingsSchema = z.object({
       enabled: z.boolean(),
       position: z.enum(["left", "right"]),
       theme: z.enum(["light", "dark"]),
+      fontSize: z.number().optional().default(16),
+      width: z.number().optional().default(400),
+      height: z.number().optional().default(500),
+      text: z.string().optional().default("Чем могу помочь?"),
     }),
   }),
   ui: z.object({
@@ -100,6 +104,33 @@ export const settingsSchema = z.object({
       shadows: z.boolean(),
       animations: z.boolean(),
     }),
+  }),
+  database: z.object({
+    enabled: z.boolean().default(false),
+    type: z.enum(["local", "supabase"]).default("local"),
+    supabase: z.object({
+      tables: z.object({
+        messages: z.string().optional().default("messages"),
+        chats: z.string().optional().default("chats"),
+        users: z.string().optional().default("users"),
+        files: z.string().optional().default("files"),
+      }),
+      schema: z.string().optional().default("public"),
+      autoMigrate: z.boolean().default(true),
+    }),
+  }).optional().default({
+    enabled: false,
+    type: "local",
+    supabase: {
+      tables: {
+        messages: "messages",
+        chats: "chats",
+        users: "users",
+        files: "files",
+      },
+      schema: "public",
+      autoMigrate: true,
+    }
   }),
 });
 

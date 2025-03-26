@@ -1,4 +1,6 @@
 import { messages, chats, users, type User, type InsertUser, type Message, type InsertMessage, type Chat, type InsertChat, type Settings, type Stats, settingsSchema, statsSchema } from "@shared/schema";
+import { SupabaseStorage } from "./supabase-storage";
+import { isSupabaseConfigured } from "./supabase";
 
 export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
@@ -57,6 +59,10 @@ export class MemStorage implements IStorage {
           enabled: false,
           position: "left",
           theme: "dark",
+          fontSize: 16,
+          width: 400,
+          height: 500,
+          text: "Чем могу помочь?",
         },
       },
       ui: {
@@ -72,6 +78,20 @@ export class MemStorage implements IStorage {
           animations: true,
         },
       },
+      database: {
+        enabled: false,
+        type: "local",
+        supabase: {
+          tables: {
+            messages: "messages",
+            chats: "chats",
+            users: "users",
+            files: "files",
+          },
+          schema: "public",
+          autoMigrate: true,
+        }
+      }
     };
     
     // Загружаем данные из файла при запуске (асинхронно)
