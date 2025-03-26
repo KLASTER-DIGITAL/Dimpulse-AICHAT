@@ -43,6 +43,15 @@ export const useWebSocket = (
       return;
     }
     
+    // Контроль максимального количества попыток подключения
+    // Если превышено максимальное количество попыток, приложение будет работать
+    // в режиме без WebSocket (для обеспечения отказоустойчивости)
+    if (reconnectAttemptsRef.current >= maxReconnectAttempts + 3) {
+      console.log(`Maximum reconnect attempts (${maxReconnectAttempts + 3}) reached. Working in limited mode.`);
+      // Не пытаемся больше подключаться для предотвращения циклических попыток
+      return;
+    }
+    
     if (websocketRef.current) {
       if (websocketRef.current.readyState === WebSocket.OPEN) {
         console.log('WebSocket already connected');
@@ -64,18 +73,15 @@ export const useWebSocket = (
       // Определяем правильный протокол (ws или wss) на основе текущего протокола страницы
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       
-      // Позволяем подключаться к WebSocket как в разработке, так и в production
-      let wsUrl;
-      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        // Локальная разработка 
-        wsUrl = `${protocol}//${window.location.host}/ws`;
-      } else if (window.location.hostname.includes('replit.dev') || window.location.hostname.includes('replit.app')) {
-        // Deployed on Replit
-        wsUrl = `${protocol}//${window.location.host}/ws`;
-      } else {
-        // Другие домены, если нужны конкретные настройки для других hosting провайдеров
-        wsUrl = `${protocol}//${window.location.host}/ws`;
-      }
+      // Определение WebSocket URL на основе текущего окружения
+      // Для всех сред (разработка и продакшн) используем относительный путь, 
+      // который основывается на текущем домене
+      const wsUrl = `${protocol}//${window.location.host}/ws`;
+      
+      // Добавляем информацию о текущем окружении для отладки
+      console.log(`Environment: ${window.location.hostname}`);
+      console.log(`Current protocol: ${protocol}`);
+      console.log(`WebSocket URL: ${wsUrl}`);
       
       console.log(`Connecting to WebSocket at ${wsUrl}`);
       
@@ -118,6 +124,26 @@ export const useWebSocket = (
         try {
           const data = JSON.parse(event.data);
           console.log('WebSocket message received:', data);
+          
+          // Обработка специальных типов сообщений
+          if (data.type === 'connection_established') {
+            console.log('WebSocket connection fully established and confirmed by server');
+            // Отправляем ping для проверки двусторонней связи
+            try {
+              ws.send(JSON.stringify({
+                type: 'ping',
+                timestamp: new Date().toISOString()
+              }));
+            } catch (err) {
+              console.error('Error sending ping:', err);
+            }
+          } else if (data.type === 'pong') {
+            console.log('Received pong from server, connection is healthy');
+          } else if (data.type === 'error') {
+            console.warn('Server reported error:', data.message);
+          }
+          
+          // Вызываем обработчик сообщений пользователя
           onMessage?.(data);
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
@@ -196,12 +222,44 @@ export const useWebSocket = (
     }
   }, [connectWebSocket, autoReconnect, maxReconnectAttempts]);
   
-  // Подключаемся при монтировании компонента
+  // Подключаемся при монтировании компонента с более надежной стратегией переподключения
   useEffect(() => {
+    // Прогрессивные задержки для переподключения
+    const getBackoffTime = (attempt: number): number => {
+      // Увеличиваем задержку с каждой попыткой (500ms, 1000ms, 2000ms, 4000ms, 8000ms)
+      // но не больше 8 секунд
+      return Math.min(500 * Math.pow(2, attempt), 8000);
+    };
+    
     // Небольшая задержка перед первым подключением
-    setTimeout(() => {
+    const initialConnectTimeout = setTimeout(() => {
       connectWebSocket();
-    }, 500);
+      
+      // Установим регулярную проверку соединения каждые 30 секунд
+      const healthCheckInterval = setInterval(() => {
+        if (websocketRef.current?.readyState === WebSocket.OPEN) {
+          // Если соединение открыто, отправляем ping
+          try {
+            websocketRef.current.send(JSON.stringify({
+              type: 'ping',
+              timestamp: new Date().toISOString()
+            }));
+          } catch (err) {
+            console.warn('Health check failed:', err);
+            // Если не можем отправить ping, пробуем переподключиться
+            reconnectAttemptsRef.current = 0;
+            connectWebSocket();
+          }
+        } else if (status !== 'connecting') {
+          // Если соединение не в процессе установки, пробуем переподключиться 
+          reconnectAttemptsRef.current = 0;
+          connectWebSocket();
+        }
+      }, 30000);
+      
+      // Очистка интервала при размонтировании
+      return () => clearInterval(healthCheckInterval);
+    }, getBackoffTime(0));
     
     // Функция для переподключения при восстановлении соединения с интернетом
     const handleOnline = () => {
@@ -210,12 +268,27 @@ export const useWebSocket = (
       connectWebSocket();
     };
     
-    // Слушаем события онлайн/оффлайн
+    // Обработка изменения видимости страницы (для мобильных устройств)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('Page became visible. Checking WebSocket connection...');
+        if (websocketRef.current?.readyState !== WebSocket.OPEN) {
+          console.log('WebSocket is not open, reconnecting...');
+          reconnectAttemptsRef.current = 0;
+          connectWebSocket();
+        }
+      }
+    };
+    
+    // Слушаем события онлайн/оффлайн и видимости страницы
     window.addEventListener('online', handleOnline);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     
     // Очистка при размонтировании
     return () => {
       window.removeEventListener('online', handleOnline);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearTimeout(initialConnectTimeout);
       
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
@@ -226,7 +299,7 @@ export const useWebSocket = (
         websocketRef.current = null;
       }
     };
-  }, [connectWebSocket]);
+  }, [connectWebSocket, status]);
   
   // Подключаемся к чату, когда chatId изменяется
   useEffect(() => {

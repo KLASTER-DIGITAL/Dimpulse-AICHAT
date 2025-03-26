@@ -537,28 +537,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
   
   // Создаем WebSocket сервер с улучшенной обработкой ошибок
+  // Оптимизированная конфигурация WebSocketServer для деплоя на Replit
   const wss = new WebSocketServer({ 
     server: httpServer, 
     path: '/ws',
-    clientTracking: true,
+    // Отключаем сложные настройки, которые могут конфликтовать с прокси Replit
     perMessageDeflate: false,
-    maxPayload: 50 * 1024 * 1024, // 50MB max payload
-    handleProtocols: () => 'chat',
-    verifyClient: () => true
+    // Устанавливаем разумные лимиты для сообщений
+    maxPayload: 10 * 1024 * 1024 // 10MB max payload
   });
   
   // Хранилище для клиентов, организованное по чатам
   const clients = new Map<string, Set<WebSocket>>();
   
-  // Обработка событий WebSocket
-  wss.on('connection', (ws) => {
-    console.log('WebSocket connected');
+  // Обработка событий WebSocket с улучшенной поддержкой для Replit
+  wss.on('connection', (ws, req) => {
+    console.log('WebSocket connected', { 
+      headers: { 
+        host: req.headers.host,
+        origin: req.headers.origin 
+      } 
+    });
+    
+    // Добавляем проверку жизни соединения через ping/pong для предотвращения обрыва соединения
+    const pingInterval = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.ping();
+      } else {
+        clearInterval(pingInterval);
+      }
+    }, 30000); // проверка каждые 30 секунд
+    
+    // Отправляем сразу же статус соединения клиенту
+    try {
+      ws.send(JSON.stringify({ 
+        type: 'connection_established', 
+        timestamp: new Date().toISOString() 
+      }));
+    } catch (err) {
+      console.error('Error sending init message:', err);
+    }
+    
     let currentChatId: string | null = null;
     
-    // Обработка сообщений от клиента
+    // Обработка сообщений от клиента с более надежной обработкой ошибок
     ws.on('message', (message) => {
       try {
-        const data = JSON.parse(message.toString());
+        // Преобразовываем сообщение в строку и проверяем, не пустое ли оно
+        const messageStr = message.toString().trim();
+        if (!messageStr) {
+          console.warn('Received empty WebSocket message');
+          return;
+        }
+        
+        const data = JSON.parse(messageStr);
         console.log('Received WebSocket message:', data);
         
         // Обработка событий подключения к чату
@@ -573,19 +605,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
           clients.get(data.chatId)?.add(ws);
           
           // Отправляем подтверждение
-          ws.send(JSON.stringify({ type: 'joined', chatId: data.chatId }));
+          ws.send(JSON.stringify({ 
+            type: 'joined', 
+            chatId: data.chatId,
+            timestamp: new Date().toISOString()
+          }));
           console.log(`Client joined chat: ${data.chatId}`);
+        } else if (data.type === 'ping') {
+          // Простой ответ на ping для проверки соединения
+          ws.send(JSON.stringify({ 
+            type: 'pong', 
+            timestamp: new Date().toISOString() 
+          }));
         }
         
         // Обработка других типов сообщений можно добавить здесь
       } catch (error) {
         console.error('Error processing WebSocket message:', error);
+        
+        // Отправляем сообщение об ошибке клиенту, чтобы он знал, что что-то пошло не так
+        try {
+          ws.send(JSON.stringify({ 
+            type: 'error', 
+            message: 'Failed to process message',
+            timestamp: new Date().toISOString()
+          }));
+        } catch (sendError) {
+          console.error('Error sending error message:', sendError);
+        }
       }
     });
     
+    // Обработка ошибок WebSocket соединения
+    ws.on('error', (error) => {
+      console.error('WebSocket error:', error);
+      clearInterval(pingInterval);
+    });
+    
     // Обработка закрытия соединения
-    ws.on('close', () => {
-      console.log('WebSocket closed');
+    ws.on('close', (code, reason) => {
+      console.log(`WebSocket closed with code ${code}`, reason.toString());
+      clearInterval(pingInterval);
       
       // Удаляем клиента из всех чатов, где он был подписан
       if (currentChatId && clients.has(currentChatId)) {
