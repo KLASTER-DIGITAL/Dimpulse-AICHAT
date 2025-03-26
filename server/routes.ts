@@ -1,6 +1,6 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { storage, storagePromise, MemStorage } from "./storage";
 import { randomUUID } from "crypto";
 import { insertChatSchema, insertMessageSchema, settingsSchema } from "@shared/schema";
 import fetch from "node-fetch";
@@ -534,6 +534,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Дождемся инициализации хранилища данных
+  const storageInstance = await storagePromise;
+  console.log('Storage initialized:', storageInstance instanceof MemStorage ? 'MemStorage' : 'SupabaseStorage');
+  
   const httpServer = createServer(app);
   
   // Создаем WebSocket сервер с улучшенной обработкой ошибок

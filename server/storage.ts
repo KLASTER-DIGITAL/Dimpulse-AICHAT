@@ -27,6 +27,7 @@ export interface IStorage {
   getDialogHistory(limit?: number, offset?: number): Promise<{chats: Chat[], totalCount: number}>;
 }
 
+// Экспортируем класс MemStorage для использования в других файлах
 export class MemStorage implements IStorage {
   private users: Map<number, User>;
   private chats: Map<string, Chat>;
@@ -415,4 +416,33 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Создаем нужный тип хранилища в зависимости от настроек
+let storageInstance: IStorage;
+
+// Сначала используем MemStorage для загрузки настроек
+const memStorage = new MemStorage();
+
+// Асинхронно инициализируем хранилище
+async function initStorage() {
+  // Загружаем настройки из MemStorage
+  const settings = await memStorage.getSettings();
+  
+  // Проверяем настройки для определения типа хранилища
+  if (settings.database?.enabled && 
+      settings.database.type === 'supabase' && 
+      isSupabaseConfigured()) {
+    console.log('Using Supabase storage');
+    storageInstance = new SupabaseStorage(settings);
+  } else {
+    console.log('Using in-memory storage');
+    storageInstance = memStorage;
+  }
+  
+  return storageInstance;
+}
+
+// Экспортируем промис для ожидания инициализации хранилища
+export const storagePromise = initStorage();
+
+// Экспортируем для обратной совместимости (будет заменено на инициализированное хранилище)
+export const storage = memStorage;

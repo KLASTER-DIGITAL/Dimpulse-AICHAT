@@ -548,6 +548,7 @@ const Cabinet = () => {
             <TabsTrigger value="webhook">Настройка вебхука</TabsTrigger>
             <TabsTrigger value="integration">Интеграция</TabsTrigger>
             <TabsTrigger value="ui">Настройки UI</TabsTrigger>
+            <TabsTrigger value="database">База данных</TabsTrigger>
             <TabsTrigger value="dialogs">Диалоги</TabsTrigger>
             <TabsTrigger value="stats">Статистика</TabsTrigger>
           </TabsList>
