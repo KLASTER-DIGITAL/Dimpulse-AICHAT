@@ -33,12 +33,17 @@ export class MemStorage implements IStorage {
   private currentMessageId: number;
   private settings: Settings;
 
+  private storageFile = 'chat_history.json';
+
   constructor() {
     this.users = new Map();
     this.chats = new Map();
     this.messages = new Map();
     this.currentUserId = 1;
     this.currentMessageId = 1;
+    
+    // Загружаем данные из файла при запуске
+    this.loadFromFile();
     
     // Инициализация настроек по умолчанию
     this.settings = {
@@ -104,6 +109,7 @@ export class MemStorage implements IStorage {
     };
     this.chats.set(chat.id, newChat);
     this.messages.set(chat.id, []);
+    this.saveToFile();
     return newChat;
   }
 
@@ -131,6 +137,37 @@ export class MemStorage implements IStorage {
     }
   }
 
+  private saveToFile() {
+    const data = {
+      users: Array.from(this.users.entries()),
+      chats: Array.from(this.chats.entries()),
+      messages: Array.from(this.messages.entries()),
+      currentUserId: this.currentUserId,
+      currentMessageId: this.currentMessageId
+    };
+    
+    try {
+      require('fs').writeFileSync(this.storageFile, JSON.stringify(data));
+    } catch (error) {
+      console.error('Error saving data:', error);
+    }
+  }
+
+  private loadFromFile() {
+    try {
+      if (require('fs').existsSync(this.storageFile)) {
+        const data = JSON.parse(require('fs').readFileSync(this.storageFile, 'utf8'));
+        this.users = new Map(data.users);
+        this.chats = new Map(data.chats);
+        this.messages = new Map(data.messages);
+        this.currentUserId = data.currentUserId;
+        this.currentMessageId = data.currentMessageId;
+      }
+    } catch (error) {
+      console.error('Error loading data:', error);
+    }
+  }
+
   async createMessage(message: InsertMessage): Promise<Message> {
     const id = this.currentMessageId++;
     const newMessage: Message = { 
@@ -142,6 +179,7 @@ export class MemStorage implements IStorage {
     const chatMessages = this.messages.get(message.chatId) || [];
     chatMessages.push(newMessage);
     this.messages.set(message.chatId, chatMessages);
+    this.saveToFile();
     
     // Update chat title if it's the first user message
     if (message.role === 'user' && chatMessages.length <= 2) {
