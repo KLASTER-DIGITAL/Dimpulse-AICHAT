@@ -7,6 +7,7 @@ import fetch from "node-fetch";
 import path from "path";
 import fs from "fs";
 import { WebSocketServer, WebSocket } from 'ws';
+import { testSupabaseConnection, isSupabaseConfigured } from "./supabase";
 
 // Middleware для CORS
 const corsMiddleware = (req: Request, res: Response, next: NextFunction) => {
@@ -450,6 +451,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(result);
     } catch (error) {
       res.status(400).json({ message: "Failed to update UI settings" });
+    }
+  });
+  
+  // Обновление только настроек базы данных
+  app.put("/api/settings/database", async (req, res) => {
+    try {
+      const { database } = req.body;
+      if (!database || typeof database !== 'object') {
+        return res.status(400).json({ message: "Database settings must be an object" });
+      }
+      
+      // Получаем текущие настройки
+      const currentSettings = await storage.getSettings();
+      
+      // Обновляем только настройки базы данных
+      const updatedSettings = {
+        ...currentSettings,
+        database
+      };
+      
+      const result = await storage.updateSettings(updatedSettings);
+      res.json(result);
+    } catch (error) {
+      console.error("Failed to update database settings:", error);
+      res.status(400).json({ message: "Failed to update database settings" });
+    }
+  });
+  
+  // Маршрут для проверки соединения с Supabase
+  app.get("/api/test-supabase-connection", async (req, res) => {
+    try {
+      // Проверяем, настроен ли Supabase
+      if (!isSupabaseConfigured()) {
+        return res.json({
+          connected: false,
+          error: "Supabase URL и ключ не настроены. Установите переменные окружения SUPABASE_URL и SUPABASE_KEY."
+        });
+      }
+      
+      // Проверяем соединение
+      const connected = await testSupabaseConnection();
+      
+      if (connected) {
+        res.json({ connected: true });
+      } else {
+        res.json({
+          connected: false,
+          error: "Не удалось подключиться к Supabase. Проверьте URL и ключ API."
+        });
+      }
+    } catch (error) {
+      console.error("Ошибка при проверке соединения с Supabase:", error);
+      res.status(500).json({
+        connected: false,
+        error: "Произошла ошибка при проверке соединения: " + (error instanceof Error ? error.message : String(error))
+      });
     }
   });
 
