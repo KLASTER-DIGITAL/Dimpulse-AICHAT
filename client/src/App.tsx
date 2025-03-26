@@ -28,6 +28,21 @@ function Router() {
 }
 
 function App() {
+  // Add reconnection effect
+  useEffect(() => {
+    const ws = new WebSocket(import.meta.env.VITE_WS_URL || 'ws://0.0.0.0:3000/ws');
+    
+    ws.onclose = () => {
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    };
+
+    return () => {
+      ws.close();
+    };
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <UIStyleProvider>

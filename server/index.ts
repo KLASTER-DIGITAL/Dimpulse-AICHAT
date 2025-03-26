@@ -1,6 +1,8 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { WebSocketServer } from 'ws'; // Added import for WebSocketServer
+
 
 const app = express();
 // Увеличиваем лимит размера JSON-запроса для обработки больших файлов
@@ -53,6 +55,26 @@ app.use((req, res, next) => {
 
 (async () => {
   const server = await registerRoutes(app);
+
+  // WebSocket server setup should be added here.  This requires significant additional code
+  // to handle connections, reconnections, error handling, and message passing.  Example below:
+
+  // const wss = new WebSocketServer({ server, clientTracking: true, path: '/ws' });
+  // wss.on('connection', ws => {
+  //   ws.on('message', message => {
+  //     // Handle incoming messages
+  //   });
+  //   ws.on('close', () => {
+  //     // Handle connection closure
+  //   });
+  //   ws.on('error', error => {
+  //     console.error('WebSocket error:', error);
+  //     // Implement reconnection logic here
+  //   });
+  //   ws.send('Welcome to WebSocket!'); // Send initial message
+  // });
+
+
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
