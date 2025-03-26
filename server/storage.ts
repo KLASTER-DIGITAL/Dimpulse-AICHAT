@@ -42,9 +42,6 @@ export class MemStorage implements IStorage {
     this.currentUserId = 1;
     this.currentMessageId = 1;
     
-    // Загружаем данные из файла при запуске
-    this.loadFromFile();
-    
     // Инициализация настроек по умолчанию
     this.settings = {
       webhook: {
@@ -76,6 +73,14 @@ export class MemStorage implements IStorage {
         },
       },
     };
+    
+    // Загружаем данные из файла при запуске (асинхронно)
+    this.initializeStorage();
+  }
+  
+  // Метод для асинхронной инициализации хранилища
+  private async initializeStorage() {
+    await this.loadFromFile();
   }
 
   async getUser(id: number): Promise<User | undefined> {
@@ -137,7 +142,7 @@ export class MemStorage implements IStorage {
     }
   }
 
-  private saveToFile() {
+  private async saveToFile() {
     const data = {
       users: Array.from(this.users.entries()),
       chats: Array.from(this.chats.entries()),
@@ -147,16 +152,18 @@ export class MemStorage implements IStorage {
     };
     
     try {
-      require('fs').writeFileSync(this.storageFile, JSON.stringify(data));
+      const fs = await import('fs');
+      fs.writeFileSync(this.storageFile, JSON.stringify(data));
     } catch (error) {
       console.error('Error saving data:', error);
     }
   }
 
-  private loadFromFile() {
+  private async loadFromFile() {
     try {
-      if (require('fs').existsSync(this.storageFile)) {
-        const data = JSON.parse(require('fs').readFileSync(this.storageFile, 'utf8'));
+      const fs = await import('fs');
+      if (fs.existsSync(this.storageFile)) {
+        const data = JSON.parse(fs.readFileSync(this.storageFile, 'utf8'));
         this.users = new Map(data.users);
         this.chats = new Map(data.chats);
         this.messages = new Map(data.messages);
