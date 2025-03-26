@@ -1097,22 +1097,26 @@ const Cabinet = () => {
                           <TableHead>Название</TableHead>
                           <TableHead>Создан</TableHead>
                           <TableHead>Последняя активность</TableHead>
-                          <TableHead>Статус</TableHead>
+                          <TableHead>Действия</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {dialogsData?.chats.map((chat) => {
                           const isActive = new Date(chat.lastActive) > new Date(Date.now() - 24 * 60 * 60 * 1000);
                           return (
-                            <TableRow key={chat.id} onClick={() => {fetchChatMessages(chat.id); setShowChatDialog(true);}}>
+                            <TableRow key={chat.id} >
                               <TableCell className="font-mono text-xs">{chat.id.substring(0, 8)}...</TableCell>
                               <TableCell>{chat.title}</TableCell>
                               <TableCell>{new Date(chat.createdAt).toLocaleString()}</TableCell>
                               <TableCell>{new Date(chat.lastActive).toLocaleString()}</TableCell>
                               <TableCell>
-                                <Badge className={isActive ? "bg-green-500" : "bg-gray-500"}>
-                                  {isActive ? "Активный" : "Неактивный"}
-                                </Badge>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => window.location.href = `/chat/${chat.id}`}
+                                >
+                                  Открыть чат
+                                </Button>
                               </TableCell>
                             </TableRow>
                           );
