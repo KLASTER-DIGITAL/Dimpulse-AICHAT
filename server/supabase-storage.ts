@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase, isSupabaseConfigured } from './supabase';
 import type { 
   IStorage,
   User,
@@ -24,6 +24,11 @@ export class SupabaseStorage implements IStorage {
   };
 
   constructor(settings?: Settings) {
+    // Проверяем наличие конфигурации Supabase
+    if (!isSupabaseConfigured()) {
+      throw new Error('Supabase is not configured. Please set SUPABASE_URL and SUPABASE_KEY environment variables.');
+    }
+    
     this.settings = settings || {
       webhook: {
         url: 'https://n8n.klaster.digital/webhook-test/4a1fed67-dcfb-4eb8-a71b-d47b1d651509',

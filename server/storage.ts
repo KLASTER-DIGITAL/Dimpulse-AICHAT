@@ -434,12 +434,26 @@ async function initStorage() {
   // Загружаем настройки из MemStorage
   const settings = await memStorage.getSettings();
   
-  // Проверяем настройки для определения типа хранилища
+  // Проверяем настройки для определения типа хранилища и наличие Supabase ключей
+  const supabaseEnabled = isSupabaseConfigured();
+
+  // Выводим информацию о статусе Supabase
+  if (!supabaseEnabled) {
+    console.warn('Supabase configuration not found (SUPABASE_URL and SUPABASE_KEY environment variables required)');
+    console.warn('Falling back to in-memory storage. Set SUPABASE_URL and SUPABASE_KEY for database persistence.');
+  }
+
   if (settings.database?.enabled && 
       settings.database.type === 'supabase' && 
-      isSupabaseConfigured()) {
+      supabaseEnabled) {
     console.log('Using Supabase storage');
-    storageInstance = new SupabaseStorage(settings);
+    try {
+      storageInstance = new SupabaseStorage(settings);
+    } catch (error) {
+      console.error('Failed to initialize Supabase storage:', error);
+      console.log('Falling back to in-memory storage');
+      storageInstance = memStorage;
+    }
   } else {
     console.log('Using in-memory storage');
     storageInstance = memStorage;
