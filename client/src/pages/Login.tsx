@@ -33,6 +33,9 @@ const Login = () => {
   const [isRegLoading, setIsRegLoading] = useState(false);
   const [regError, setRegError] = useState("");
   
+  // Состояние для кнопки быстрого входа админа
+  const [isAdminLoginLoading, setIsAdminLoginLoading] = useState(false);
+  
   const [, navigate] = useLocation();
   const { toast } = useToast();
 
@@ -153,6 +156,60 @@ const Login = () => {
       });
     } finally {
       setIsRegLoading(false);
+    }
+  };
+  
+  // Функция для быстрого входа администратора
+  const handleAdminLogin = async () => {
+    setIsAdminLoginLoading(true);
+    
+    try {
+      console.log("Login: admin login attempt");
+      
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ 
+          username: "admin", 
+          password: "admin123" 
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Ошибка при входе администратора");
+      }
+      
+      const data = await response.json() as AuthResponse;
+      console.log("Login: successful admin login response", data);
+      
+      // Сохраняем токен и информацию о пользователе
+      localStorage.setItem("authToken", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      localStorage.setItem("isAuthenticated", "true");
+      
+      // Показываем уведомление об успешном входе
+      toast({
+        title: "Успешный вход",
+        description: "Вы успешно вошли в систему как администратор",
+      });
+      
+      // Перенаправляем в личный кабинет
+      console.log("Login: redirecting to /cabinet");
+      navigate("/cabinet");
+    } catch (error: any) {
+      console.error("Login: Error during admin login process:", error);
+      const errorMessage = error?.message || "Произошла ошибка при входе администратора";
+      setError(errorMessage);
+      toast({
+        title: "Ошибка входа",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsAdminLoginLoading(false);
     }
   };
 
@@ -288,13 +345,27 @@ const Login = () => {
           </Tabs>
         </CardContent>
         
-        <CardFooter className="justify-center text-sm text-gray-500 border-t border-gray-800 pt-4">
-          <div>
+        <CardFooter className="flex flex-col space-y-4 text-sm text-gray-500 border-t border-gray-800 pt-4">
+          <div className="w-full">
             {activeTab === "login" ? (
               <p>Нет аккаунта? <Button variant="link" className="p-0 h-auto text-blue-500" onClick={() => setActiveTab("register")}>Регистрация</Button></p>
             ) : (
               <p>Уже есть аккаунт? <Button variant="link" className="p-0 h-auto text-blue-500" onClick={() => setActiveTab("login")}>Вход</Button></p>
             )}
+          </div>
+          
+          {/* Кнопка быстрого входа для админа */}
+          <div className="w-full pt-2 border-t border-gray-800">
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="w-full text-xs bg-gray-800 border-gray-700 text-gray-400 hover:text-white"
+              onClick={handleAdminLogin}
+              disabled={isAdminLoginLoading}
+            >
+              {isAdminLoginLoading ? "Вход..." : "Быстрый вход администратора"}
+            </Button>
+            <p className="text-xs text-center mt-2 text-gray-600">Используйте эту кнопку для прямого входа с правами администратора</p>
           </div>
         </CardFooter>
       </Card>
