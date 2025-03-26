@@ -12,10 +12,10 @@ import EmptyState from "@/components/ChatGPT/EmptyState";
 
 const Home = () => {
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
-  const [location, navigate] = useLocation();
+  const [, navigate] = useLocation();
   const params = useParams<{ id: string }>();
   const { toast } = useToast();
-  
+
   // Получаем параметры из URL для режима встраивания (embed)
   const embedMode = useMemo(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -24,24 +24,24 @@ const Home = () => {
       theme: urlParams.get('theme') || 'dark'
     };
   }, []);
-  
+
   // Get all chats
   const { data: chats = [], isLoading: isLoadingChats } = useQuery<Chat[]>({
     queryKey: ['/api/chats'],
   });
-  
+
   // Get current chat and its messages
   const { data: chatData, isLoading: isLoadingChat, refetch } = useQuery<{ chat: Chat, messages: Message[] }>({
     queryKey: [`/api/chats/${currentChatId}`],
     enabled: !!currentChatId,
   });
-  
+
   // В проде не обновляем автоматически, т.к. используем WebSocket
   // для обновления сообщений в реальном времени
   useEffect(() => {
     // Пустой эффект - websocket обновляет UI через invalidateQueries
   }, []);
-  
+
   // Create a new chat
   const createChatMutation = useMutation({
     mutationFn: async () => {
@@ -62,15 +62,15 @@ const Home = () => {
       });
     }
   });
-  
+
   // Временное сообщение для анимации печати
   const [tempTypingMessage, setTempTypingMessage] = useState<Message & { typing?: boolean } | null>(null);
-  
+
   // Подключаем WebSocket для текущего чата
   const { status: wsStatus } = useWebSocket(currentChatId, {
     onMessage: (data) => {
       console.log("WebSocket message received:", data);
-      
+
       // Обработка события typing для обновления анимации набора текста
       if (data.type === 'typing') {
         if (data.status === 'started' && data.chatId === currentChatId) {
@@ -99,7 +99,7 @@ const Home = () => {
       console.log("WebSocket status changed:", status);
     }
   });
-  
+
   // Send a message
   const sendMessageMutation = useMutation({
     mutationFn: async ({ 
@@ -124,24 +124,24 @@ const Home = () => {
         fileCount: filesData?.length || (fileData ? 1 : 0),
         fileName: fileData?.name
       });
-      
+
       const payload = { content: message };
-      
+
       // Если есть аудиоданные, добавляем их в запрос
       if (audioData) {
         Object.assign(payload, { audioData });
       }
-      
+
       // Если есть данные файла, добавляем их в запрос
       if (fileData) {
         Object.assign(payload, { fileData });
       }
-      
+
       // Если есть массив файлов, добавляем их в запрос
       if (filesData && filesData.length > 0) {
         Object.assign(payload, { filesData });
       }
-      
+
       // Добавляем временное сообщение с анимацией печати
       setTempTypingMessage({
         id: -1,
@@ -151,19 +151,19 @@ const Home = () => {
         createdAt: new Date(),
         typing: true
       });
-      
+
       const data = await apiRequest(`/api/chats/${chatId}/messages`, {
         method: 'POST',
         data: payload
       });
       console.log("Ответ от сервера:", data);
-      
+
       // Если получили сообщение с typing: true, значит это промежуточное состояние
       if (data && data.typing) {
         console.log("Получено состояние набора текста, оставляем анимацию");
         return null;
       }
-      
+
       // Если получили обычный ответ, убираем временное сообщение
       setTempTypingMessage(null);
       return data;
@@ -186,7 +186,7 @@ const Home = () => {
       });
     }
   });
-  
+
   // Set current chat ID from URL param or create a new chat if needed
   useEffect(() => {
     if (params?.id) {
@@ -198,7 +198,7 @@ const Home = () => {
       setCurrentChatId(null);
     }
   }, [params?.id]);
-  
+
   // Handle sending a message
   const handleSendMessage = async (
     message: string, 
@@ -245,7 +245,7 @@ const Home = () => {
       handleSendMessage(transcript);
     }
   };
-  
+
   // State для хранения файлов на главном экране
   const [welcomeFiles, setWelcomeFiles] = useState<Array<{
     content: string;
@@ -259,7 +259,7 @@ const Home = () => {
     if (fileContent && !sendMessageMutation.isPending) {
       // Логируем о получении файла
       console.log(`Файл подготовлен: ${fileName}, размер: ${(fileContent.length / 1024).toFixed(2)} КБ`);
-      
+
       // Добавляем файл в массив для отображения
       const fileInfo = {
         content: fileContent,
@@ -267,13 +267,13 @@ const Home = () => {
         type: fileType,
         preview: fileType.startsWith('image/') ? fileContent : undefined
       };
-      
+
       setWelcomeFiles(prev => [...prev, fileInfo]);
-      
+
       // Не создаем чат сразу - ждем отправки сообщения пользователем
     }
   };
-  
+
   // Получить приветственное сообщение в зависимости от времени суток
   const getTimeOfDayGreeting = (): string => {
     const hour = new Date().getHours();
@@ -286,9 +286,9 @@ const Home = () => {
   // Определяем стили для разных тем в режиме embed
   const getEmbedStyles = () => {
     if (!embedMode.isEmbed) return {};
-    
+
     console.log("Применяем тему для embed режима:", embedMode.theme);
-    
+
     switch (embedMode.theme) {
       case 'light':
         return {
@@ -316,23 +316,33 @@ const Home = () => {
         };
     }
   };
-  
+
   const embedStyles = getEmbedStyles();
-  
+
   return (
     <div 
-      className={`flex h-screen w-full ${embedMode.isEmbed ? '' : 'bg-black'} text-[#ECECF1] flex-col`}
+      className={`flex h-screen w-full ${embedMode.isEmbed ? '' : 'bg-black'} text-[#ECECF1] flex-col relative`}
       style={embedMode.isEmbed ? embedStyles : {}}
     >
+        <button
+          onClick={() => navigate("/cabinet")}
+          className="absolute top-2 right-2 w-8 h-8 opacity-0 hover:opacity-100 transition-opacity duration-200"
+          aria-label="Войти в кабинет"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
+        </button>
       {/* Main Content */}
-      <div className="flex-1 flex flex-col h-full relative">
+      <div className="flex-1 flex flex-col h-full">
         {/* Показываем приветственный экран вместо чата, если нет сообщений */}
         {!chatData?.messages?.length ? (
           <div className="flex flex-col items-center justify-center h-full relative">
             <div className="text-center animate-fadeIn">
               <h1 className="text-4xl font-semibold mb-2 animate-textAppear">{getTimeOfDayGreeting()}!</h1>
               <p className="text-2xl text-gray-300 mb-10 animate-textAppear animation-delay-300">Какие у вас задачи? Давайте мы поможем решить!</p>
-              
+
               {/* Отображение прикрепленных файлов */}
               {welcomeFiles.length > 0 && (
                 <div className="flex flex-wrap justify-center gap-2 mb-4 max-w-lg mx-auto">
@@ -365,7 +375,7 @@ const Home = () => {
                   ))}
                 </div>
               )}
-              
+
               {/* Форма запроса под приветственным сообщением */}
               <div className="w-full max-w-lg mx-auto mt-10 animate-fadeIn animation-delay-600">
                 <form 
@@ -382,7 +392,7 @@ const Home = () => {
                           name: welcomeFiles[0].name,
                           type: welcomeFiles[0].type
                         };
-                        
+
                         // Отправляем все файлы в виде массива
                         const filesData = welcomeFiles.map(file => ({
                           content: file.content,
@@ -390,10 +400,10 @@ const Home = () => {
                           type: file.type,
                           size: file.content.length
                         }));
-                        
+
                         // Отправляем сообщение с файлами
                         handleSendMessage(input.value.trim(), undefined, fileData, filesData);
-                        
+
                         // Очищаем список файлов после отправки
                         setWelcomeFiles([]);
                       } else {
@@ -438,7 +448,7 @@ const Home = () => {
                               handleFileUpload(content, file.name, file.type);
                             }
                           };
-                          
+
                           // Определяем метод чтения в зависимости от типа файла
                           if (file.type.startsWith('image/') || 
                               file.type === 'application/pdf') {
@@ -452,7 +462,7 @@ const Home = () => {
                         disabled={sendMessageMutation.isPending}
                       />
                     </button>
-                    
+
                     {/* Поле ввода */}
                     <input 
                       type="text" 
@@ -461,7 +471,7 @@ const Home = () => {
                       className="flex-1 bg-transparent text-white border-none px-4 py-3 focus:outline-none rounded-full"
                       disabled={sendMessageMutation.isPending}
                     />
-                    
+
                     {/* Кнопка голосового ввода */}
                     <button
                       type="button"
@@ -474,14 +484,14 @@ const Home = () => {
                           recognition.lang = 'ru-RU';
                           recognition.continuous = false;
                           recognition.interimResults = false;
-                          
+
                           recognition.onresult = (event: any) => {
                             const transcript = event.results[0][0].transcript;
                             if (transcript && handleVoiceInput) {
                               handleVoiceInput(transcript);
                             }
                           };
-                          
+
                           recognition.start();
                         } else {
                           alert("Ваш браузер не поддерживает распознавание речи");
@@ -495,7 +505,7 @@ const Home = () => {
                         <line x1="12" y1="19" x2="12" y2="22"/>
                       </svg>
                     </button>
-                    
+
                     {/* Кнопка отправки */}
                     <button 
                       type="submit" 
@@ -522,7 +532,7 @@ const Home = () => {
             />
           </>
         )}
-        
+
         {/* Chat Input - всегда отображается в абсолютном позиционировании внизу экрана для чата */}
         {chatData && chatData.messages && chatData.messages.length > 0 && (
           <div className="absolute bottom-0 left-0 right-0 mb-4">
