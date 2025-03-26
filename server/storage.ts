@@ -2,6 +2,9 @@ import { messages, chats, users, type User, type InsertUser, type Message, type 
 import { SupabaseStorage } from "./supabase-storage";
 import { isSupabaseConfigured } from "./supabase";
 
+// Экспортируем типы для доступа из других файлов
+export type { User, InsertUser, Chat, InsertChat, Message, InsertMessage, Settings, Stats };
+
 export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;

@@ -8,6 +8,7 @@ import path from "path";
 import fs from "fs";
 import { WebSocketServer, WebSocket } from 'ws';
 import { testSupabaseConnection, isSupabaseConfigured } from "./supabase";
+import { authenticateUser, registerUser, logoutUser, authMiddleware } from "./auth";
 
 // Middleware для CORS
 const corsMiddleware = (req: Request, res: Response, next: NextFunction) => {
@@ -27,6 +28,147 @@ const corsMiddleware = (req: Request, res: Response, next: NextFunction) => {
 export async function registerRoutes(app: Express): Promise<Server> {
   // Применяем middleware для CORS ко всем маршрутам
   app.use(corsMiddleware);
+  
+  // Аутентификация (логин)
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      
+      if (!username || !password) {
+        return res.status(400).json({ message: "Username and password are required" });
+      }
+      
+      const result = await authenticateUser(username, password);
+      
+      if (!result) {
+        return res.status(401).json({ message: "Invalid username or password" });
+      }
+      
+      res.json({
+        user: result.user,
+        token: result.token
+      });
+    } catch (error) {
+      console.error("Login error:", error);
+      res.status(500).json({ message: "Authentication failed" });
+    }
+  });
+  
+  // Регистрация
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      
+      if (!username || !password) {
+        return res.status(400).json({ message: "Username and password are required" });
+      }
+      
+      // Проверка наличия пользователя с таким именем
+      const existingUser = await storage.getUserByUsername(username);
+      if (existingUser) {
+        return res.status(409).json({ message: "Username already taken" });
+      }
+      
+      const user = await registerUser(username, password);
+      
+      if (!user) {
+        return res.status(500).json({ message: "Registration failed" });
+      }
+      
+      res.status(201).json({ user });
+    } catch (error) {
+      console.error("Registration error:", error);
+      res.status(500).json({ message: "Registration failed" });
+    }
+  });
+  
+  // Выход
+  app.post("/api/auth/logout", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const token = authHeader && authHeader.split(' ')[1];
+      
+      if (!token) {
+        return res.status(401).json({ message: "Authentication token required" });
+      }
+      
+      const result = await logoutUser(token);
+      
+      if (!result) {
+        return res.status(500).json({ message: "Logout failed" });
+      }
+      
+      res.json({ message: "Logout successful" });
+    } catch (error) {
+      console.error("Logout error:", error);
+      res.status(500).json({ message: "Logout failed" });
+    }
+  });
+  
+  // Маршрут для проверки соединения с Supabase
+  app.get("/api/supabase/connection", async (req, res) => {
+    try {
+      const isConfigured = isSupabaseConfigured();
+      if (!isConfigured) {
+        return res.json({ 
+          status: "not_configured",
+          message: "Supabase is not configured in your environment"
+        });
+      }
+      
+      const isConnected = await testSupabaseConnection();
+      
+      if (!isConnected) {
+        return res.json({ 
+          status: "connection_failed",
+          message: "Failed to connect to Supabase"
+        });
+      }
+      
+      return res.json({ 
+        status: "connected",
+        message: "Successfully connected to Supabase"
+      });
+    } catch (error) {
+      console.error("Error checking Supabase connection:", error);
+      res.status(500).json({ 
+        status: "error",
+        message: "An error occurred while checking Supabase connection"
+      });
+    }
+  });
+  
+  // Проверка текущего пользователя по токену
+  app.get("/api/auth/me", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const token = authHeader && authHeader.split(' ')[1];
+      
+      if (!token) {
+        return res.status(401).json({ message: "Authentication token required" });
+      }
+      
+      // Используем заголовок для проверки токена
+      req.headers.authorization = `Bearer ${token}`;
+      
+      // Проверяем пользователя через middleware
+      authMiddleware(req, res, () => {
+        // Если пользователь аутентифицирован, возвращаем данные пользователя
+        if ((req as any).user) {
+          return res.json({ user: (req as any).user });
+        }
+        
+        // Если пользователь не найден, возвращаем ошибку
+        return res.status(401).json({ message: "Invalid or expired token" });
+      });
+    } catch (error) {
+      console.error("Auth check error:", error);
+      res.status(500).json({ message: "Failed to check authentication" });
+    }
+  });
+  
+  // Добавляем middleware для авторизации после маршрутов аутентификации
+  // app.use(authMiddleware);
   
   // Убрали отсюда обработчик для widget.js, так как он теперь определен ниже в более универсальном виде
   // Get all chats (for the sidebar)

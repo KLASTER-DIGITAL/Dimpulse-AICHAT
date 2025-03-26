@@ -1,6 +1,11 @@
 import fs from 'fs';
+import { fileURLToPath } from 'url';
 import path from 'path';
 import { supabase, isSupabaseConfigured, testSupabaseConnection } from './supabase';
+
+// Получаем абсолютный путь к текущему модулю (для ESM)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * Выполняет SQL-скрипт из файла
@@ -16,24 +21,23 @@ async function executeSqlScript(filename: string): Promise<boolean> {
     
     // Выполняем каждую команду отдельно
     for (const command of commands) {
-      const { error } = await supabase.rpc('run_sql', { sql_query: command });
-      
-      if (error) {
-        // Если функция run_sql еще не создана, выполняем запрос напрямую
-        if (error.message.includes('function run_sql() does not exist')) {
-          const { error: directError } = await supabase.from('_sql').select('*').execute(command);
-          
-          if (directError) {
-            console.error(`Error executing SQL command directly: ${directError.message}`);
+      try {
+        // Пытаемся выполнить SQL-запрос напрямую через REST API
+        const { error } = await supabase.rpc('run_sql', { sql_query: command });
+        
+        if (error) {
+          // Если ошибка связана с отсутствием функции, продолжаем выполнение
+          if (error.message.includes('function run_sql() does not exist')) {
+            console.log(`Function run_sql does not exist yet, skipping direct execution`);
+          } else {
+            console.error(`Error executing SQL command via run_sql: ${error.message}`);
             console.error(`Command: ${command}`);
-            // Продолжаем выполнение, так как некоторые ошибки могут быть неизбежны
-            // при первоначальной настройке (например, DROP IF EXISTS для несуществующих объектов)
           }
-        } else {
-          console.error(`Error executing SQL command via run_sql: ${error.message}`);
-          console.error(`Command: ${command}`);
-          // Продолжаем выполнение
         }
+      } catch (commandError) {
+        console.error(`Error executing SQL command: ${commandError}`);
+        console.error(`Command: ${command}`);
+        // Продолжаем выполнение следующих команд
       }
     }
     
@@ -81,34 +85,11 @@ async function createRunSqlFunction(): Promise<boolean> {
       return true;
     }
     
-    // Создаем функцию run_sql
-    const createFunctionSQL = `
-    CREATE OR REPLACE FUNCTION run_sql(sql_query TEXT)
-    RETURNS TEXT AS $$
-    DECLARE
-      result TEXT;
-    BEGIN
-      BEGIN
-        EXECUTE sql_query;
-        result := 'Query executed successfully';
-      EXCEPTION WHEN OTHERS THEN
-        result := 'Error: ' || SQLERRM;
-      END;
-      RETURN result;
-    END;
-    $$ LANGUAGE plpgsql SECURITY DEFINER;
-    `;
+    // В Supabase нельзя напрямую выполнить SQL через REST API без специальных привилегий
+    console.log('Cannot create run_sql function through REST API, manual creation required');
+    console.log('Skipping run_sql function creation');
     
-    // Выполняем запрос на создание функции
-    const { error } = await supabase.from('_sql').select('*').execute(createFunctionSQL);
-    
-    if (error) {
-      console.error('Error creating run_sql function:', error);
-      return false;
-    }
-    
-    console.log('Function run_sql created successfully');
-    return true;
+    return false;
   } catch (error) {
     console.error('Error creating run_sql function:', error);
     return false;
@@ -121,19 +102,18 @@ async function createRunSqlFunction(): Promise<boolean> {
  */
 async function functionExists(functionName: string): Promise<boolean> {
   try {
+    // Используем SQL запрос для проверки существования функции
     const { data, error } = await supabase
-      .from('information_schema.routines')
-      .select('routine_name')
-      .eq('routine_schema', 'public')
-      .eq('routine_name', functionName)
-      .maybeSingle();
+      .from('pg_catalog.pg_proc')
+      .select('proname')
+      .eq('proname', functionName);
     
     if (error) {
       console.error(`Error checking if function ${functionName} exists:`, error);
       return false;
     }
     
-    return !!data;
+    return data && data.length > 0;
   } catch (error) {
     console.error(`Error checking if function ${functionName} exists:`, error);
     return false;
