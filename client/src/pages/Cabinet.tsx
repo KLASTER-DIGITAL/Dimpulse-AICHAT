@@ -352,6 +352,10 @@ const Cabinet = () => {
           setWidgetEnabled(settings.integration.widget.enabled ?? defaultSettings.integration.widget.enabled);
           setWidgetPosition(settings.integration.widget.position ?? defaultSettings.integration.widget.position);
           setWidgetTheme(settings.integration.widget.theme ?? defaultSettings.integration.widget.theme);
+          setWidgetText(settings.integration.widget.text ?? defaultSettings.integration.widget.text);
+          setWidgetWidth(settings.integration.widget.width ?? defaultSettings.integration.widget.width);
+          setWidgetHeight(settings.integration.widget.height ?? defaultSettings.integration.widget.height);
+          setWidgetFontSize(settings.integration.widget.fontSize ?? defaultSettings.integration.widget.fontSize);
         }
       }
 
@@ -364,6 +368,22 @@ const Cabinet = () => {
         setRoundedCorners(settings.ui.elements?.roundedCorners ?? defaultSettings.ui.elements.roundedCorners);
         setShadows(settings.ui.elements?.shadows ?? defaultSettings.ui.elements.shadows);
         setAnimations(settings.ui.elements?.animations ?? defaultSettings.ui.elements.animations);
+      }
+
+      // Настройки базы данных
+      if (settings.database) {
+        setDatabaseEnabled(settings.database.enabled ?? defaultSettings.database.enabled);
+        setDatabaseType(settings.database.type ?? defaultSettings.database.type);
+        if (settings.database.supabase) {
+          setDatabaseSchema(settings.database.supabase.schema ?? defaultSettings.database.supabase.schema);
+          setAutoMigrate(settings.database.supabase.autoMigrate ?? defaultSettings.database.supabase.autoMigrate);
+          if (settings.database.supabase.tables) {
+            setMessagesTable(settings.database.supabase.tables.messages ?? defaultSettings.database.supabase.tables.messages);
+            setChatsTable(settings.database.supabase.tables.chats ?? defaultSettings.database.supabase.tables.chats);
+            setUsersTable(settings.database.supabase.tables.users ?? defaultSettings.database.supabase.tables.users);
+            setFilesTable(settings.database.supabase.tables.files ?? defaultSettings.database.supabase.tables.files);
+          }
+        }
       }
     }
   }, [settings]);
@@ -494,6 +514,32 @@ const Cabinet = () => {
       console.error("Ошибка при сохранении настроек интерфейса:", error);
     },
   });
+  
+  // Мутация для сохранения настроек базы данных
+  const saveDatabaseMutation = useMutation({
+    mutationFn: async (database: Settings['database']) => {
+      const result = await apiRequest("/api/settings/database", {
+        method: "PUT",
+        data: { database },
+      });
+      return result as Settings;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Настройки базы данных сохранены",
+        description: "Ваши изменения успешно применены",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Ошибка сохранения",
+        description: "Не удалось сохранить настройки базы данных. Пожалуйста, попробуйте снова.",
+        variant: "destructive",
+      });
+      console.error("Ошибка при сохранении настроек базы данных:", error);
+    },
+  });
 
   // Обработчик сохранения настроек UI
   const handleSaveUi = () => {
@@ -512,6 +558,26 @@ const Cabinet = () => {
     };
 
     saveUiMutation.mutate(ui);
+  };
+  
+  // Обработчик сохранения настроек базы данных
+  const handleSaveDatabase = () => {
+    const database = {
+      enabled: databaseEnabled,
+      type: databaseType,
+      supabase: {
+        tables: {
+          messages: messagesTable,
+          chats: chatsTable,
+          users: usersTable,
+          files: filesTable
+        },
+        schema: databaseSchema,
+        autoMigrate: autoMigrate
+      }
+    };
+
+    saveDatabaseMutation.mutate(database);
   };
 
   // Генерация кода для iframe интеграции
@@ -1140,6 +1206,163 @@ const Cabinet = () => {
                   disabled={saveUiMutation.isPending}
                 >
                   {saveUiMutation.isPending ? "Сохранение..." : "Сохранить настройки"}
+                </Button>
+              </CardFooter>
+            </Card>
+          </TabsContent>
+
+          {/* Раздел настройки базы данных */}
+          <TabsContent value="database">
+            <Card className="bg-gray-900 text-white border-gray-800">
+              <CardHeader>
+                <CardTitle>Настройки базы данных</CardTitle>
+                <CardDescription className="text-gray-400">
+                  Настройте подключение к базе данных Supabase для хранения сообщений, чатов и файлов.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="database-enabled"
+                    checked={databaseEnabled}
+                    onCheckedChange={setDatabaseEnabled}
+                  />
+                  <Label htmlFor="database-enabled">Включить хранение в базе данных</Label>
+                </div>
+
+                {!databaseEnabled && (
+                  <div className="bg-gray-800 p-4 rounded-md">
+                    <p className="text-gray-400">В настоящее время используется локальное хранилище в памяти.</p>
+                    <p className="text-gray-400 mt-2">Включите базу данных для использования Supabase в качестве постоянного хранилища.</p>
+                  </div>
+                )}
+
+                {databaseEnabled && (
+                  <>
+                    <div className="space-y-2">
+                      <Label>Тип базы данных</Label>
+                      <RadioGroup value={databaseType} onValueChange={(value) => setDatabaseType(value as "local" | "supabase")}>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="local" id="db-local" />
+                          <Label htmlFor="db-local">Локальное хранилище (в памяти)</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="supabase" id="db-supabase" />
+                          <Label htmlFor="db-supabase">Supabase</Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+
+                    {databaseType === "supabase" && (
+                      <div className="space-y-4 border border-gray-700 p-4 rounded-md">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="schema">Схема БД</Label>
+                            <Input
+                              id="schema"
+                              value={databaseSchema}
+                              onChange={(e) => setDatabaseSchema(e.target.value)}
+                              placeholder="public"
+                              className="bg-gray-800 border-gray-700 text-white"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Имена таблиц</Label>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <Label htmlFor="messages-table">Таблица сообщений</Label>
+                              <Input
+                                id="messages-table"
+                                value={messagesTable}
+                                onChange={(e) => setMessagesTable(e.target.value)}
+                                placeholder="messages"
+                                className="bg-gray-800 border-gray-700 text-white mt-1"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="chats-table">Таблица чатов</Label>
+                              <Input
+                                id="chats-table"
+                                value={chatsTable}
+                                onChange={(e) => setChatsTable(e.target.value)}
+                                placeholder="chats"
+                                className="bg-gray-800 border-gray-700 text-white mt-1"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="users-table">Таблица пользователей</Label>
+                              <Input
+                                id="users-table"
+                                value={usersTable}
+                                onChange={(e) => setUsersTable(e.target.value)}
+                                placeholder="users"
+                                className="bg-gray-800 border-gray-700 text-white mt-1"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="files-table">Таблица файлов</Label>
+                              <Input
+                                id="files-table"
+                                value={filesTable}
+                                onChange={(e) => setFilesTable(e.target.value)}
+                                placeholder="files"
+                                className="bg-gray-800 border-gray-700 text-white mt-1"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center space-x-2">
+                          <Switch
+                            id="auto-migrate"
+                            checked={autoMigrate}
+                            onCheckedChange={setAutoMigrate}
+                          />
+                          <Label htmlFor="auto-migrate">Автоматическая миграция схемы</Label>
+                        </div>
+                        <p className="text-xs text-yellow-400">
+                          Внимание: Автоматическая миграция может привести к потере данных при изменении структуры таблиц.
+                        </p>
+
+                        <div className="bg-gray-800 p-4 rounded-md mt-4">
+                          <p className="text-sm text-gray-400">
+                            Для настройки подключения к Supabase добавьте следующие переменные окружения в ваш проект:
+                          </p>
+                          <ul className="list-disc list-inside mt-2 text-sm text-gray-400">
+                            <li>SUPABASE_URL - URL проекта Supabase</li>
+                            <li>SUPABASE_KEY - ключ API проекта Supabase</li>
+                          </ul>
+                          
+                          <div className="mt-4">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={checkSupabaseConnection}
+                              disabled={isCheckingConnection}
+                            >
+                              {isCheckingConnection ? "Проверка..." : "Проверить подключение"}
+                            </Button>
+                            
+                            {supabaseConnectionStatus && (
+                              <div className={`mt-2 p-2 rounded-md ${supabaseConnectionStatus.success ? 'bg-green-900' : 'bg-red-900'}`}>
+                                <p className="text-sm">{supabaseConnectionStatus.message}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </CardContent>
+              <CardFooter>
+                <Button 
+                  onClick={handleSaveDatabase}
+                  disabled={saveDatabaseMutation.isPending}
+                >
+                  {saveDatabaseMutation.isPending ? "Сохранение..." : "Сохранить настройки"}
                 </Button>
               </CardFooter>
             </Card>
