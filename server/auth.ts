@@ -27,6 +27,7 @@ export async function authenticateUser(username: string, password: string): Prom
         console.log('Создаем пользователя admin в хранилище');
         user = await storage.createUser({
           username: 'admin',
+          email: 'admin@example.com',
           password: 'admin123'
         });
         

@@ -2,6 +2,7 @@
 CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,
   username VARCHAR(255) UNIQUE NOT NULL,
+  email VARCHAR(255), -- Добавляем поле email для поддержки Supabase Auth
   password VARCHAR(255) NOT NULL, -- Используется только для совместимости, не хранит реальные пароли
   last_active TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
@@ -113,8 +114,8 @@ SELECT
 WHERE NOT EXISTS (SELECT 1 FROM settings);
 
 -- Добавляем админского пользователя, если таблица users пуста
-INSERT INTO users (username, password)
-SELECT 'admin', 'admin123'
+INSERT INTO users (username, email, password)
+SELECT 'admin', 'admin@example.com', 'admin123'
 WHERE NOT EXISTS (SELECT 1 FROM users WHERE username = 'admin');
 
 -- Создаем индексы для улучшения производительности
