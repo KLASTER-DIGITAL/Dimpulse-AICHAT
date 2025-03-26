@@ -7,7 +7,21 @@ const app = express();
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 
+// Добавляем ping/pong для WebSocket
+const PING_INTERVAL = 30000; // 30 секунд
+
 app.use((req, res, next) => {
+  if (req.headers.upgrade === 'websocket') {
+    const ws = req.socket;
+    const pingInterval = setInterval(() => {
+      if (ws.readyState === 1) {
+        ws.ping();
+      }
+    }, PING_INTERVAL);
+
+    ws.on('close', () => clearInterval(pingInterval));
+  }
+
   const start = Date.now();
   const path = req.path;
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
