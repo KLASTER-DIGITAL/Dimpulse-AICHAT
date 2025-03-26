@@ -117,6 +117,10 @@ const Cabinet = () => {
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
   const [isStyleEditorActive, setIsStyleEditorActive] = useState(false);
+  
+  // Состояние для пагинации диалогов
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
   // Запрос настроек с сервера
   const { data: settings, isLoading } = useQuery({
@@ -201,9 +205,7 @@ const Cabinet = () => {
     settings?.ui?.elements.animations || defaultSettings.ui.elements.animations
   );
   
-  // Состояние для пагинации диалогов
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+
   
   // Запрос статистики использования
   const { data: stats, isLoading: isLoadingStats } = useQuery({
