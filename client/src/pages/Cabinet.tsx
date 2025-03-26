@@ -386,7 +386,7 @@ const Cabinet = () => {
                 title: "Выход из системы",
                 description: "Вы успешно вышли из системы",
               });
-              navigate("/login");
+              navigate("/");
             }}
           >
             Выйти
