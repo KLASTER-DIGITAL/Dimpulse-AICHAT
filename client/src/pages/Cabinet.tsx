@@ -134,6 +134,16 @@ const Cabinet = () => {
   // Состояние для пагинации диалогов
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10; // Размер страницы для пагинации
+  
+  // Интерфейс для выбранного чата и его сообщений
+  interface SelectedChat {
+    chat: Chat | null;
+    messages: Message[];
+  }
+  
+  // Состояние для просмотра диалога в боковой панели
+  const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+  const [showChatSidebar, setShowChatSidebar] = useState(false);
 
   // Запрос настроек с сервера
   const { data: settings, isLoading } = useQuery({
@@ -450,16 +460,21 @@ const Cabinet = () => {
 </script>`;
   };
 
-  const [selectedChat, setSelectedChat] = useState<SelectedChat | null>(null);
-  const [showChatDialog, setShowChatDialog] = useState(false);
-
-
+  // Запрос для получения сообщений из выбранного чата
   const fetchChatMessages = async (chatId: string) => {
     try {
+      setSelectedChatId(chatId);
       const messages = await apiRequest(`/api/chat/${chatId}/messages`);
-      setSelectedChat({chat: dialogsData?.chats.find(chat => chat.id === chatId) || null, messages: messages});
+      const chatInfo = dialogsData?.chats.find(chat => chat.id === chatId) || null;
+      setSelectedChat({chat: chatInfo, messages: messages || []});
+      setShowChatSidebar(true);
     } catch (error) {
-      console.error("Error fetching chat messages:", error);
+      console.error("Ошибка при получении сообщений чата:", error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось загрузить сообщения чата.",
+        variant: "destructive",
+      });
       setSelectedChat(null);
     }
   }
