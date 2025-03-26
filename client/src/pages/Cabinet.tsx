@@ -2,19 +2,21 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
+import { useToast } from "@/components/ui/use-toast";
 
-// UI компоненты
+
+// UI components
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
-import { useToast } from "@/hooks/use-toast";
 
-// Интерфейсы для данных
+
+// Interfaces for data
 interface Settings {
   webhook: {
     url: string;
@@ -169,7 +171,6 @@ const Cabinet = () => {
       }
     }
   }, [settings]);
-
 
 
   // Мутация для сохранения только настроек webhook
@@ -643,81 +644,80 @@ const Cabinet = () => {
                         </div>
                       </div>
                       
-                      <div className="mt-4 space-y-4">
-                        <div className="p-4 bg-gray-800 rounded-md">
-                          <h4 className="text-md font-medium mb-2">Элементы интерфейса</h4>
-                          
-                          <div className="space-y-4">
-                            <div className="space-y-2">
-                              <Label>Кнопки</Label>
-                              <div className="grid grid-cols-2 gap-2">
-                                <Input
-                                  type="number"
-                                  placeholder="Высота (px)"
-                                  className="bg-gray-800 border-gray-700 text-white"
-                                  onChange={(e) => {
-                                    const styles = document.documentElement.style;
-                                    styles.setProperty('--button-height', `${e.target.value}px`);
-                                  }}
-                                />
-                                <Input
-                                  type="number"
-                                  placeholder="Скругление (px)"
-                                  className="bg-gray-800 border-gray-700 text-white"
-                                  onChange={(e) => {
-                                    const styles = document.documentElement.style;
-                                    styles.setProperty('--button-radius', `${e.target.value}px`);
-                                  }}
-                                />
-                              </div>
+                      <div className="mt-4 p-4 bg-gray-800 rounded-md">
+                        <h4 className="text-md font-medium mb-2">Элементы интерфейса</h4>
+                        
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label>Кнопки</Label>
+                            <div className="grid grid-cols-2 gap-2">
+                              <Input
+                                type="number"
+                                placeholder="Высота (px)"
+                                className="bg-gray-800 border-gray-700 text-white"
+                                onChange={(e) => {
+                                  const styles = document.documentElement.style;
+                                  styles.setProperty('--button-height', `${e.target.value}px`);
+                                }}
+                              />
+                              <Input
+                                type="number"
+                                placeholder="Скругление (px)"
+                                className="bg-gray-800 border-gray-700 text-white"
+                                onChange={(e) => {
+                                  const styles = document.documentElement.style;
+                                  styles.setProperty('--button-radius', `${e.target.value}px`);
+                                }}
+                              />
                             </div>
+                          </div>
 
-                            <div className="space-y-2">
-                              <Label>Поля ввода</Label>
-                              <div className="grid grid-cols-2 gap-2">
-                                <Input
-                                  type="number"
-                                  placeholder="Отступы (px)"
-                                  className="bg-gray-800 border-gray-700 text-white"
-                                  onChange={(e) => {
-                                    const styles = document.documentElement.style;
-                                    styles.setProperty('--input-padding', `${e.target.value}px`);
-                                  }}
-                                />
-                                <Input
-                                  type="number"
-                                  placeholder="Размер шрифта (px)"
-                                  className="bg-gray-800 border-gray-700 text-white"
-                                  onChange={(e) => {
-                                    const styles = document.documentElement.style;
-                                    styles.setProperty('--input-font-size', `${e.target.value}px`);
-                                  }}
-                                />
-                              </div>
+                          <div className="space-y-2">
+                            <Label>Поля ввода</Label>
+                            <div className="grid grid-cols-2 gap-2">
+                              <Input
+                                type="number"
+                                placeholder="Отступы (px)"
+                                className="bg-gray-800 border-gray-700 text-white"
+                                onChange={(e) => {
+                                  const styles = document.documentElement.style;
+                                  styles.setProperty('--input-padding', `${e.target.value}px`);
+                                }}
+                              />
+                              <Input
+                                type="number"
+                                placeholder="Размер шрифта (px)"
+                                className="bg-gray-800 border-gray-700 text-white"
+                                onChange={(e) => {
+                                  const styles = document.documentElement.style;
+                                  styles.setProperty('--input-font-size', `${e.target.value}px`);
+                                }}
+                              />
                             </div>
                           </div>
                         </div>
-
-                        <div className="p-4 bg-gray-800 rounded-md">
-                          <h4 className="text-md font-medium mb-2">Предпросмотр цветов</h4>
-                          <div className="flex flex-wrap gap-3">
-                          <div 
-                            className="w-24 h-12 rounded" 
-                            style={{ backgroundColor: primaryColor }}
-                            title="Основной цвет"
-                          ></div>
-                          <div 
-                            className="w-24 h-12 rounded" 
-                            style={{ backgroundColor: secondaryColor }}
-                            title="Вторичный цвет"
-                          ></div>
-                          <div 
-                            className="w-24 h-12 rounded" 
-                            style={{ backgroundColor: accentColor }}
-                            title="Акцентный цвет"
-                          ></div>
-                        </div>
                       </div>
+                      
+                      <div className="mt-4 p-4 bg-gray-800 rounded-md">
+                        <h4 className="text-md font-medium mb-2">Предпросмотр цветов</h4>
+                        <div className="flex flex-wrap gap-3">
+                        <div 
+                          className="w-24 h-12 rounded" 
+                          style={{ backgroundColor: primaryColor }}
+                          title="Основной цвет"
+                        ></div>
+                        <div 
+                          className="w-24 h-12 rounded" 
+                          style={{ backgroundColor: secondaryColor }}
+                          title="Вторичный цвет"
+                        ></div>
+                        <div 
+                          className="w-24 h-12 rounded" 
+                          style={{ backgroundColor: accentColor }}
+                          title="Акцентный цвет"
+                        ></div>
+                      </div>
+                    </div>
                     </div>
                     
                     <Separator className="my-4 bg-gray-800" />
