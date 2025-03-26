@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { WebSocketServer } from 'ws'; // Added import for WebSocketServer
+import { migrateDatabase } from "./migration"; // Импорт функции миграции
 
 
 const app = express();
@@ -13,16 +14,7 @@ app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 const PING_INTERVAL = 30000; // 30 секунд
 
 app.use((req, res, next) => {
-  if (req.headers.upgrade === 'websocket') {
-    const ws = req.socket;
-    const pingInterval = setInterval(() => {
-      if (ws.readyState === 1) {
-        ws.ping();
-      }
-    }, PING_INTERVAL);
-
-    ws.on('close', () => clearInterval(pingInterval));
-  }
+  // WebSocket ping/pong будет добавлен в обработчик подключения WebSocket
 
   const start = Date.now();
   const path = req.path;
@@ -54,6 +46,13 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Запускаем миграцию базы данных при старте сервера
+  try {
+    await migrateDatabase();
+  } catch (error) {
+    console.error('Database migration failed:', error);
+  }
+  
   const server = await registerRoutes(app);
 
   // WebSocket server setup should be added here.  This requires significant additional code
