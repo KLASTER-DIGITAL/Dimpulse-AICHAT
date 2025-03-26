@@ -444,5 +444,19 @@ async function initStorage() {
 // Экспортируем промис для ожидания инициализации хранилища
 export const storagePromise = initStorage();
 
-// Экспортируем для обратной совместимости (будет заменено на инициализированное хранилище)
-export const storage = memStorage;
+// Создаем прокси-объект, который перенаправляет обращения к инициализированному хранилищу
+export const storage = new Proxy({} as IStorage, {
+  get: (target, prop) => {
+    // Возвращаем метод, который будет делегировать вызов на актуальное хранилище
+    return (...args: any[]) => {
+      // Получаем метод с таким же именем из фактического хранилища
+      const method = (storageInstance as any)[prop];
+      if (typeof method === 'function') {
+        // Вызываем метод с переданными аргументами
+        return method.apply(storageInstance, args);
+      }
+      
+      throw new Error(`Method ${String(prop)} not found in storage`);
+    };
+  }
+});
