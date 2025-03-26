@@ -49,3 +49,24 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 };
 
 export default ProtectedRoute;
+import { useEffect } from "react";
+import { useLocation } from "wouter";
+
+interface ProtectedRouteProps {
+  children: React.ReactNode;
+}
+
+const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
+  const [, navigate] = useLocation();
+
+  useEffect(() => {
+    const isAuthenticated = localStorage.getItem("isAuthenticated") === "true";
+    if (!isAuthenticated) {
+      navigate("/login");
+    }
+  }, [navigate]);
+
+  return <>{children}</>;
+};
+
+export default ProtectedRoute;
