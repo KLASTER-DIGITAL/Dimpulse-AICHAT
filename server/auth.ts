@@ -17,7 +17,7 @@ export async function authenticateUser(username: string, password: string): Prom
     
     // Пытаемся авторизоваться с помощью Supabase Auth
     const { data, error } = await supabase.auth.signInWithPassword({
-      email: `${username}@example.com`, // Используем валидный домен для email
+      email: `${username}@gmail.com`, // Используем реальный домен для email
       password: password
     });
     
@@ -70,7 +70,7 @@ export async function registerUser(username: string, password: string): Promise<
     
     // Регистрируем пользователя в Supabase Auth
     const { data, error } = await supabase.auth.signUp({
-      email: `${username}@example.com`, // Используем валидный домен для email
+      email: `${username}@gmail.com`, // Используем реальный домен для email
       password: password
     });
     
