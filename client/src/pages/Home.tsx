@@ -327,7 +327,7 @@ const Home = () => {
       <div className="absolute top-2 right-2 z-50">
         <button
           onClick={() => navigate("/cabinet")}
-          className="p-2 opacity-0 hover:opacity-30 transition-opacity"
+          className="p-2 opacity-0"
           title="Войти в кабинет"
           style={{ background: 'transparent' }}
         >
