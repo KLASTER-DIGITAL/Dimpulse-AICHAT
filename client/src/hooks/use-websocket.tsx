@@ -127,7 +127,7 @@ export const useWebSocket = (
           });
           
           // Для каждого сообщения от ассистента имитируем событие typing finished
-          messages.forEach(message => {
+          messages.forEach((message: { role: string, id: string }) => {
             if (message.role === 'assistant') {
               onMessage?.({
                 type: 'typing',

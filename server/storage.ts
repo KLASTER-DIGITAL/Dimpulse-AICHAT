@@ -168,10 +168,57 @@ export class MemStorage implements IStorage {
     try {
       const fs = await import('fs');
       if (fs.existsSync(this.storageFile)) {
-        const data = JSON.parse(fs.readFileSync(this.storageFile, 'utf8'));
-        this.users = new Map(data.users);
-        this.chats = new Map(data.chats);
-        this.messages = new Map(data.messages);
+        // Преобразование строковых дат обратно в объекты Date при загрузке
+        const reviver = (key: string, value: any) => {
+          // Если значение похоже на ISO дату, преобразуем его в объект Date
+          if (typeof value === 'string' && 
+              /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/.test(value)) {
+            return new Date(value);
+          }
+          return value;
+        };
+        
+        const data = JSON.parse(fs.readFileSync(this.storageFile, 'utf8'), reviver);
+        
+        // Исправление даты для пользователей
+        this.users = new Map();
+        if (data.users) {
+          for (const [id, user] of data.users) {
+            if (user.lastActive && !(user.lastActive instanceof Date)) {
+              user.lastActive = new Date(user.lastActive);
+            }
+            this.users.set(Number(id), user);
+          }
+        }
+        
+        // Исправление даты для чатов
+        this.chats = new Map();
+        if (data.chats) {
+          for (const [id, chat] of data.chats) {
+            if (chat.createdAt && !(chat.createdAt instanceof Date)) {
+              chat.createdAt = new Date(chat.createdAt);
+            }
+            if (chat.lastActive && !(chat.lastActive instanceof Date)) {
+              chat.lastActive = new Date(chat.lastActive);
+            }
+            this.chats.set(id, chat);
+          }
+        }
+        
+        // Исправление даты для сообщений
+        this.messages = new Map();
+        if (data.messages) {
+          for (const [chatId, messagesArray] of data.messages) {
+            const fixedMessages = messagesArray.map((msg: any) => {
+              if (msg.createdAt && !(msg.createdAt instanceof Date)) {
+                msg.createdAt = new Date(msg.createdAt);
+              }
+              return msg;
+            });
+            this.messages.set(chatId, fixedMessages);
+          }
+        }
+        
         this.currentUserId = data.currentUserId;
         this.currentMessageId = data.currentMessageId;
         
@@ -213,7 +260,7 @@ export class MemStorage implements IStorage {
           };
         }
         
-        console.log('Data successfully loaded from file');
+        console.log('Data successfully loaded from file with dates converted properly');
       }
     } catch (error) {
       console.error('Error loading data:', error);
