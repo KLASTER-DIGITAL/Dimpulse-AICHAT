@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+import LiveStyleEditor from "@/components/StyleEditor/LiveStyleEditor";
 
 // UI components
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -81,6 +82,7 @@ const Cabinet = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
+  const [isStyleEditorActive, setIsStyleEditorActive] = useState(false);
   
   // Запрос настроек с сервера
   const { data: settings, isLoading } = useQuery({
