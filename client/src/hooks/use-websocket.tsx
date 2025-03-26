@@ -63,15 +63,37 @@ export const useWebSocket = (
       
       // Определяем правильный протокол (ws или wss) на основе текущего протокола страницы
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const wsUrl = `${protocol}//${window.location.host}/ws`;
+      
+      // Позволяем подключаться к WebSocket как в разработке, так и в production
+      let wsUrl;
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        // Локальная разработка 
+        wsUrl = `${protocol}//${window.location.host}/ws`;
+      } else if (window.location.hostname.includes('replit.dev') || window.location.hostname.includes('replit.app')) {
+        // Deployed on Replit
+        wsUrl = `${protocol}//${window.location.host}/ws`;
+      } else {
+        // Другие домены, если нужны конкретные настройки для других hosting провайдеров
+        wsUrl = `${protocol}//${window.location.host}/ws`;
+      }
       
       console.log(`Connecting to WebSocket at ${wsUrl}`);
       
-      // Создаем новое соединение с браузерным WebSocket API
+      // Создаем новое соединение с браузерным WebSocket API и добавляем таймаут
       const ws = new window.WebSocket(wsUrl);
+      
+      // Установим таймаут для соединения 
+      const connectionTimeout = setTimeout(() => {
+        if (ws.readyState !== WebSocket.OPEN) {
+          console.log('WebSocket connection timeout');
+          ws.close();
+        }
+      }, 5000);
       
       ws.onopen = () => {
         console.log('WebSocket connection established');
+        // Очищаем таймаут соединения, так как оно успешно установлено
+        clearTimeout(connectionTimeout);
         setStatus('open');
         onStatusChange?.('open');
         reconnectAttemptsRef.current = 0;
@@ -104,6 +126,8 @@ export const useWebSocket = (
       
       ws.onclose = (event) => {
         console.log(`WebSocket connection closed with code ${event.code}`, event.reason);
+        // Очищаем таймаут соединения, если он все еще активен
+        clearTimeout(connectionTimeout);
         setStatus('closed');
         onStatusChange?.('closed');
         websocketRef.current = null;
@@ -120,6 +144,8 @@ export const useWebSocket = (
       
       ws.onerror = (error) => {
         console.error('WebSocket error:', error);
+        // Очищаем таймаут соединения, если он все еще активен
+        clearTimeout(connectionTimeout);
         setStatus('error');
         onStatusChange?.('error');
       };
