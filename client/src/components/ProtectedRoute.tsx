@@ -10,15 +10,13 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
   useEffect(() => {
-    // Проверяем, авторизован ли пользователь (только на стороне клиента)
     console.log("ProtectedRoute: checking authentication");
     try {
       const authStatus = localStorage.getItem("isAuthenticated") === "true";
       console.log("ProtectedRoute: authStatus =", authStatus);
       setIsAuthenticated(authStatus);
-      
+
       if (!authStatus) {
-        // Если не авторизован, перенаправляем на страницу входа
         console.log("ProtectedRoute: redirecting to /login");
         navigate("/login");
       } else {
@@ -31,7 +29,6 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     }
   }, [navigate]);
 
-  // Показываем загрузку, пока не определили статус аутентификации
   if (isAuthenticated === null) {
     return (
       <div className="flex h-screen items-center justify-center bg-black text-white">
@@ -43,30 +40,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     );
   }
 
-  // Если пользователь авторизован, показываем защищенный контент
-  // Если нет, показываем экран загрузки (перенаправление произойдет через useEffect)
   return isAuthenticated ? <>{children}</> : <div />;
-};
-
-export default ProtectedRoute;
-import { useEffect } from "react";
-import { useLocation } from "wouter";
-
-interface ProtectedRouteProps {
-  children: React.ReactNode;
-}
-
-const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const [, navigate] = useLocation();
-
-  useEffect(() => {
-    const isAuthenticated = localStorage.getItem("isAuthenticated") === "true";
-    if (!isAuthenticated) {
-      navigate("/login");
-    }
-  }, [navigate]);
-
-  return <>{children}</>;
 };
 
 export default ProtectedRoute;
