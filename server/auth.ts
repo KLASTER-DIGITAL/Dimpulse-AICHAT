@@ -1,59 +1,83 @@
 import { supabase } from './supabase';
 import { Request, Response, NextFunction } from 'express';
 import type { User } from '@shared/schema';
-import crypto from 'crypto';
-
-// Генерируем токены для пользователей
-const userTokens = new Map<string, string>();
 
 /**
- * Простая хеш-функция для паролей (не рекомендуется для продакшена)
- */
-function simpleHash(password: string): string {
-  return crypto.createHash('sha256').update(password).digest('hex');
-}
-
-/**
- * Аутентификация пользователя
+ * Аутентификация пользователя в Supabase
  * @param username Имя пользователя
  * @param password Пароль
  * @returns Данные пользователя или null в случае ошибки
  */
 export async function authenticateUser(username: string, password: string): Promise<{user: User, token: string} | null> {
   try {
-    // Получаем данные пользователя из нашей таблицы пользователей
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('username', username)
-      .single();
+    // Проверяем, что Supabase настроен
+    if (!supabase) {
+      throw new Error('Supabase not configured');
+    }
     
-    if (userError || !userData) {
-      console.error('User data fetch error:', userError);
+    // Пытаемся авторизоваться с помощью Supabase Auth
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: `${username}@example.com`, // Используем домен для email
+      password: password
+    });
+    
+    if (error || !data.user) {
+      console.error('Authentication error:', error);
       return null;
     }
     
-    // Проверяем пароль напрямую (в данном случае без хеширования)
-    // В реальном приложении тут должна быть проверка хешированного пароля
-    if (userData.password !== password) {
-      console.error('Incorrect password');
+    // Находим или создаем пользователя в нашей таблице
+    const userId = data.user.id;
+    let userData;
+    
+    // Сначала проверяем, есть ли пользователь в нашей таблице
+    const { data: existingUser, error: fetchError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+    
+    if (fetchError) {
+      console.error('User data fetch error:', fetchError);
       return null;
+    }
+    
+    if (existingUser) {
+      // Пользователь существует, обновляем last_active
+      userData = existingUser;
+      await supabase
+        .from('users')
+        .update({ last_active: new Date().toISOString() })
+        .eq('id', userId);
+    } else {
+      // Пользователь не существует, создаем запись
+      const { data: newUser, error: insertError } = await supabase
+        .from('users')
+        .insert({
+          id: userId,
+          last_active: new Date().toISOString()
+        })
+        .select()
+        .single();
+      
+      if (insertError || !newUser) {
+        console.error('User data creation error:', insertError);
+        return null;
+      }
+      
+      userData = newUser;
     }
     
     const user: User = {
       id: userData.id,
-      username: userData.username,
+      username: username,
       password: '********', // Скрываем пароль в возвращаемых данных
       lastActive: userData.last_active
     };
     
-    // Генерируем простой токен и сохраняем его в памяти
-    const token = crypto.randomBytes(32).toString('hex');
-    userTokens.set(token, userData.id.toString());
-    
     return {
       user,
-      token: token
+      token: data.session?.access_token || ''
     };
   } catch (error) {
     console.error('Authentication error:', error);
@@ -62,7 +86,7 @@ export async function authenticateUser(username: string, password: string): Prom
 }
 
 /**
- * Регистрация нового пользователя
+ * Регистрация нового пользователя в Supabase
  * @param username Имя пользователя
  * @param password Пароль
  * @returns Данные пользователя или null в случае ошибки
@@ -74,25 +98,45 @@ export async function registerUser(username: string, password: string): Promise<
       throw new Error('Supabase not configured');
     }
     
+    // Регистрируем пользователя в Supabase Auth
+    const { data, error } = await supabase.auth.signUp({
+      email: `${username}@example.com`, // Используем домен для email
+      password: password
+    });
+    
+    if (error || !data.user) {
+      console.error('Registration error:', error);
+      return null;
+    }
+    
     // Создаем запись в нашей таблице пользователей
     const { data: userData, error: userError } = await supabase
       .from('users')
       .insert({
-        username: username,
-        password: password, // Храним пароль в открытом виде ТОЛЬКО для демонстрационных целей
+        id: data.user.id,
         last_active: new Date().toISOString()
       })
       .select()
       .single();
     
-    if (userError || !userData) {
+    if (userError) {
       console.error('User data creation error:', userError);
-      return null;
+      
+      // Если произошла ошибка при создании записи в таблице, но пользователь в Auth создан,
+      // мы всё равно возвращаем данные пользователя
+      const user: User = {
+        id: data.user.id,
+        username: username,
+        password: '********',
+        lastActive: new Date().toISOString()
+      };
+      
+      return user;
     }
     
     const user: User = {
       id: userData.id,
-      username: userData.username,
+      username: username,
       password: '********', // Скрываем пароль в возвращаемых данных
       lastActive: userData.last_active
     };
@@ -126,18 +170,25 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
     return res.status(401).json({ message: 'Authentication token required' });
   }
   
-  // Проверяем токен в нашей памяти
-  const userId = userTokens.get(token);
-  if (!userId) {
-    return res.status(403).json({ message: 'Invalid or expired token' });
-  }
-  
-  // Добавляем данные пользователя в запрос
-  (req as any).user = {
-    id: userId
-  };
-  
-  next();
+  // Проверяем токен через Supabase Auth
+  supabase.auth.getUser(token)
+    .then(({ data, error }) => {
+      if (error || !data.user) {
+        return res.status(403).json({ message: 'Invalid or expired token' });
+      }
+      
+      // Добавляем данные пользователя в запрос
+      (req as any).user = {
+        id: data.user.id,
+        email: data.user.email
+      };
+      
+      next();
+    })
+    .catch((error) => {
+      console.error('Token verification error:', error);
+      return res.status(500).json({ message: 'Authentication error' });
+    });
 }
 
 /**
@@ -146,8 +197,21 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
  */
 export async function logoutUser(token: string): Promise<boolean> {
   try {
-    // Удаляем токен из памяти
-    userTokens.delete(token);
+    // Проверяем, что Supabase настроен
+    if (!supabase) {
+      throw new Error('Supabase not configured');
+    }
+    
+    // Выходим из Supabase Auth
+    const { error } = await supabase.auth.signOut({
+      scope: 'local'
+    });
+    
+    if (error) {
+      console.error('Logout error:', error);
+      return false;
+    }
+    
     return true;
   } catch (error) {
     console.error('Logout error:', error);
@@ -162,27 +226,68 @@ export async function logoutUser(token: string): Promise<boolean> {
  */
 export async function getUserByToken(token: string): Promise<User | null> {
   try {
-    // Проверяем токен в нашей памяти
-    const userId = userTokens.get(token);
-    if (!userId) {
+    // Проверяем, что Supabase настроен
+    if (!supabase) {
+      throw new Error('Supabase not configured');
+    }
+    
+    // Проверяем токен через Supabase Auth
+    const { data: userData, error } = await supabase.auth.getUser(token);
+    
+    if (error || !userData.user) {
+      console.error('Get user by token error:', error);
       return null;
     }
     
-    // Получаем данные пользователя из Supabase
+    // Получаем данные пользователя из нашей таблицы пользователей
+    const userId = userData.user.id;
+    
     const { data: user, error: userError } = await supabase
       .from('users')
       .select('*')
       .eq('id', userId)
       .single();
     
-    if (userError || !user) {
+    if (userError) {
       console.error('User data fetch error:', userError);
+      
+      // Если пользователя нет в нашей таблице, но есть в Auth, создаем его
+      if (userError.code === 'PGRST404') {
+        const email = userData.user.email;
+        const username = email ? email.split('@')[0] : 'user_' + userId.substring(0, 8);
+        
+        const { data: newUser, error: insertError } = await supabase
+          .from('users')
+          .insert({
+            id: userId,
+            last_active: new Date().toISOString()
+          })
+          .select()
+          .single();
+        
+        if (insertError || !newUser) {
+          console.error('User data creation error:', insertError);
+          return null;
+        }
+        
+        return {
+          id: newUser.id,
+          username: username,
+          password: '********',
+          lastActive: newUser.last_active
+        };
+      }
+      
       return null;
     }
     
+    // Определяем имя пользователя из email
+    const email = userData.user.email;
+    const username = email ? email.split('@')[0] : 'user_' + user.id.substring(0, 8);
+    
     return {
       id: user.id,
-      username: user.username,
+      username: username,
       password: '********', // Скрываем пароль в возвращаемых данных
       lastActive: user.last_active
     };
