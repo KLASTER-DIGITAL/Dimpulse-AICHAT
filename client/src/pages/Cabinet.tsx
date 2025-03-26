@@ -120,7 +120,7 @@ const Cabinet = () => {
   
   // Состояние для пагинации диалогов
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 10;
+  const pageSize = 10; // Размер страницы для пагинации
 
   // Запрос настроек с сервера
   const { data: settings, isLoading } = useQuery({
@@ -814,25 +814,10 @@ const Cabinet = () => {
                   <Label htmlFor="ui-enabled">Включить пользовательские настройки интерфейса</Label>
                 </div>
 
+                {/* Если UI выключен, показываем базовые настройки */}
                 {!uiEnabled && (
                   <div className="space-y-2 p-4 bg-gray-800 rounded-md">
-                    <Label>Тема по умолчанию</Label>
-                    <RadioGroup value={settings?.ui?.theme || 'dark'} onValueChange={(value) => {
-                      saveUiMutation.mutate({
-                        ...settings?.ui,
-                        enabled: false,
-                        theme: value
-                      });
-                    }}>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="light" id="theme-light-default" />
-                        <Label htmlFor="theme-light-default">Светлая</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="dark" id="theme-dark-default" />
-                        <Label htmlFor="theme-dark-default">Темная</Label>
-                      </div>
-                    </RadioGroup>
+                    <p className="text-gray-400">Включите настройки UI для более детальной настройки</p>
                   </div>
                 )}
 
