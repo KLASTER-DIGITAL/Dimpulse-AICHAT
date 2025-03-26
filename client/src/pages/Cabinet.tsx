@@ -61,6 +61,20 @@ interface Settings {
       animations: boolean;
     };
   };
+  database: {
+    enabled: boolean;
+    type: "local" | "supabase";
+    supabase: {
+      tables: {
+        messages: string;
+        chats: string;
+        users: string;
+        files: string;
+      };
+      schema: string;
+      autoMigrate: boolean;
+    };
+  };
 }
 
 interface Stats {
@@ -135,6 +149,20 @@ const defaultSettings: Settings = {
       roundedCorners: true,
       shadows: true,
       animations: true
+    }
+  },
+  database: {
+    enabled: false,
+    type: "local",
+    supabase: {
+      tables: {
+        messages: "messages",
+        chats: "chats",
+        users: "users",
+        files: "files"
+      },
+      schema: "public",
+      autoMigrate: true
     }
   }
 };
@@ -246,6 +274,32 @@ const Cabinet = () => {
   );
   const [animations, setAnimations] = useState<boolean>(
     settings?.ui?.elements.animations || defaultSettings.ui.elements.animations
+  );
+
+  // Настройки базы данных
+  const [databaseEnabled, setDatabaseEnabled] = useState<boolean>(
+    settings?.database?.enabled || defaultSettings.database.enabled
+  );
+  const [databaseType, setDatabaseType] = useState<"local" | "supabase">(
+    settings?.database?.type || defaultSettings.database.type
+  );
+  const [messagesTable, setMessagesTable] = useState<string>(
+    settings?.database?.supabase?.tables?.messages || defaultSettings.database.supabase.tables.messages
+  );
+  const [chatsTable, setChatsTable] = useState<string>(
+    settings?.database?.supabase?.tables?.chats || defaultSettings.database.supabase.tables.chats
+  );
+  const [usersTable, setUsersTable] = useState<string>(
+    settings?.database?.supabase?.tables?.users || defaultSettings.database.supabase.tables.users
+  );
+  const [filesTable, setFilesTable] = useState<string>(
+    settings?.database?.supabase?.tables?.files || defaultSettings.database.supabase.tables.files
+  );
+  const [databaseSchema, setDatabaseSchema] = useState<string>(
+    settings?.database?.supabase?.schema || defaultSettings.database.supabase.schema
+  );
+  const [autoMigrate, setAutoMigrate] = useState<boolean>(
+    settings?.database?.supabase?.autoMigrate || defaultSettings.database.supabase.autoMigrate
   );
 
 
