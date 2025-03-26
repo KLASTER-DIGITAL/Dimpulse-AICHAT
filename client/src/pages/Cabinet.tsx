@@ -4,8 +4,6 @@ import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import LiveStyleEditor from "@/components/StyleEditor/LiveStyleEditor";
-import { Dialog, DialogHeader, DialogTitle, DialogContent } from "@/components/ui/dialog"; // Added import
-
 
 // UI components
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -20,6 +18,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { Badge } from "@/components/ui/badge";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { 
+  Sheet,
+  SheetContent, 
+  SheetDescription, 
+  SheetHeader, 
+  SheetTitle, 
+  SheetFooter 
+} from "@/components/ui/sheet";
 
 // Interfaces for data
 interface Settings {
@@ -144,6 +150,7 @@ const Cabinet = () => {
   // Состояние для просмотра диалога в боковой панели
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [showChatSidebar, setShowChatSidebar] = useState(false);
+  const [selectedChat, setSelectedChat] = useState<SelectedChat | null>(null);
 
   // Запрос настроек с сервера
   const { data: settings, isLoading } = useQuery({
@@ -1125,13 +1132,22 @@ const Cabinet = () => {
                               <TableCell>{new Date(chat.createdAt).toLocaleString()}</TableCell>
                               <TableCell>{new Date(chat.lastActive).toLocaleString()}</TableCell>
                               <TableCell>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => window.location.href = `/chat/${chat.id}`}
-                                >
-                                  Открыть чат
-                                </Button>
+                                <div className="flex space-x-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => window.location.href = `/chat/${chat.id}`}
+                                  >
+                                    Открыть чат
+                                  </Button>
+                                  <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => fetchChatMessages(chat.id)}
+                                  >
+                                    Просмотр сообщений
+                                  </Button>
+                                </div>
                               </TableCell>
                             </TableRow>
                           );
@@ -1306,22 +1322,51 @@ const Cabinet = () => {
           </TabsContent>
         </Tabs>
 
-        <Dialog open={showChatDialog} onOpenChange={setShowChatDialog}>
-          <DialogContent className="max-w-3xl">
-            <DialogHeader>
-              <DialogTitle>{selectedChat?.chat?.title}</DialogTitle>
-            </DialogHeader>
-            <div className="max-h-[60vh] overflow-y-auto space-y-4 p-4">
-              {selectedChat?.messages?.map((message: any) => (
-                <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[80%] p-3 rounded-lg ${message.role === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-white'}`}>
-                    {message.content}
-                  </div>
+        {/* Боковая панель для просмотра сообщений */}
+        <Sheet open={showChatSidebar} onOpenChange={setShowChatSidebar} side="right">
+          <SheetContent className="w-[500px] sm:w-[540px] bg-gray-900 text-white border-l border-gray-800">
+            <SheetHeader>
+              <SheetTitle className="text-white">
+                {selectedChat?.chat?.title || "История сообщений"}
+              </SheetTitle>
+              <SheetDescription className="text-gray-400">
+                Просмотр истории сообщений выбранного диалога
+              </SheetDescription>
+            </SheetHeader>
+            
+            <div className="mt-4 py-2 space-y-4 overflow-y-auto max-h-[80vh]">
+              {!selectedChat ? (
+                <div className="flex justify-center items-center h-40">
+                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-white"></div>
                 </div>
-              ))}
+              ) : selectedChat.messages.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-400">В этом диалоге пока нет сообщений</p>
+                </div>
+              ) : (
+                selectedChat.messages.map((message: any) => (
+                  <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div 
+                      className={`max-w-[80%] p-3 rounded-lg ${
+                        message.role === 'user' 
+                          ? 'bg-blue-600 text-white' 
+                          : 'bg-gray-700 text-white'
+                      }`}
+                    >
+                      {message.content}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
-          </DialogContent>
-        </Dialog>
+            
+            <SheetFooter className="mt-auto pt-4 border-t border-gray-800">
+              <Button variant="outline" onClick={() => setShowChatSidebar(false)}>
+                Закрыть
+              </Button>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
       </main>
 
       {/* Компонент визуального редактирования стилей */}
