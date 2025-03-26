@@ -1,3 +1,5 @@
+
+import { useEffect } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -28,7 +30,6 @@ function Router() {
 }
 
 function App() {
-  // Improved WebSocket connection handling
   useEffect(() => {
     let ws: WebSocket | null = null;
     let reconnectTimeout: NodeJS.Timeout;
