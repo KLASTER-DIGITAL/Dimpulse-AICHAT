@@ -122,6 +122,26 @@
       border: none;
       background-color: ${theme === 'light' ? '#ffffff' : '#202123'};
     }
+    
+    /* Адаптивные стили для мобильных устройств */
+    @media (max-width: 480px) {
+      .chat-widget-container {
+        width: 90% !important;
+        left: 5% !important;
+        right: 5% !important;
+        bottom: 80px !important;
+      }
+      
+      .chat-widget-button {
+        width: 50px;
+        height: 50px;
+      }
+      
+      .chat-widget-icon {
+        width: 24px;
+        height: 24px;
+      }
+    }
   `;
   
   document.head.appendChild(style);

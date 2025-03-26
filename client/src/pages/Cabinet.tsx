@@ -783,6 +783,9 @@ const Cabinet = () => {
                               const widgetContainer = document.querySelector('.chat-widget-container');
                               if (widgetButton) widgetButton.remove();
                               if (widgetContainer) widgetContainer.remove();
+                            } else {
+                              // Показываем превью при включении
+                              createWidgetPreview();
                             }
                           }}
                         />
