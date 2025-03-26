@@ -3,6 +3,8 @@
   const scriptTag = document.currentScript;
   const position = scriptTag.getAttribute('data-position') || 'right';
   const theme = scriptTag.getAttribute('data-theme') || 'dark';
+  const fontSize = scriptTag.getAttribute('data-font-size') || '16';
+  const greetingText = scriptTag.getAttribute('data-greeting') || 'Онлайн-чат';
   
   // Создаем стили для виджета с поддержкой пульсации и улучшенными темами
   const style = document.createElement('style');
