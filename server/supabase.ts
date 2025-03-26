@@ -16,8 +16,8 @@ export const isSupabaseConfigured = (): boolean => {
 // Проверка подключения к Supabase
 export const testSupabaseConnection = async (): Promise<boolean> => {
   try {
-    // Запрос к системной таблице, чтобы проверить соединение
-    const { error } = await supabase.from('_metadata').select('version').limit(1);
+    // Получаем информацию о пользователе для проверки соединения
+    const { error } = await supabase.auth.getSession();
     
     if (error) {
       console.error('Error connecting to Supabase:', error);

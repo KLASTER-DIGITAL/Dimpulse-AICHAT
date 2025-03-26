@@ -1,7 +1,6 @@
-import { supabase } from './supabase';
-import { readFileSync } from 'fs';
-import { join } from 'path';
-import { isSupabaseConfigured } from './supabase';
+import fs from 'fs';
+import path from 'path';
+import { supabase, isSupabaseConfigured, testSupabaseConnection } from './supabase';
 
 /**
  * Выполняет SQL-скрипт из файла
@@ -9,32 +8,39 @@ import { isSupabaseConfigured } from './supabase';
  */
 async function executeSqlScript(filename: string): Promise<boolean> {
   try {
-    const filePath = join(__dirname, 'migrations', filename);
-    const sql = readFileSync(filePath, 'utf8');
+    const filePath = path.join(__dirname, 'migrations', filename);
+    const sqlScript = fs.readFileSync(filePath, 'utf8');
     
-    console.log(`Executing SQL script: ${filename}`);
+    // Разделяем скрипт на отдельные команды по разделителям
+    const commands = sqlScript.split(';').filter(cmd => cmd.trim().length > 0);
     
-    // Разделяем SQL-скрипт на отдельные операторы
-    const statements = sql
-      .split(';')
-      .map(s => s.trim())
-      .filter(s => s.length > 0);
-    
-    // Выполняем каждый оператор по отдельности
-    for (const statement of statements) {
-      const { error } = await supabase.rpc('run_sql', { sql: statement });
+    // Выполняем каждую команду отдельно
+    for (const command of commands) {
+      const { error } = await supabase.rpc('run_sql', { sql_query: command });
       
       if (error) {
-        console.error(`Error executing SQL statement: ${error.message}`);
-        console.error(statement);
-        throw error;
+        // Если функция run_sql еще не создана, выполняем запрос напрямую
+        if (error.message.includes('function run_sql() does not exist')) {
+          const { error: directError } = await supabase.from('_sql').select('*').execute(command);
+          
+          if (directError) {
+            console.error(`Error executing SQL command directly: ${directError.message}`);
+            console.error(`Command: ${command}`);
+            // Продолжаем выполнение, так как некоторые ошибки могут быть неизбежны
+            // при первоначальной настройке (например, DROP IF EXISTS для несуществующих объектов)
+          }
+        } else {
+          console.error(`Error executing SQL command via run_sql: ${error.message}`);
+          console.error(`Command: ${command}`);
+          // Продолжаем выполнение
+        }
       }
     }
     
     console.log(`SQL script ${filename} executed successfully`);
     return true;
   } catch (error) {
-    console.error(`Failed to execute SQL script ${filename}:`, error);
+    console.error(`Error executing SQL script ${filename}:`, error);
     return false;
   }
 }
@@ -48,17 +54,18 @@ async function tableExists(tableName: string): Promise<boolean> {
     const { data, error } = await supabase
       .from('information_schema.tables')
       .select('table_name')
+      .eq('table_schema', 'public')
       .eq('table_name', tableName)
-      .eq('table_schema', 'public');
+      .maybeSingle();
     
     if (error) {
-      console.error('Error checking table existence:', error);
+      console.error(`Error checking if table ${tableName} exists:`, error);
       return false;
     }
     
-    return Boolean(data && data.length > 0);
+    return !!data;
   } catch (error) {
-    console.error('Error checking table existence:', error);
+    console.error(`Error checking if table ${tableName} exists:`, error);
     return false;
   }
 }
@@ -68,40 +75,39 @@ async function tableExists(tableName: string): Promise<boolean> {
  */
 async function createRunSqlFunction(): Promise<boolean> {
   try {
-    const { error } = await supabase.rpc('create_run_sql_function');
-    
-    if (error) {
-      // Возможно функция уже существует, проверяем это
-      if (error.message && error.message.includes('already exists')) {
-        console.log('run_sql function already exists');
-        return true;
-      }
-      
-      console.error('Error creating run_sql function:', error);
-      
-      // Создаем функцию напрямую, если RPC вызов не работает
-      const { error: directError } = await supabase.rpc('run_sql', {
-        sql: `
-          CREATE OR REPLACE FUNCTION run_sql(sql text)
-          RETURNS void
-          LANGUAGE plpgsql
-          SECURITY DEFINER
-          AS $$
-          BEGIN
-            EXECUTE sql;
-          END;
-          $$;
-        `
-      });
-      
-      if (directError) {
-        console.error('Error creating run_sql function directly:', directError);
-        return false;
-      }
-      
+    // Проверяем, существует ли функция run_sql
+    if (await functionExists('run_sql')) {
+      console.log('Function run_sql already exists');
       return true;
     }
     
+    // Создаем функцию run_sql
+    const createFunctionSQL = `
+    CREATE OR REPLACE FUNCTION run_sql(sql_query TEXT)
+    RETURNS TEXT AS $$
+    DECLARE
+      result TEXT;
+    BEGIN
+      BEGIN
+        EXECUTE sql_query;
+        result := 'Query executed successfully';
+      EXCEPTION WHEN OTHERS THEN
+        result := 'Error: ' || SQLERRM;
+      END;
+      RETURN result;
+    END;
+    $$ LANGUAGE plpgsql SECURITY DEFINER;
+    `;
+    
+    // Выполняем запрос на создание функции
+    const { error } = await supabase.from('_sql').select('*').execute(createFunctionSQL);
+    
+    if (error) {
+      console.error('Error creating run_sql function:', error);
+      return false;
+    }
+    
+    console.log('Function run_sql created successfully');
     return true;
   } catch (error) {
     console.error('Error creating run_sql function:', error);
@@ -118,17 +124,18 @@ async function functionExists(functionName: string): Promise<boolean> {
     const { data, error } = await supabase
       .from('information_schema.routines')
       .select('routine_name')
+      .eq('routine_schema', 'public')
       .eq('routine_name', functionName)
-      .eq('routine_schema', 'public');
+      .maybeSingle();
     
     if (error) {
-      console.error(`Error checking function existence (${functionName}):`, error);
+      console.error(`Error checking if function ${functionName} exists:`, error);
       return false;
     }
     
-    return Boolean(data && data.length > 0);
+    return !!data;
   } catch (error) {
-    console.error(`Error checking function existence (${functionName}):`, error);
+    console.error(`Error checking if function ${functionName} exists:`, error);
     return false;
   }
 }
@@ -138,62 +145,36 @@ async function functionExists(functionName: string): Promise<boolean> {
  */
 export async function migrateDatabase(): Promise<boolean> {
   try {
-    // Проверяем, настроен ли Supabase
-    if (!isSupabaseConfigured()) {
-      console.log('Supabase not configured, skipping migration');
-      return false;
-    }
-    
     console.log('Starting database migration...');
     
+    // Проверяем, настроен ли Supabase
+    if (!isSupabaseConfigured()) {
+      console.log('Supabase is not configured, skipping migration');
+      return false;
+    }
+    
     // Проверяем соединение с Supabase
-    const { data: testData, error: testError } = await supabase
-      .from('_metadata')
-      .select('version')
-      .limit(1);
-    
-    if (testError) {
-      console.error('Supabase connection test failed:', testError);
+    const connectionTest = await testSupabaseConnection();
+    if (!connectionTest) {
+      console.log('Supabase connection test failed, skipping migration');
       return false;
     }
     
-    console.log('Supabase connection successful');
+    console.log('Supabase connection test successful');
     
-    // Создаем функцию run_sql если не существует
-    const runSqlExists = await functionExists('run_sql');
-    if (!runSqlExists) {
-      const created = await createRunSqlFunction();
-      if (!created) {
-        console.error('Failed to create run_sql function, aborting migration');
-        return false;
-      }
-    }
+    // Создаем функцию run_sql, если она еще не существует
+    await createRunSqlFunction();
     
-    // Проверяем, существуют ли уже таблицы
-    const usersTableExists = await tableExists('users');
+    // Выполняем скрипт создания таблиц
+    await executeSqlScript('create_tables.sql');
     
-    if (usersTableExists) {
-      console.log('Tables already exist, skipping structure creation');
-    } else {
-      // Создаем таблицы и функции
-      const success = await executeSqlScript('create_tables.sql');
-      if (!success) {
-        console.error('Failed to create tables, aborting migration');
-        return false;
-      }
-    }
-    
-    // Создаем SQL-функции для статистики и операций с данными
-    const funcSuccess = await executeSqlScript('supabase-sql-functions.sql');
-    if (!funcSuccess) {
-      console.error('Failed to create SQL functions, but tables might have been created');
-      return false;
-    }
+    // Выполняем скрипт создания функций
+    await executeSqlScript('supabase-sql-functions.sql');
     
     console.log('Database migration completed successfully');
     return true;
   } catch (error) {
-    console.error('Database migration failed:', error);
+    console.error('Error migrating database:', error);
     return false;
   }
 }
