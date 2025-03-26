@@ -4,6 +4,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import LiveStyleEditor from "@/components/StyleEditor/LiveStyleEditor";
+import { Dialog, DialogHeader, DialogTitle, DialogContent } from "@/components/ui/dialog"; // Added import
+
 
 // UI components
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -81,6 +83,17 @@ interface DialogsResponse {
   totalCount: number;
 }
 
+interface Message {
+  id: string;
+  content: string;
+  role: 'user' | 'assistant';
+}
+
+interface SelectedChat {
+  chat: Chat | null;
+  messages: Message[] | null;
+}
+
 const defaultSettings: Settings = {
   webhook: {
     url: "https://n8n.klaster.digital/webhook-test/4a1fed67-dcfb-4eb8-a71b-d47b1d651509",
@@ -117,7 +130,7 @@ const Cabinet = () => {
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
   const [isStyleEditorActive, setIsStyleEditorActive] = useState(false);
-  
+
   // Состояние для пагинации диалогов
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10; // Размер страницы для пагинации
@@ -204,9 +217,9 @@ const Cabinet = () => {
   const [animations, setAnimations] = useState<boolean>(
     settings?.ui?.elements.animations || defaultSettings.ui.elements.animations
   );
-  
 
-  
+
+
   // Запрос статистики использования
   const { data: stats, isLoading: isLoadingStats } = useQuery({
     queryKey: ["/api/stats"],
@@ -220,7 +233,7 @@ const Cabinet = () => {
       }
     },
   });
-  
+
   // Запрос истории диалогов с пагинацией
   const { data: dialogsData, isLoading: isLoadingDialogs } = useQuery({
     queryKey: ["/api/dialogs", currentPage, pageSize],
@@ -436,6 +449,21 @@ const Cabinet = () => {
   })(document, window);
 </script>`;
   };
+
+  const [selectedChat, setSelectedChat] = useState<SelectedChat | null>(null);
+  const [showChatDialog, setShowChatDialog] = useState(false);
+
+
+  const fetchChatMessages = async (chatId: string) => {
+    try {
+      const messages = await apiRequest(`/api/chat/${chatId}/messages`);
+      setSelectedChat({chat: dialogsData?.chats.find(chat => chat.id === chatId) || null, messages: messages});
+    } catch (error) {
+      console.error("Error fetching chat messages:", error);
+      setSelectedChat(null);
+    }
+  }
+
 
   if (isLoading) {
     return (
@@ -1076,7 +1104,7 @@ const Cabinet = () => {
                         {dialogsData?.chats.map((chat) => {
                           const isActive = new Date(chat.lastActive) > new Date(Date.now() - 24 * 60 * 60 * 1000);
                           return (
-                            <TableRow key={chat.id}>
+                            <TableRow key={chat.id} onClick={() => {fetchChatMessages(chat.id); setShowChatDialog(true);}}>
                               <TableCell className="font-mono text-xs">{chat.id.substring(0, 8)}...</TableCell>
                               <TableCell>{chat.title}</TableCell>
                               <TableCell>{new Date(chat.createdAt).toLocaleString()}</TableCell>
@@ -1103,7 +1131,7 @@ const Cabinet = () => {
                                 className={currentPage === 1 ? "opacity-50 cursor-not-allowed" : ""}
                               />
                             </PaginationItem>
-                            
+
                             {Array.from({ length: Math.min(5, Math.ceil(dialogsData.totalCount / pageSize)) }, (_, i) => {
                               const page = i + 1;
                               return (
@@ -1117,13 +1145,13 @@ const Cabinet = () => {
                                 </PaginationItem>
                               );
                             })}
-                            
+
                             {Math.ceil(dialogsData.totalCount / pageSize) > 5 && (
                               <PaginationItem>
                                 <PaginationEllipsis />
                               </PaginationItem>
                             )}
-                            
+
                             <PaginationItem>
                               <PaginationNext 
                                 onClick={() => {
@@ -1175,7 +1203,7 @@ const Cabinet = () => {
                           <p className="text-sm text-gray-400 mt-1">Активных за 24ч: {stats.activeUsersLast24h}</p>
                         </CardContent>
                       </Card>
-                      
+
                       <Card className="bg-gray-800 border-gray-700">
                         <CardHeader className="pb-2">
                           <CardTitle className="text-lg">Всего диалогов</CardTitle>
@@ -1185,7 +1213,7 @@ const Cabinet = () => {
                           <p className="text-sm text-gray-400 mt-1">Активных за 24ч: {stats.activeChatsLast24h}</p>
                         </CardContent>
                       </Card>
-                      
+
                       <Card className="bg-gray-800 border-gray-700">
                         <CardHeader className="pb-2">
                           <CardTitle className="text-lg">Всего сообщений</CardTitle>
@@ -1196,7 +1224,7 @@ const Cabinet = () => {
                         </CardContent>
                       </Card>
                     </div>
-                    
+
                     {/* График сообщений по дням */}
                     <div className="mt-8">
                       <h3 className="text-lg font-medium mb-4">Активность по дням</h3>
@@ -1225,7 +1253,7 @@ const Cabinet = () => {
                         </ResponsiveContainer>
                       </div>
                     </div>
-                    
+
                     {/* Топ чаты */}
                     {stats.topChats.length > 0 && (
                       <div className="mt-8">
@@ -1258,6 +1286,23 @@ const Cabinet = () => {
             </Card>
           </TabsContent>
         </Tabs>
+
+        <Dialog open={showChatDialog} onOpenChange={setShowChatDialog}>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>{selectedChat?.chat?.title}</DialogTitle>
+            </DialogHeader>
+            <div className="max-h-[60vh] overflow-y-auto space-y-4 p-4">
+              {selectedChat?.messages?.map((message: any) => (
+                <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[80%] p-3 rounded-lg ${message.role === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-white'}`}>
+                    {message.content}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
       </main>
 
       {/* Компонент визуального редактирования стилей */}
