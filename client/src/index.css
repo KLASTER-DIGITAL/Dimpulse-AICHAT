@@ -117,3 +117,19 @@
   overflow-x: auto;
   margin: 0.5rem 0;
 }
+:root {
+  --button-height: 40px;
+  --button-radius: 8px;
+  --input-padding: 12px;
+  --input-font-size: 14px;
+}
+
+button {
+  height: var(--button-height);
+  border-radius: var(--button-radius);
+}
+
+input {
+  padding: var(--input-padding);
+  font-size: var(--input-font-size);
+}
