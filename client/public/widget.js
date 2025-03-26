@@ -9,6 +9,10 @@
   // Создаем стили для виджета с поддержкой пульсации и улучшенными темами
   const style = document.createElement('style');
   style.textContent = `
+    /* Глобальный стиль для текста */
+    .chat-widget-text {
+      font-size: ${fontSize}px;
+    }
     .chat-widget-button {
       position: fixed;
       bottom: 20px;
@@ -139,12 +143,17 @@
   // Создаем HTML для контейнера чата
   const container = document.createElement('div');
   container.className = 'chat-widget-container';
+  
+  // Применяем размеры виджета если они указаны
+  container.style.width = scriptTag.getAttribute('data-width') || '350px';
+  container.style.height = scriptTag.getAttribute('data-height') || '500px';
+  
   container.innerHTML = `
     <div class="chat-widget-header">
-      <h3 class="chat-widget-title">Онлайн-чат</h3>
+      <h3 class="chat-widget-title chat-widget-text">${greetingText}</h3>
       <button class="chat-widget-close">✕</button>
     </div>
-    <iframe class="chat-widget-iframe" src="${serverUrl}?embed=true&theme=${theme}"></iframe>
+    <iframe class="chat-widget-iframe" src="${serverUrl}?embed=true&theme=${theme}&fontSize=${fontSize}"></iframe>
   `;
   
   // Добавляем элементы на страницу

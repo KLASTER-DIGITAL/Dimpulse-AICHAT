@@ -42,6 +42,10 @@ interface Settings {
       enabled: boolean;
       position: "left" | "right";
       theme: "light" | "dark";
+      fontSize: number;
+      width: number;
+      height: number;
+      text: string;
     };
   };
   ui: {
@@ -177,6 +181,7 @@ const Cabinet = () => {
   const [widgetText, setWidgetText] = useState<string>("Чем еще могу помочь?");
   const [widgetWidth, setWidgetWidth] = useState<number>(400);
   const [widgetHeight, setWidgetHeight] = useState<number>(500);
+  const [widgetFontSize, setWidgetFontSize] = useState<number>(16);
   const [showWidgetPreview, setShowWidgetPreview] = useState(false);
 
   // Функция для создания превью виджета
@@ -462,6 +467,10 @@ const Cabinet = () => {
     s.src = '${window.location.origin}/widget.js';
     s.setAttribute('data-position', '${widgetPosition}');
     s.setAttribute('data-theme', '${widgetTheme}');
+    s.setAttribute('data-width', '${widgetWidth}px');
+    s.setAttribute('data-height', '${widgetHeight}px');
+    s.setAttribute('data-font-size', '${widgetFontSize}');
+    s.setAttribute('data-greeting', '${widgetText}');
     d.head.appendChild(s);
   })(document, window);
 </script>`;
