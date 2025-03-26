@@ -14,13 +14,13 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
     <div className={`message ${isUser ? "user-message" : "assistant-message"} chat-message mb-6`}>
       {isUser ? (
         <div className="flex justify-end mb-4">
-          <div className="user-message bg-gray-800 rounded-full py-2 px-4 max-w-[80%] text-white">
+          <div className="user-message bg-gray-800 rounded-full py-2 px-4 max-w-[80%] text-white shadow-sm">
             {message.content}
           </div>
         </div>
       ) : (
         <div className="flex items-start">
-          <div className="assistant-message flex-1 text-white">
+          <div className="assistant-message flex-1 text-white p-3 rounded-lg">
             {isTyping ? (
               <div className="flex items-center">
                 <TypingAnimation />
