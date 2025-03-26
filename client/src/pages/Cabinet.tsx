@@ -1273,9 +1273,9 @@ const Cabinet = () => {
                               tickFormatter={(value) => new Date(value).toLocaleDateString()}
                             />
                             <YAxis stroke="#888" />
-                            <Tooltip 
+                            <RechartsTooltip 
                               contentStyle={{ backgroundColor: '#333', border: 'none' }}
-                              labelFormatter={(value) => new Date(value).toLocaleDateString()}
+                              labelFormatter={(value: string) => new Date(value).toLocaleDateString()}
                             />
                             <Line 
                               type="monotone" 

@@ -90,8 +90,8 @@ export const useWebSocket = (
     // Эмуляция отправки через HTTP - при необходимости можно реализовать реальную отправку
     apiRequest(`/api/chats/${activeChatIdRef.current}/ws-message`, {
       method: 'POST',
-      body: JSON.stringify(data)
-    }).catch(error => {
+      data: data
+    }).catch((error: Error) => {
       console.error('Error sending message via HTTP API:', error);
       setStatus('error');
       onStatusChange?.('error');
