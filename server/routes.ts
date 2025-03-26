@@ -500,7 +500,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     server: httpServer, 
     path: '/ws',
     clientTracking: true,
-    perMessageDeflate: false
+    perMessageDeflate: false,
+    maxPayload: 50 * 1024 * 1024, // 50MB max payload
+    handleProtocols: () => 'chat',
+    verifyClient: () => true
   });
   
   // Хранилище для клиентов, организованное по чатам

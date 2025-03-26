@@ -37,22 +37,28 @@ function App() {
 
     const connect = () => {
       try {
-        ws = new WebSocket(import.meta.env.VITE_WS_URL || `ws://${window.location.hostname}:3000/ws`);
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = import.meta.env.VITE_WS_URL || `${protocol}//${window.location.host}/ws`;
+        
+        ws = new WebSocket(wsUrl, 'chat');
 
         ws.onopen = () => {
           console.log('WebSocket connected');
           reconnectAttempts = 0;
         };
 
-        ws.onclose = () => {
+        ws.onclose = (event) => {
+          console.log('WebSocket closed:', event.code, event.reason);
           if (reconnectAttempts < maxReconnectAttempts) {
+            const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000);
             reconnectAttempts++;
-            reconnectTimeout = setTimeout(connect, 1000);
+            reconnectTimeout = setTimeout(connect, delay);
           }
         };
 
         ws.onerror = (error) => {
           console.error('WebSocket error:', error);
+          ws?.close();
         };
       } catch (error) {
         console.error('WebSocket connection error:', error);
