@@ -93,26 +93,37 @@ const UIStyleProvider: React.FC<UIStyleProviderProps> = ({ children }) => {
     // Обновляем дополнительные стили на основе настроек UI
     const style = document.createElement('style');
     style.textContent = `
+      /* Глобальные стили */
+      body {
+        --primary-color-transparent: ${settings.colors.primary}33;
+      }
+      
+      /* Стили сообщений */
       .chat-message {
         border-radius: var(--border-radius);
         box-shadow: var(--box-shadow);
         transition: all var(--transition-duration) ease;
       }
       
+      /* Стили ввода сообщений */
       .chat-input {
         border-radius: var(--border-radius);
         box-shadow: var(--box-shadow);
         transition: all var(--transition-duration) ease;
       }
       
+      /* Стили для сообщений пользователя и ассистента */
       .user-message {
         background-color: var(--secondary-color);
+        border-radius: var(--border-radius);
       }
       
       .assistant-message {
         background-color: var(--accent-color);
+        border-radius: var(--border-radius);
       }
       
+      /* Стили для кнопок */
       button.primary {
         background-color: var(--primary-color);
         border-radius: var(--border-radius);
@@ -125,22 +136,63 @@ const UIStyleProvider: React.FC<UIStyleProviderProps> = ({ children }) => {
         transform: ${settings.elements.animations ? 'translateY(-2px)' : 'none'};
       }
       
+      /* Стили для анимации набора текста */
       .typing-animation span {
         background-color: var(--primary-color);
       }
       
+      /* Стили для боковой панели */
       .chat-sidebar {
         background-color: var(--accent-color);
+        box-shadow: ${settings.elements.shadows ? '0 0 15px rgba(0, 0, 0, 0.1)' : 'none'};
       }
       
-      .chat-input-container {
+      /* Стили для элементов истории чата */
+      .chat-history-item {
         border-radius: var(--border-radius);
         transition: all var(--transition-duration) ease;
+      }
+      
+      .chat-history-item:hover {
+        background-color: var(--primary-color-transparent);
+      }
+      
+      /* Стили для контейнера ввода */
+      .chat-input-container {
+        border-radius: var(--border-radius) !important;
+        transition: all var(--transition-duration) ease;
+        border: 1px solid var(--accent-color);
       }
       
       .chat-input-container:focus-within {
         box-shadow: 0 0 0 2px var(--primary-color);
       }
+      
+      /* Стилизация иконок и кнопок в сайдбаре */
+      #new-chat-button {
+        border-radius: var(--border-radius);
+        border-color: var(--primary-color);
+      }
+      
+      #new-chat-button:hover {
+        background-color: var(--primary-color-transparent);
+      }
+      
+      /* Стилизация дополнительных элементов */
+      .user-info {
+        border-radius: var(--border-radius);
+      }
+      
+      /* Анимации для интерфейса */
+      ${settings.elements.animations ? `
+      .chat-message, .chat-input, button.primary {
+        transition: all 0.3s ease;
+      }
+      
+      .chat-message:hover {
+        transform: translateY(-2px);
+      }
+      ` : ''}
     `;
     
     // Добавляем стили в head документа

@@ -55,14 +55,14 @@ const Sidebar = ({ chats, isOpen, onClose, onNewChat, currentChatId }: SidebarPr
       {/* Sidebar */}
       <div 
         id="sidebar" 
-        className={`bg-[#202123] w-64 flex-shrink-0 h-full flex flex-col overflow-hidden transition-all duration-300 fixed md:static z-30 ${
+        className={`chat-sidebar bg-[#202123] w-64 flex-shrink-0 h-full flex flex-col overflow-hidden transition-all duration-300 fixed md:static z-30 ${
           isOpen ? 'left-0' : '-left-64 md:left-0'
         }`}
       >
         <div className="p-2">
           <button 
             id="new-chat-button" 
-            className="flex items-center gap-3 w-full rounded p-3 text-sm hover:bg-gray-700 text-white border border-gray-600"
+            className="primary flex items-center gap-3 w-full rounded p-3 text-sm hover:bg-gray-700 text-white border border-gray-600"
             onClick={onNewChat}
           >
             <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg">

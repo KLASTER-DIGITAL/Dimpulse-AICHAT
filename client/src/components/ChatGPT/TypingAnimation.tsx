@@ -15,11 +15,11 @@ const TypingAnimation = () => {
   }, []);
 
   return (
-    <div className="flex items-center space-x-2 text-gray-400">
+    <div className="flex items-center space-x-2 text-gray-400 typing-animation">
       <div className="flex space-x-1">
-        <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '0ms' }}></div>
-        <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '300ms' }}></div>
-        <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '600ms' }}></div>
+        <span className="w-2 h-2 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+        <span className="w-2 h-2 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+        <span className="w-2 h-2 rounded-full animate-bounce" style={{ animationDelay: '600ms' }}></span>
       </div>
     </div>
   );
