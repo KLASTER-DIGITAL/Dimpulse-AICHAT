@@ -106,6 +106,9 @@ const Cabinet = () => {
   const [widgetEnabled, setWidgetEnabled] = useState<boolean>(defaultSettings.integration.widget.enabled);
   const [widgetPosition, setWidgetPosition] = useState<"left" | "right">(defaultSettings.integration.widget.position);
   const [widgetTheme, setWidgetTheme] = useState<"light" | "dark">(defaultSettings.integration.widget.theme);
+  const [widgetText, setWidgetText] = useState<string>("Чем еще могу помочь?");
+  const [widgetWidth, setWidgetWidth] = useState<number>(400);
+  const [widgetHeight, setWidgetHeight] = useState<number>(500);
   const [showWidgetPreview, setShowWidgetPreview] = useState(false);
 
   // Функция для создания превью виджета
@@ -541,18 +544,58 @@ const Cabinet = () => {
                     <Label htmlFor="widget-enabled">Включить виджет</Label>
                   </div>
                   
-                  <div className="space-y-2">
-                    <Label>Расположение на странице</Label>
-                    <RadioGroup value={widgetPosition} onValueChange={(value) => setWidgetPosition(value as "left" | "right")}>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="left" id="position-left" />
-                        <Label htmlFor="position-left">Слева</Label>
+                  <div className="grid gap-4">
+                    <div className="space-y-2">
+                      <Label>Расположение на странице</Label>
+                      <RadioGroup value={widgetPosition} onValueChange={(value) => setWidgetPosition(value as "left" | "right")}>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="left" id="position-left" />
+                          <Label htmlFor="position-left">Слева</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="right" id="position-right" />
+                          <Label htmlFor="position-right">Справа</Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Текст приветствия</Label>
+                      <Input 
+                        value={widgetText} 
+                        onChange={(e) => setWidgetText(e.target.value)}
+                        placeholder="Чем могу помочь?"
+                        className="bg-gray-800 border-gray-700 text-white"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Размер виджета</Label>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>Ширина (px)</Label>
+                          <Input
+                            type="number"
+                            value={widgetWidth}
+                            onChange={(e) => setWidgetWidth(Number(e.target.value))}
+                            min={200}
+                            max={600}
+                            className="bg-gray-800 border-gray-700 text-white"
+                          />
+                        </div>
+                        <div>
+                          <Label>Высота (px)</Label>
+                          <Input
+                            type="number"
+                            value={widgetHeight}
+                            onChange={(e) => setWidgetHeight(Number(e.target.value))}
+                            min={300}
+                            max={800}
+                            className="bg-gray-800 border-gray-700 text-white"
+                          />
+                        </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="right" id="position-right" />
-                        <Label htmlFor="position-right">Справа</Label>
-                      </div>
-                    </RadioGroup>
+                    </div>
                   </div>
                   
                   <div className="space-y-2">
@@ -570,7 +613,28 @@ const Cabinet = () => {
                   </div>
                   
                   {widgetEnabled && (
-                    <div className="mt-4 space-y-2">
+                    <div className="mt-4 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <Label>Предпросмотр виджета</Label>
+                        <Switch
+                          checked={showWidgetPreview}
+                          onCheckedChange={(checked) => {
+                            setShowWidgetPreview(checked);
+                            if (!checked) {
+                              // Удаляем превью при выключении
+                              const existingPreview = document.getElementById('widget-preview-script');
+                              if (existingPreview) {
+                                document.head.removeChild(existingPreview);
+                              }
+                              const widgetButton = document.querySelector('.chat-widget-button');
+                              const widgetContainer = document.querySelector('.chat-widget-container');
+                              if (widgetButton) widgetButton.remove();
+                              if (widgetContainer) widgetContainer.remove();
+                            }
+                          }}
+                        />
+                      </div>
+                      
                       <Label>Код для вставки</Label>
                       <div className="bg-gray-800 p-4 rounded-md">
                         <code className="text-sm text-green-400 whitespace-pre-wrap break-all">
