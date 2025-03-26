@@ -309,7 +309,7 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
   };
   
   return (
-    <div className={`p-4 fixed ${!isLoading ? "bottom-0" : ""} left-0 right-0`}>
+    <div className="p-4 fixed bottom-0 left-0 right-0 z-10 bg-black bg-opacity-90 backdrop-blur-sm">
       <div className="max-w-3xl mx-auto">
         {/* Отображение прикрепленных файлов */}
         {uploadedFiles.length > 0 && (
