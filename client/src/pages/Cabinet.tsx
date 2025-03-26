@@ -100,26 +100,42 @@ const Cabinet = () => {
   });
 
   const [webhookUrl, setWebhookUrl] = useState<string>(settings?.webhook.url || defaultSettings.webhook.url);
-  const [webhookEnabled, setWebhookEnabled] = useState<boolean>(
-    settings?.webhook.enabled || defaultSettings.webhook.enabled
-  );
-  
-  const [iframeEnabled, setIframeEnabled] = useState<boolean>(
-    settings?.integration.iframe.enabled || defaultSettings.integration.iframe.enabled
-  );
-  const [iframeTheme, setIframeTheme] = useState<"light" | "dark" | "transparent">(
-    settings?.integration.iframe.theme || defaultSettings.integration.iframe.theme
-  );
-  
-  const [widgetEnabled, setWidgetEnabled] = useState<boolean>(
-    settings?.integration.widget.enabled || defaultSettings.integration.widget.enabled
-  );
-  const [widgetPosition, setWidgetPosition] = useState<"left" | "right">(
-    settings?.integration.widget.position || defaultSettings.integration.widget.position
-  );
-  const [widgetTheme, setWidgetTheme] = useState<"light" | "dark">(
-    settings?.integration.widget.theme || defaultSettings.integration.widget.theme
-  );
+  const [webhookEnabled, setWebhookEnabled] = useState<boolean>(defaultSettings.webhook.enabled);
+  const [iframeEnabled, setIframeEnabled] = useState<boolean>(defaultSettings.integration.iframe.enabled);
+  const [iframeTheme, setIframeTheme] = useState<"light" | "dark" | "transparent">(defaultSettings.integration.iframe.theme);
+  const [widgetEnabled, setWidgetEnabled] = useState<boolean>(defaultSettings.integration.widget.enabled);
+  const [widgetPosition, setWidgetPosition] = useState<"left" | "right">(defaultSettings.integration.widget.position);
+  const [widgetTheme, setWidgetTheme] = useState<"light" | "dark">(defaultSettings.integration.widget.theme);
+  const [showWidgetPreview, setShowWidgetPreview] = useState(false);
+
+  // Функция для создания превью виджета
+  const createWidgetPreview = () => {
+    const previewContainer = document.createElement('div');
+    previewContainer.id = 'widget-preview';
+    previewContainer.style.position = 'fixed';
+    previewContainer.style.bottom = '20px';
+    previewContainer.style[widgetPosition] = '20px';
+    previewContainer.style.zIndex = '9999';
+    previewContainer.style.transition = 'all 0.3s ease';
+    
+    const widgetButton = document.createElement('button');
+    widgetButton.className = `widget-button ${widgetTheme}`;
+    widgetButton.style.padding = '12px 24px';
+    widgetButton.style.borderRadius = '8px';
+    widgetButton.style.cursor = 'pointer';
+    widgetButton.style.border = 'none';
+    widgetButton.style.backgroundColor = widgetTheme === 'light' ? '#ffffff' : '#1a1a1a';
+    widgetButton.style.color = widgetTheme === 'light' ? '#000000' : '#ffffff';
+    widgetButton.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+    widgetButton.textContent = 'Открыть чат';
+    
+    previewContainer.appendChild(widgetButton);
+    document.body.appendChild(previewContainer);
+    
+    return () => {
+      document.body.removeChild(previewContainer);
+    };
+  };
   
   // UI настройки
   const [uiEnabled, setUiEnabled] = useState<boolean>(
@@ -148,28 +164,46 @@ const Cabinet = () => {
   React.useEffect(() => {
     if (settings) {
       // Webhook настройки
-      setWebhookUrl(settings.webhook.url);
-      setWebhookEnabled(settings.webhook.enabled);
+      if (settings.webhook) {
+        setWebhookUrl(settings.webhook.url ?? defaultSettings.webhook.url);
+        setWebhookEnabled(settings.webhook.enabled ?? defaultSettings.webhook.enabled);
+      }
       
       // Интеграционные настройки
-      setIframeEnabled(settings.integration.iframe.enabled);
-      setIframeTheme(settings.integration.iframe.theme);
-      setWidgetEnabled(settings.integration.widget.enabled);
-      setWidgetPosition(settings.integration.widget.position);
-      setWidgetTheme(settings.integration.widget.theme);
+      if (settings.integration) {
+        if (settings.integration.iframe) {
+          setIframeEnabled(settings.integration.iframe.enabled ?? defaultSettings.integration.iframe.enabled);
+          setIframeTheme(settings.integration.iframe.theme ?? defaultSettings.integration.iframe.theme);
+        }
+        if (settings.integration.widget) {
+          setWidgetEnabled(settings.integration.widget.enabled ?? defaultSettings.integration.widget.enabled);
+          setWidgetPosition(settings.integration.widget.position ?? defaultSettings.integration.widget.position);
+          setWidgetTheme(settings.integration.widget.theme ?? defaultSettings.integration.widget.theme);
+        }
+      }
       
       // UI настройки
       if (settings.ui) {
-        setUiEnabled(settings.ui.enabled);
-        setPrimaryColor(settings.ui.colors.primary);
-        setSecondaryColor(settings.ui.colors.secondary);
-        setAccentColor(settings.ui.colors.accent);
-        setRoundedCorners(settings.ui.elements.roundedCorners);
-        setShadows(settings.ui.elements.shadows);
-        setAnimations(settings.ui.elements.animations);
+        setUiEnabled(settings.ui.enabled ?? defaultSettings.ui.enabled);
+        setPrimaryColor(settings.ui.colors?.primary ?? defaultSettings.ui.colors.primary);
+        setSecondaryColor(settings.ui.colors?.secondary ?? defaultSettings.ui.colors.secondary);
+        setAccentColor(settings.ui.colors?.accent ?? defaultSettings.ui.colors.accent);
+        setRoundedCorners(settings.ui.elements?.roundedCorners ?? defaultSettings.ui.elements.roundedCorners);
+        setShadows(settings.ui.elements?.shadows ?? defaultSettings.ui.elements.shadows);
+        setAnimations(settings.ui.elements?.animations ?? defaultSettings.ui.elements.animations);
       }
     }
   }, [settings]);
+
+  // Cleanup widget preview on unmount
+  React.useEffect(() => {
+    return () => {
+      const existingPreview = document.getElementById('widget-preview');
+      if (existingPreview) {
+        document.body.removeChild(existingPreview);
+      }
+    };
+  }, []);
 
 
   // Мутация для сохранения только настроек webhook
@@ -539,19 +573,37 @@ const Cabinet = () => {
                           {getWidgetCode()}
                         </code>
                       </div>
-                      <Button 
-                        variant="outline"
-                        className="mt-2"
-                        onClick={() => {
-                          navigator.clipboard.writeText(getWidgetCode());
-                          toast({
-                            title: "Скопировано!",
-                            description: "Код виджета скопирован в буфер обмена",
-                          });
-                        }}
-                      >
-                        Скопировать код
-                      </Button>
+                      <div className="flex space-x-2">
+                        <Button 
+                          variant="outline"
+                          onClick={() => {
+                            navigator.clipboard.writeText(getWidgetCode());
+                            toast({
+                              title: "Скопировано!",
+                              description: "Код виджета скопирован в буфер обмена",
+                            });
+                          }}
+                        >
+                          Скопировать код
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          onClick={() => {
+                            if (showWidgetPreview) {
+                              setShowWidgetPreview(false);
+                              const existingPreview = document.getElementById('widget-preview');
+                              if (existingPreview) {
+                                document.body.removeChild(existingPreview);
+                              }
+                            } else {
+                              setShowWidgetPreview(true);
+                              createWidgetPreview();
+                            }
+                          }}
+                        >
+                          {showWidgetPreview ? 'Скрыть превью' : 'Показать превью'}
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </CardContent>
