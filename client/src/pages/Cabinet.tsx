@@ -215,6 +215,10 @@ const Cabinet = () => {
   const [widgetHeight, setWidgetHeight] = useState<number>(500);
   const [widgetFontSize, setWidgetFontSize] = useState<number>(16);
   const [showWidgetPreview, setShowWidgetPreview] = useState(false);
+  
+  // Состояние проверки соединения с Supabase
+  const [isCheckingConnection, setIsCheckingConnection] = useState<boolean>(false);
+  const [supabaseConnectionStatus, setSupabaseConnectionStatus] = useState<{success: boolean; message: string} | null>(null);
 
   // Функция для создания превью виджета
   const createWidgetPreview = () => {
@@ -301,6 +305,30 @@ const Cabinet = () => {
   const [autoMigrate, setAutoMigrate] = useState<boolean>(
     settings?.database?.supabase?.autoMigrate || defaultSettings.database.supabase.autoMigrate
   );
+  
+  // Функция для проверки соединения с Supabase
+  const checkSupabaseConnection = async () => {
+    setIsCheckingConnection(true);
+    setSupabaseConnectionStatus(null);
+    
+    try {
+      const result = await apiRequest("/api/test-supabase-connection");
+      setSupabaseConnectionStatus({
+        success: result.connected,
+        message: result.connected 
+          ? "Соединение с Supabase установлено успешно!" 
+          : `Ошибка подключения: ${result.error || "Неизвестная ошибка"}`
+      });
+    } catch (error) {
+      console.error("Ошибка при проверке соединения с Supabase:", error);
+      setSupabaseConnectionStatus({
+        success: false,
+        message: "Произошла ошибка при проверке соединения. Убедитесь, что указаны правильные переменные окружения."
+      });
+    } finally {
+      setIsCheckingConnection(false);
+    }
+  };
 
 
 
