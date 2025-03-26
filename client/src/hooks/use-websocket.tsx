@@ -44,8 +44,9 @@ export const useWebSocket = (
       setStatus('connecting');
       
       // Определяем правильный протокол (ws или wss) на основе текущего протокола страницы
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/ws`;
+      // Используем относительный URL, чтобы избежать проблем с CORS и точками доступа
+      const wsUrl = (window.location.protocol === 'https:' ? 'wss:' : 'ws:') + 
+                    '//' + window.location.host + '/ws';
       
       console.log(`Connecting to WebSocket at ${wsUrl}`);
       const ws = new WebSocket(wsUrl);

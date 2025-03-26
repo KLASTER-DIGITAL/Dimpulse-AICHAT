@@ -36,17 +36,11 @@ const Home = () => {
     enabled: !!currentChatId,
   });
   
-  // Автоматическое обновление сообщений каждые 2 секунды, если есть активный чат
+  // В проде не обновляем автоматически, т.к. используем WebSocket
+  // для обновления сообщений в реальном времени
   useEffect(() => {
-    if (!currentChatId) return;
-    
-    const intervalId = setInterval(() => {
-      console.log("Запрашиваем обновления сообщений");
-      refetch();
-    }, 2000);
-    
-    return () => clearInterval(intervalId);
-  }, [currentChatId, refetch]);
+    // Пустой эффект - websocket обновляет UI через invalidateQueries
+  }, []);
   
   // Create a new chat
   const createChatMutation = useMutation({
