@@ -1708,6 +1708,20 @@ const Cabinet = () => {
                 shadows: shadows,
                 animations: animations
               }
+            },
+            database: {
+              enabled: true,
+              type: "supabase",
+              supabase: {
+                tables: {
+                  messages: "messages",
+                  chats: "chats",
+                  users: "users",
+                  files: "files"
+                },
+                schema: "public",
+                autoMigrate: true
+              }
             }
           }}
           isActive={isStyleEditorActive}
