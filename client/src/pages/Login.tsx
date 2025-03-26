@@ -27,6 +27,7 @@ const Login = () => {
   
   // Состояние для регистрации
   const [regUsername, setRegUsername] = useState("");
+  const [regEmail, setRegEmail] = useState("");
   const [regPassword, setRegPassword] = useState("");
   const [regPasswordConfirm, setRegPasswordConfirm] = useState("");
   const [isRegLoading, setIsRegLoading] = useState(false);
@@ -110,7 +111,11 @@ const Login = () => {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ username: regUsername, password: regPassword }),
+        body: JSON.stringify({ 
+          username: regUsername, 
+          email: regEmail,
+          password: regPassword 
+        }),
       });
       
       if (!response.ok) {
@@ -134,6 +139,7 @@ const Login = () => {
       
       // Очищаем форму регистрации
       setRegUsername("");
+      setRegEmail("");
       setRegPassword("");
       setRegPasswordConfirm("");
     } catch (error: any) {
@@ -230,6 +236,18 @@ const Login = () => {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="reg-email">Email</Label>
+                  <Input
+                    id="reg-email"
+                    type="email"
+                    value={regEmail}
+                    onChange={(e) => setRegEmail(e.target.value)}
+                    placeholder="example@example.com"
+                    className="bg-gray-800 border-gray-700 text-white"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="reg-password">Пароль</Label>
                   <Input
                     id="reg-password"
@@ -261,7 +279,7 @@ const Login = () => {
                 <Button 
                   type="submit" 
                   className="w-full mt-4" 
-                  disabled={isRegLoading || !regUsername || !regPassword || !regPasswordConfirm}
+                  disabled={isRegLoading || !regUsername || !regEmail || !regPassword || !regPasswordConfirm}
                 >
                   {isRegLoading ? "Регистрация..." : "Зарегистрироваться"}
                 </Button>

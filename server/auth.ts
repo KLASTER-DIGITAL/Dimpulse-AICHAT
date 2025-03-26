@@ -110,10 +110,11 @@ export async function authenticateUser(username: string, password: string): Prom
 /**
  * Регистрация нового пользователя
  * @param username Имя пользователя
+ * @param email Email пользователя
  * @param password Пароль
  * @returns Данные пользователя или null в случае ошибки
  */
-export async function registerUser(username: string, password: string): Promise<User | null> {
+export async function registerUser(username: string, email: string, password: string): Promise<User | null> {
   try {
     // Специальная обработка для admin
     if (username === 'admin') {
@@ -143,12 +144,12 @@ export async function registerUser(username: string, password: string): Promise<
     
     try {
       // Используем Supabase Auth для регистрации
-      // Создаем валидный email для пользователя
-      const email = `${username}@chatapp.example.com`;
+      // Если email не передан, создаем его на основе имени пользователя
+      const userEmail = email || `${username}@chatapp.example.com`;
       
       // Регистрируем пользователя в Supabase Auth
       const { data, error } = await supabase.auth.signUp({
-        email,
+        email: userEmail,
         password: password
       });
       
