@@ -4,6 +4,7 @@ import { useLocation, useParams } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Chat, Message } from "@shared/schema";
+import { useWebSocket } from "@/hooks/use-websocket";
 
 import ChatContainer from "@/components/ChatGPT/ChatContainer";
 import ChatInput from "@/components/ChatGPT/ChatInput";
@@ -70,6 +71,40 @@ const Home = () => {
   
   // Временное сообщение для анимации печати
   const [tempTypingMessage, setTempTypingMessage] = useState<Message & { typing?: boolean } | null>(null);
+  
+  // Подключаем WebSocket для текущего чата
+  const { status: wsStatus } = useWebSocket(currentChatId, {
+    onMessage: (data) => {
+      console.log("WebSocket message received:", data);
+      
+      // Обработка события typing для обновления анимации набора текста
+      if (data.type === 'typing') {
+        if (data.status === 'started' && data.chatId === currentChatId) {
+          console.log("Начинаем анимацию набора текста");
+          // Устанавливаем временное сообщение для анимации печати
+          setTempTypingMessage({
+            id: -1,
+            chatId: data.chatId,
+            role: "assistant",
+            content: "typing",
+            createdAt: new Date(),
+            typing: true
+          });
+        } else if (data.status === 'finished' && data.chatId === currentChatId) {
+          console.log("Завершаем анимацию набора текста");
+          // Удаляем временное сообщение и обновляем список сообщений
+          setTempTypingMessage(null);
+          queryClient.invalidateQueries({ queryKey: [`/api/chats/${currentChatId}`] });
+        } else if (data.status === 'error' && data.chatId === currentChatId) {
+          console.log("Ошибка при обработке сообщения:", data.error);
+          // Оставляем анимацию печати для показа ошибки
+        }
+      }
+    },
+    onStatusChange: (status) => {
+      console.log("WebSocket status changed:", status);
+    }
+  });
   
   // Send a message
   const sendMessageMutation = useMutation({

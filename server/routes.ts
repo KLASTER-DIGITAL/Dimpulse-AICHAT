@@ -197,6 +197,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("Request payload size:", JSON.stringify(requestBody).length, "bytes");
       
       try {
+        // Отправляем событие "typing" через WebSocket сразу после отправки на webhook
+        (app as any).notifyClientsInChat(chatId, {
+          type: 'typing',
+          chatId,
+          status: 'started',
+          timestamp: new Date().toISOString()
+        });
+        
         const response = await fetch(webhookUrl, {
           method: 'POST',
           headers: {
@@ -213,10 +221,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log("Webhook response data:", JSON.stringify(data, null, 2));
           
           // Проверяем, получили ли мы ответ о незарегистрированном webhook
-          if (response.status === 404 && data && data.message && 
-              data.message.includes("webhook") && 
-              data.message.includes("not registered")) {
+          if (response.status === 404 && data && typeof data === 'object' && 'message' in data && 
+              (data as any).message.includes("webhook") && 
+              (data as any).message.includes("not registered")) {
             console.log("Webhook not registered - returning typing status");
+            
+            // Отправляем статус через WebSocket
+            (app as any).notifyClientsInChat(chatId, {
+              type: 'typing',
+              chatId,
+              status: 'error',
+              error: 'webhook_not_registered',
+              timestamp: new Date().toISOString()
+            });
+            
             return res.status(201).json({
               id: -1,
               chatId,
@@ -331,6 +349,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       const aiMessage = await storage.createMessage(aiMessageData);
+      
+      // Отправляем событие об окончании набора текста через WebSocket
+      (app as any).notifyClientsInChat(chatId, {
+        type: 'typing',
+        chatId,
+        status: 'finished',
+        messageId: aiMessage.id,
+        timestamp: new Date().toISOString()
+      });
       
       res.status(201).json(aiMessage);
     } catch (error) {
@@ -467,5 +494,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
+  
+  // Создаем WebSocket сервер, закрепленный за HTTP сервером
+  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  
+  // Хранилище для клиентов, организованное по чатам
+  const clients = new Map<string, Set<WebSocket>>();
+  
+  // Обработка событий WebSocket
+  wss.on('connection', (ws) => {
+    console.log('WebSocket connected');
+    let currentChatId: string | null = null;
+    
+    // Обработка сообщений от клиента
+    ws.on('message', (message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        console.log('Received WebSocket message:', data);
+        
+        // Обработка событий подключения к чату
+        if (data.type === 'join' && data.chatId) {
+          // Запоминаем текущий чат для данного соединения
+          currentChatId = data.chatId;
+          
+          // Добавляем клиента в список для этого чата
+          if (!clients.has(data.chatId)) {
+            clients.set(data.chatId, new Set());
+          }
+          clients.get(data.chatId)?.add(ws);
+          
+          // Отправляем подтверждение
+          ws.send(JSON.stringify({ type: 'joined', chatId: data.chatId }));
+          console.log(`Client joined chat: ${data.chatId}`);
+        }
+        
+        // Обработка других типов сообщений можно добавить здесь
+      } catch (error) {
+        console.error('Error processing WebSocket message:', error);
+      }
+    });
+    
+    // Обработка закрытия соединения
+    ws.on('close', () => {
+      console.log('WebSocket closed');
+      
+      // Удаляем клиента из всех чатов, где он был подписан
+      if (currentChatId && clients.has(currentChatId)) {
+        clients.get(currentChatId)?.delete(ws);
+        
+        // Если чат остался без клиентов, удаляем его из Map
+        if (clients.get(currentChatId)?.size === 0) {
+          clients.delete(currentChatId);
+        }
+      }
+    });
+  });
+  
+  // Функция для отправки события всем клиентам в чате
+  const notifyClientsInChat = (chatId: string, data: any) => {
+    const chatClients = clients.get(chatId);
+    if (chatClients) {
+      console.log(`Notifying ${chatClients.size} clients in chat ${chatId}`);
+      
+      chatClients.forEach((client) => {
+        // Проверяем, что соединение открыто
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify(data));
+        }
+      });
+    }
+  };
+  
+  // Экспортируем функцию для использования в других маршрутах
+  (app as any).notifyClientsInChat = notifyClientsInChat;
+  
   return httpServer;
 }
