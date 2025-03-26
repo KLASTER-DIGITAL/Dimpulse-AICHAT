@@ -1,89 +1,84 @@
--- Функция для создания таблицы, если она не существует
-CREATE OR REPLACE FUNCTION create_table_if_not_exists(table_name text, columns text)
-RETURNS void AS $$
-BEGIN
-  IF NOT EXISTS (SELECT FROM information_schema.tables WHERE table_name = $1) THEN
-    EXECUTE format('CREATE TABLE %I (%s)', table_name, columns);
-  END IF;
-END;
-$$ LANGUAGE plpgsql;
+-- SQL функции для работы с данными в Supabase
 
--- Функция для получения количества сообщений по дням
-CREATE OR REPLACE FUNCTION get_messages_per_day(messages_table text)
-RETURNS TABLE (date text, count bigint) AS $$
-BEGIN
-  RETURN QUERY EXECUTE format('
-    SELECT 
-      TO_CHAR(created_at, ''YYYY-MM-DD'') as date,
-      COUNT(*) as count
-    FROM 
-      %I
-    GROUP BY 
-      date
-    ORDER BY 
-      date ASC
-  ', messages_table);
-END;
-$$ LANGUAGE plpgsql;
-
--- Функция для получения топ чатов по количеству сообщений
-CREATE OR REPLACE FUNCTION get_top_chats(messages_table text, chats_table text, limit_count integer)
-RETURNS TABLE (chat_id text, title text, message_count bigint) AS $$
-BEGIN
-  RETURN QUERY EXECUTE format('
-    SELECT 
-      m.chat_id,
-      c.title,
-      COUNT(*) as message_count
-    FROM 
-      %I m
-    JOIN 
-      %I c ON m.chat_id = c.id
-    GROUP BY 
-      m.chat_id, c.title
-    ORDER BY 
-      message_count DESC
-    LIMIT %s
-  ', messages_table, chats_table, limit_count);
-END;
-$$ LANGUAGE plpgsql;
-
--- Функция для загрузки файла в хранилище Supabase
-CREATE OR REPLACE FUNCTION upload_file_to_storage(bucket_name text, file_path text, file_content bytea, content_type text)
-RETURNS text AS $$
+-- Получение статистики
+CREATE OR REPLACE FUNCTION get_stats()
+RETURNS JSON AS $$
 DECLARE
-  storage_path text;
+    result JSON;
 BEGIN
-  -- Проверяем существование бакета
-  IF NOT EXISTS (
-    SELECT FROM storage.buckets WHERE name = bucket_name
-  ) THEN
-    -- Создаем бакет если не существует
-    INSERT INTO storage.buckets (id, name)
-    VALUES (bucket_name, bucket_name);
-  END IF;
-  
-  -- Генерируем уникальный путь для файла
-  storage_path := file_path;
-  
-  -- Загружаем файл в хранилище
-  INSERT INTO storage.objects (
-    bucket_id, 
-    name, 
-    owner, 
-    size, 
-    mime_type,
-    content
-  )
-  VALUES (
-    bucket_name,
-    storage_path,
-    auth.uid(),
-    octet_length(file_content),
-    content_type,
-    file_content
-  );
-  
-  RETURN storage_path;
+    SELECT json_build_object(
+        'totalUsers', get_total_users(),
+        'totalChats', get_total_chats(),
+        'totalMessages', get_total_messages(),
+        'activeUsersLast24h', get_active_users_last_24h(),
+        'activeChatsLast24h', get_active_chats_last_24h(),
+        'messagesPerDay', (SELECT json_agg(row_to_json(t)) FROM get_messages_per_day(7) t),
+        'topChats', (SELECT json_agg(row_to_json(t)) FROM get_top_chats(5) t)
+    ) INTO result;
+    
+    RETURN result;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql;
+
+-- Получение чатов пользователя
+CREATE OR REPLACE FUNCTION get_user_chats(user_id INTEGER)
+RETURNS SETOF chats AS $$
+BEGIN
+    RETURN QUERY
+    SELECT * FROM chats 
+    WHERE chats.user_id = user_id
+    ORDER BY last_active DESC;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Получение всех чатов (для неавторизованных пользователей)
+CREATE OR REPLACE FUNCTION get_anonymous_chats()
+RETURNS SETOF chats AS $$
+BEGIN
+    RETURN QUERY
+    SELECT * FROM chats 
+    WHERE chats.user_id IS NULL
+    ORDER BY last_active DESC;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Получение сообщений чата
+CREATE OR REPLACE FUNCTION get_chat_messages(chat_id_param TEXT)
+RETURNS SETOF messages AS $$
+BEGIN
+    RETURN QUERY
+    SELECT * FROM messages 
+    WHERE messages.chat_id = chat_id_param
+    ORDER BY created_at ASC;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Обновление названия чата
+CREATE OR REPLACE FUNCTION update_chat_title(chat_id_param TEXT, new_title TEXT)
+RETURNS VOID AS $$
+BEGIN
+    UPDATE chats
+    SET title = new_title, last_active = NOW()
+    WHERE id = chat_id_param;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Получение диалогов с пагинацией
+CREATE OR REPLACE FUNCTION get_dialog_history(limit_count INTEGER, offset_count INTEGER)
+RETURNS TABLE(chats JSON, total_count BIGINT) AS $$
+DECLARE
+    total BIGINT;
+BEGIN
+    SELECT COUNT(*) INTO total FROM chats;
+    
+    RETURN QUERY
+    SELECT 
+        json_agg(row_to_json(c)) as chats,
+        total as total_count
+    FROM (
+        SELECT * FROM chats 
+        ORDER BY last_active DESC
+        LIMIT limit_count OFFSET offset_count
+    ) c;
+END;
+$$ LANGUAGE plpgsql;
