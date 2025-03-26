@@ -131,6 +131,7 @@ export async function registerUser(username: string, email: string, password: st
       // Создаем админа только в локальной системе хранения
       const user = await storage.createUser({
         username: 'admin',
+        email: 'admin@example.com', // Добавляем email для админа
         password: 'admin123' // Для админа храним фиксированный пароль
       });
       
@@ -163,6 +164,7 @@ export async function registerUser(username: string, email: string, password: st
         if (error.status !== 422) {
           const user = await storage.createUser({
             username,
+            email: userEmail,
             password: '********' // Не храним пароль в открытом виде
           });
           return user;
@@ -173,6 +175,7 @@ export async function registerUser(username: string, email: string, password: st
       // Создаем пользователя в нашей локальной системе хранения
       const user = await storage.createUser({
         username,
+        email: userEmail,
         password: '********' // Не храним пароль в открытом виде
       });
       
@@ -181,8 +184,10 @@ export async function registerUser(username: string, email: string, password: st
       console.error('Error during Supabase registration:', error);
       
       // В случае ошибки в Supabase, создаем пользователя только в локальной системе
+      const userEmail = email || `${username}@chatapp.example.com`;
       const user = await storage.createUser({
         username,
+        email: userEmail,
         password: '********' // Не храним пароль в открытом виде
       });
       
@@ -344,6 +349,7 @@ export async function getUserByToken(token: string): Promise<User | null> {
         console.log('Создаем пользователя admin в хранилище');
         const newUser = await storage.createUser({
           username: 'admin',
+          email: 'admin@example.com',
           password: 'admin123'
         });
         return newUser || null;
@@ -385,6 +391,7 @@ export async function getUserByToken(token: string): Promise<User | null> {
         const usernameToStore = email || username;
         user = await storage.createUser({
           username: usernameToStore,
+          email: email, // Добавляем email для согласованности
           password: '********' // Не храним реальный пароль
         });
         
