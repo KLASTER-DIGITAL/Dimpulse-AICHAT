@@ -182,13 +182,13 @@ const Login = () => {
             <TabsContent value="login" className="mt-0">
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="username">Имя пользователя</Label>
+                  <Label htmlFor="username">Имя пользователя или Email</Label>
                   <Input
                     id="username"
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    placeholder="admin"
+                    placeholder="Имя пользователя или полный email"
                     className="bg-gray-800 border-gray-700 text-white"
                     required
                   />

@@ -56,8 +56,11 @@ export async function authenticateUser(username: string, password: string): Prom
       }
       
       // Пытаемся авторизоваться с помощью Supabase Auth
+      // Проверяем, является ли username email-адресом
+      const email = username.includes('@') ? username : `${username}@chatapp.example.com`;
+      
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: `${username}@chatapp.example.com`, // Используем домен для email
+        email: email,
         password: password
       });
       
@@ -364,17 +367,24 @@ export async function getUserByToken(token: string): Promise<User | null> {
         return null;
       }
       
-      // Извлекаем имя пользователя из email
-      const email = userData.user.email;
+      // Извлекаем информацию о пользователе
+      const email = userData.user.email || '';
+      // Определяем имя пользователя из email сразу для дальнейшего использования
       const username = email ? email.split('@')[0] : 'user_' + userData.user.id.substring(0, 8);
       
-      // Получаем данные пользователя из нашего хранилища
-      let user = await storage.getUserByUsername(username);
+      // Попробуем сначала найти пользователя по email (если он используется как username)
+      let user = email ? await storage.getUserByUsername(email) : null;
+      
+      if (!user) {
+        // Если не нашли, ищем по извлеченному имени
+        user = await storage.getUserByUsername(username);
+      }
       
       if (!user) {
         // Если пользователя нет в нашем хранилище, создаем его
+        const usernameToStore = email || username;
         user = await storage.createUser({
-          username,
+          username: usernameToStore,
           password: '********' // Не храним реальный пароль
         });
         
