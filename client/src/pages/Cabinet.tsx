@@ -1689,7 +1689,11 @@ const Cabinet = () => {
               widget: {
                 enabled: widgetEnabled,
                 position: widgetPosition,
-                theme: widgetTheme
+                theme: widgetTheme,
+                fontSize: widgetFontSize,
+                width: widgetWidth,
+                height: widgetHeight,
+                text: widgetText
               }
             },
             ui: {

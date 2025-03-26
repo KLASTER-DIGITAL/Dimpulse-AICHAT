@@ -3,6 +3,9 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { WebSocketServer } from 'ws'; // Added import for WebSocketServer
 import { migrateDatabase } from "./migration"; // Импорт функции миграции
+import { registerUser } from "./auth"; // Импорт функции регистрации пользователя
+import { isSupabaseConfigured, testSupabaseConnection } from "./supabase"; // Импорт функций для проверки Supabase
+import { storage } from "./storage"; // Импорт хранилища данных
 
 
 const app = express();
@@ -49,6 +52,39 @@ app.use((req, res, next) => {
   // Запускаем миграцию базы данных при старте сервера
   try {
     await migrateDatabase();
+    
+    // Создаем администратора, если Supabase настроен
+    if (isSupabaseConfigured()) {
+      // Проверяем соединение с Supabase
+      const isConnected = await testSupabaseConnection();
+      
+      if (isConnected) {
+        console.log('Creating admin user...');
+        try {
+          // Проверяем, существует ли пользователь с именем admin
+          const existingUser = await storage.getUserByUsername('admin');
+          
+          if (!existingUser) {
+            // Создаем пользователя admin с паролем admin123
+            const adminUser = await registerUser('admin', 'admin123');
+            
+            if (adminUser) {
+              console.log('Admin user created successfully:', adminUser.username);
+            } else {
+              console.error('Failed to create admin user');
+            }
+          } else {
+            console.log('Admin user already exists');
+          }
+        } catch (adminError) {
+          console.error('Error creating admin user:', adminError);
+        }
+      } else {
+        console.error('Failed to connect to Supabase, skipping admin user creation');
+      }
+    } else {
+      console.log('Supabase not configured, skipping admin user creation');
+    }
   } catch (error) {
     console.error('Database migration failed:', error);
   }
