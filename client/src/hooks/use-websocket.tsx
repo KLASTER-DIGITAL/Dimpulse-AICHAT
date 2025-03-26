@@ -8,6 +8,7 @@ interface UseWebSocketOptions {
   onMessage?: (data: any) => void;
   onStatusChange?: (status: WebSocketStatus) => void;
   reconnectInterval?: number;
+  maxReconnectAttempts?: number;
 }
 
 interface UseWebSocketResult {
@@ -16,7 +17,7 @@ interface UseWebSocketResult {
   joinChat: (chatId: string) => void;
 }
 
-// Эмуляция WebSocket с использованием long polling - более надежный подход для Replit
+// Гибридная реализация: пробуем сначала WebSocket, а потом при необходимости fallback на polling
 export const useWebSocket = (
   chatId: string | null,
   options: UseWebSocketOptions = {}
@@ -33,10 +34,20 @@ export const useWebSocket = (
   // Активный chatId
   const activeChatIdRef = useRef<string | null>(null);
   
+  // Счетчик попыток переподключения WebSocket
+  const reconnectCountRef = useRef<number>(0);
+  
+  // WebSocket соединение
+  const wsRef = useRef<WebSocket | null>(null);
+  
+  // Режим работы: "websocket" или "polling"
+  const modeRef = useRef<'websocket' | 'polling'>('websocket');
+  
   const {
     onMessage,
     onStatusChange,
     reconnectInterval = 3000,
+    maxReconnectAttempts = 5,
   } = options;
   
   // Эмуляция подключения к чату
@@ -56,46 +67,76 @@ export const useWebSocket = (
     });
   }, [onMessage, onStatusChange]);
   
-  // Эмуляция отправки сообщения через WebSocket
+  // Гибридная функция отправки сообщения через WebSocket или HTTP API
   const sendMessage = useCallback((data: any) => {
     if (!activeChatIdRef.current) {
       console.warn('Cannot send message, not connected to any chat');
       return;
     }
     
-    // Отправляем сообщение через HTTP API вместо WebSocket
+    // Обработка ping сообщений
     if (data.type === 'ping') {
-      // Игнорируем ping сообщения, это только для настоящего WebSocket
-      console.log('Ignoring ping message in polling mode');
-      
-      // Эмулируем получение pong для совместимости с кодом, который этого ожидает
-      setTimeout(() => {
-        onMessage?.({
-          type: 'pong',
-          timestamp: new Date().toISOString()
-        });
-      }, 50);
-      
+      if (modeRef.current === 'websocket' && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        // Отправляем ping через WebSocket
+        wsRef.current.send(JSON.stringify(data));
+      } else {
+        // В режиме polling эмулируем получение pong
+        console.log('Emulating pong response in polling mode');
+        setTimeout(() => {
+          onMessage?.({
+            type: 'pong',
+            timestamp: new Date().toISOString()
+          });
+        }, 50);
+      }
       return;
     }
     
+    // Обработка join сообщений
     if (data.type === 'join') {
-      // Уже обрабатывается в joinChat
+      // Через WebSocket отправляем join, в режиме polling обрабатываем локально
+      if (modeRef.current === 'websocket' && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify(data));
+      } else {
+        // В polling режиме join уже обрабатывается в функции joinChat
+        console.log('Join message handled by joinChat in polling mode');
+      }
       return;
     }
     
-    // Для других типов сообщений выполняем HTTP запрос
-    console.log('Sending message via HTTP API:', data);
-    
-    // Эмуляция отправки через HTTP - при необходимости можно реализовать реальную отправку
-    apiRequest(`/api/chats/${activeChatIdRef.current}/ws-message`, {
-      method: 'POST',
-      data: data
-    }).catch((error: Error) => {
-      console.error('Error sending message via HTTP API:', error);
-      setStatus('error');
-      onStatusChange?.('error');
-    });
+    // Для других типов сообщений
+    if (modeRef.current === 'websocket' && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      // Отправляем через WebSocket если соединение открыто
+      console.log('Sending message via WebSocket:', data);
+      try {
+        wsRef.current.send(JSON.stringify(data));
+      } catch (error) {
+        console.error('Error sending message via WebSocket:', error);
+        // При ошибке отправки через WebSocket переключаемся на HTTP API
+        console.log('Fallback to HTTP API after WebSocket send error');
+        
+        apiRequest(`/api/chats/${activeChatIdRef.current}/ws-message`, {
+          method: 'POST',
+          data: data
+        }).catch((apiError: Error) => {
+          console.error('Error sending message via HTTP API fallback:', apiError);
+          setStatus('error');
+          onStatusChange?.('error');
+        });
+      }
+    } else {
+      // В режиме polling или если WebSocket не доступен - используем HTTP API
+      console.log('Sending message via HTTP API:', data);
+      
+      apiRequest(`/api/chats/${activeChatIdRef.current}/ws-message`, {
+        method: 'POST',
+        data: data
+      }).catch((error: Error) => {
+        console.error('Error sending message via HTTP API:', error);
+        setStatus('error');
+        onStatusChange?.('error');
+      });
+    }
   }, [onMessage, onStatusChange]);
   
   // Опрос сервера для получения обновлений для текущего чата
@@ -146,35 +187,165 @@ export const useWebSocket = (
     }
   }, [onMessage]);
   
-  // Запускаем опрос при монтировании компонента
-  useEffect(() => {
-    // Имитируем "подключение" установкой статуса
-    setStatus('open');
-    onStatusChange?.('open');
+  // Создание нового WebSocket соединения с улучшенной обработкой ошибок
+  const createWebSocket = useCallback(() => {
+    // Если уже есть соединение, закрываем его
+    if (wsRef.current && wsRef.current.readyState !== WebSocket.CLOSED) {
+      wsRef.current.close();
+    }
     
-    // Отправляем начальное сообщение, имитирующее соединение
-    onMessage?.({
-      type: 'connection_established',
-      timestamp: new Date().toISOString()
-    });
+    try {
+      console.log(`Connecting to WebSocket at ${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`);
+      setStatus('connecting');
+      onStatusChange?.('connecting');
+      
+      // Создаем WebSocket соединение
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}/ws`;
+      const ws = new WebSocket(wsUrl);
+      
+      ws.onopen = () => {
+        console.log('WebSocket status changed: open');
+        setStatus('open');
+        onStatusChange?.('open');
+        
+        // Сбрасываем счетчик попыток переподключения при успешном соединении
+        reconnectCountRef.current = 0;
+        
+        // Если есть активный чат, присоединяемся к нему
+        if (activeChatIdRef.current) {
+          ws.send(JSON.stringify({
+            type: 'join',
+            chatId: activeChatIdRef.current
+          }));
+        }
+      };
+      
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log('WebSocket message received:', data);
+          onMessage?.(data);
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
+        }
+      };
+      
+      ws.onerror = (event) => {
+        console.error('WebSocket error:', event);
+        setStatus('error');
+        onStatusChange?.('error');
+      };
+      
+      ws.onclose = (event) => {
+        console.log('WebSocket status changed: closed', event.code, event.reason);
+        setStatus('closed');
+        onStatusChange?.('closed');
+        
+        // Увеличиваем счетчик попыток переподключения
+        reconnectCountRef.current += 1;
+        
+        // Пробуем переподключиться, если не превысили лимит попыток
+        if (reconnectCountRef.current <= maxReconnectAttempts) {
+          console.log(`Attempting to reconnect (${reconnectCountRef.current}/${maxReconnectAttempts})`);
+          setTimeout(createWebSocket, reconnectInterval);
+        } else {
+          console.log(`Max reconnect attempts (${maxReconnectAttempts}) reached, switching to polling mode`);
+          modeRef.current = 'polling';
+          
+          // Запускаем polling как fallback
+          if (!pollIntervalRef.current) {
+            console.log('Starting polling as fallback');
+            // Небольшая задержка перед началом polling
+            setTimeout(() => {
+              setStatus('open');
+              onStatusChange?.('open');
+              
+              // Отправляем сообщение о соединении для сохранения совместимости 
+              onMessage?.({
+                type: 'connection_established',
+                timestamp: new Date().toISOString()
+              });
+              
+              // Запускаем интервальный опрос
+              pollIntervalRef.current = setInterval(pollForUpdates, reconnectInterval);
+            }, 500);
+          }
+        }
+      };
+      
+      wsRef.current = ws;
+    } catch (error) {
+      console.error('Error creating WebSocket:', error);
+      // Переключаемся в режим polling при ошибке создания WebSocket
+      modeRef.current = 'polling';
+      
+      // Запускаем polling как основной метод
+      if (!pollIntervalRef.current) {
+        // Имитируем подключение установкой статуса
+        setStatus('open');
+        onStatusChange?.('open');
+        
+        // Отправляем начальное сообщение, имитирующее соединение
+        onMessage?.({
+          type: 'connection_established',
+          timestamp: new Date().toISOString()
+        });
+        
+        // Запускаем интервальный опрос
+        pollIntervalRef.current = setInterval(pollForUpdates, reconnectInterval);
+      }
+    }
+  }, [maxReconnectAttempts, onMessage, onStatusChange, pollForUpdates, reconnectInterval]);
+  
+  // Запуск WebSocket или polling при монтировании компонента
+  useEffect(() => {
+    // В режиме WebSocket пытаемся установить соединение
+    if (modeRef.current === 'websocket') {
+      createWebSocket();
+    } else {
+      // В режиме polling запускаем опрос
+      console.log('Starting in polling mode');
+      
+      // Имитируем "подключение" установкой статуса
+      setStatus('open');
+      onStatusChange?.('open');
+      
+      // Отправляем начальное сообщение, имитирующее соединение
+      onMessage?.({
+        type: 'connection_established',
+        timestamp: new Date().toISOString()
+      });
+      
+      // Запускаем интервальный опрос
+      pollIntervalRef.current = setInterval(pollForUpdates, reconnectInterval);
+    }
     
     // Если есть chatId, присоединяемся к нему
     if (chatId) {
       joinChat(chatId);
     }
     
-    // Запускаем интервальный опрос
-    pollIntervalRef.current = setInterval(pollForUpdates, reconnectInterval);
-    
     // Очистка при размонтировании
     return () => {
+      // Очищаем интервал опроса
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
       }
+      
+      // Закрываем WebSocket соединение если оно открыто
+      if (wsRef.current) {
+        if (wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.close();
+        }
+        wsRef.current = null;
+      }
+      
       setStatus('closed');
       onStatusChange?.('closed');
     };
-  }, [chatId, joinChat, onMessage, onStatusChange, pollForUpdates, reconnectInterval]);
+  }, [chatId, createWebSocket, joinChat, onMessage, onStatusChange, pollForUpdates, reconnectInterval]);
   
   // Обновляем chatId, если он изменился
   useEffect(() => {
