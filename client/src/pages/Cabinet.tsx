@@ -2,8 +2,7 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
-import { useToast } from "@/components/ui/use-toast";
-
+import { useToast } from "@/hooks/use-toast";
 
 // UI components
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,7 +13,6 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
-
 
 // Interfaces for data
 interface Settings {
@@ -145,7 +143,6 @@ const Cabinet = () => {
   );
 
   // Обновляем локальное состояние когда данные загружены
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   React.useEffect(() => {
     if (settings) {
       // Webhook настройки
@@ -466,8 +463,8 @@ const Cabinet = () => {
                         onClick={() => {
                           navigator.clipboard.writeText(getIframeCode());
                           toast({
-                            title: "Скопировано",
-                            description: "Код для вставки скопирован в буфер обмена",
+                            title: "Скопировано!",
+                            description: "Код iframe скопирован в буфер обмена",
                           });
                         }}
                       >
@@ -476,14 +473,22 @@ const Cabinet = () => {
                     </div>
                   )}
                 </CardContent>
-                
-                <Separator className="my-2 bg-gray-800" />
-                
-                {/* Настройка виджета */}
+                <CardFooter>
+                  <Button 
+                    onClick={handleSaveIntegration}
+                    disabled={saveIntegrationMutation.isPending}
+                  >
+                    {saveIntegrationMutation.isPending ? "Сохранение..." : "Сохранить настройки"}
+                  </Button>
+                </CardFooter>
+              </Card>
+
+              {/* Настройка виджета для сайта */}
+              <Card className="bg-gray-900 text-white border-gray-800">
                 <CardHeader>
-                  <CardTitle>Встраиваемый виджет чата</CardTitle>
+                  <CardTitle>Виджет для сайта</CardTitle>
                   <CardDescription className="text-gray-400">
-                    Настройте параметры для добавления плавающего виджета чата на ваш сайт.
+                    Настройте параметры чат-виджета, который будет отображаться на вашем сайте.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -493,19 +498,19 @@ const Cabinet = () => {
                       checked={widgetEnabled}
                       onCheckedChange={setWidgetEnabled}
                     />
-                    <Label htmlFor="widget-enabled">Включить виджет чата</Label>
+                    <Label htmlFor="widget-enabled">Включить виджет</Label>
                   </div>
                   
                   <div className="space-y-2">
-                    <Label>Расположение на экране</Label>
+                    <Label>Расположение на странице</Label>
                     <RadioGroup value={widgetPosition} onValueChange={(value) => setWidgetPosition(value as "left" | "right")}>
                       <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="left" id="widget-left" />
-                        <Label htmlFor="widget-left">Слева внизу</Label>
+                        <RadioGroupItem value="left" id="position-left" />
+                        <Label htmlFor="position-left">Слева</Label>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="right" id="widget-right" />
-                        <Label htmlFor="widget-right">Справа внизу</Label>
+                        <RadioGroupItem value="right" id="position-right" />
+                        <Label htmlFor="position-right">Справа</Label>
                       </div>
                     </RadioGroup>
                   </div>
@@ -514,12 +519,12 @@ const Cabinet = () => {
                     <Label>Тема оформления</Label>
                     <RadioGroup value={widgetTheme} onValueChange={(value) => setWidgetTheme(value as "light" | "dark")}>
                       <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="light" id="widget-light" />
-                        <Label htmlFor="widget-light">Светлая</Label>
+                        <RadioGroupItem value="light" id="theme-light" />
+                        <Label htmlFor="theme-light">Светлая</Label>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="dark" id="widget-dark" />
-                        <Label htmlFor="widget-dark">Темная</Label>
+                        <RadioGroupItem value="dark" id="theme-dark" />
+                        <Label htmlFor="theme-dark">Темная</Label>
                       </div>
                     </RadioGroup>
                   </div>
@@ -538,8 +543,8 @@ const Cabinet = () => {
                         onClick={() => {
                           navigator.clipboard.writeText(getWidgetCode());
                           toast({
-                            title: "Скопировано",
-                            description: "Код для вставки скопирован в буфер обмена",
+                            title: "Скопировано!",
+                            description: "Код виджета скопирован в буфер обмена",
                           });
                         }}
                       >
@@ -559,14 +564,14 @@ const Cabinet = () => {
               </Card>
             </div>
           </TabsContent>
-          
+
           {/* Раздел настроек UI */}
           <TabsContent value="ui">
             <Card className="bg-gray-900 text-white border-gray-800">
               <CardHeader>
-                <CardTitle>Настройки интерфейса</CardTitle>
+                <CardTitle>Настройки пользовательского интерфейса</CardTitle>
                 <CardDescription className="text-gray-400">
-                  Настройте внешний вид интерфейса чата в соответствии с вашим дизайном.
+                  Настройте внешний вид интерфейса чата для ваших пользователей.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -701,23 +706,23 @@ const Cabinet = () => {
                       <div className="mt-4 p-4 bg-gray-800 rounded-md">
                         <h4 className="text-md font-medium mb-2">Предпросмотр цветов</h4>
                         <div className="flex flex-wrap gap-3">
-                        <div 
-                          className="w-24 h-12 rounded" 
-                          style={{ backgroundColor: primaryColor }}
-                          title="Основной цвет"
-                        ></div>
-                        <div 
-                          className="w-24 h-12 rounded" 
-                          style={{ backgroundColor: secondaryColor }}
-                          title="Вторичный цвет"
-                        ></div>
-                        <div 
-                          className="w-24 h-12 rounded" 
-                          style={{ backgroundColor: accentColor }}
-                          title="Акцентный цвет"
-                        ></div>
+                          <div 
+                            className="w-24 h-12 rounded" 
+                            style={{ backgroundColor: primaryColor }}
+                            title="Основной цвет"
+                          ></div>
+                          <div 
+                            className="w-24 h-12 rounded" 
+                            style={{ backgroundColor: secondaryColor }}
+                            title="Вторичный цвет"
+                          ></div>
+                          <div 
+                            className="w-24 h-12 rounded" 
+                            style={{ backgroundColor: accentColor }}
+                            title="Акцентный цвет"
+                          ></div>
+                        </div>
                       </div>
-                    </div>
                     </div>
                     
                     <Separator className="my-4 bg-gray-800" />
