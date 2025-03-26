@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+// В браузере WebSocket доступен глобально, не нужно импортировать
 
 type WebSocketStatus = 'connecting' | 'open' | 'closed' | 'error';
 
@@ -35,21 +36,39 @@ export const useWebSocket = (
   
   // Функция для создания WebSocket соединения
   const connectWebSocket = useCallback(() => {
-    if (websocketRef.current?.readyState === WebSocket.OPEN) {
-      console.log('WebSocket already connected');
+    // Проверка состояния сети и текущего соединения
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      console.log('Network is offline, WebSocket connection delayed');
+      setStatus('error');
       return;
+    }
+    
+    if (websocketRef.current) {
+      if (websocketRef.current.readyState === WebSocket.OPEN) {
+        console.log('WebSocket already connected');
+        return;
+      }
+      
+      // Закрываем существующее соединение перед созданием нового
+      try {
+        websocketRef.current.close();
+      } catch (e) {
+        console.log('Error closing existing WebSocket:', e);
+      }
+      websocketRef.current = null;
     }
     
     try {
       setStatus('connecting');
       
       // Определяем правильный протокол (ws или wss) на основе текущего протокола страницы
-      // Используем относительный URL, чтобы избежать проблем с CORS и точками доступа
-      const wsUrl = (window.location.protocol === 'https:' ? 'wss:' : 'ws:') + 
-                    '//' + window.location.host + '/ws';
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const wsUrl = `${protocol}//${window.location.host}/ws`;
       
       console.log(`Connecting to WebSocket at ${wsUrl}`);
-      const ws = new WebSocket(wsUrl);
+      
+      // Создаем новое соединение с браузерным WebSocket API
+      const ws = new window.WebSocket(wsUrl);
       
       ws.onopen = () => {
         console.log('WebSocket connection established');
@@ -59,7 +78,17 @@ export const useWebSocket = (
         
         // Если есть chatId, сразу подключаемся к чату
         if (chatId) {
-          joinChat(chatId);
+          // Используем setTimeout для небольшой задержки, чтобы убедиться,
+          // что соединение стабильно
+          setTimeout(() => {
+            if (ws.readyState === WebSocket.OPEN) {
+              console.log(`Joining chat ${chatId} via WebSocket`);
+              ws.send(JSON.stringify({
+                type: 'join',
+                chatId
+              }));
+            }
+          }, 100);
         }
       };
       
@@ -95,7 +124,7 @@ export const useWebSocket = (
         onStatusChange?.('error');
       };
       
-      websocketRef.current = ws;
+      websocketRef.current = ws as any;
     } catch (error) {
       console.error('Error creating WebSocket connection:', error);
       setStatus('error');
@@ -116,8 +145,12 @@ export const useWebSocket = (
       websocketRef.current.send(JSON.stringify(data));
     } else {
       console.warn('Cannot send message, WebSocket is not open');
+      // Пытаемся переподключиться и отправить сообщение позже
+      if (autoReconnect && reconnectAttemptsRef.current < maxReconnectAttempts) {
+        connectWebSocket();
+      }
     }
-  }, []);
+  }, [connectWebSocket, autoReconnect, maxReconnectAttempts]);
   
   // Функция для подключения к конкретному чату
   const joinChat = useCallback((chatId: string) => {
@@ -129,15 +162,35 @@ export const useWebSocket = (
       }));
     } else {
       console.warn('Cannot join chat, WebSocket is not open');
+      // Пытаемся переподключиться и присоединиться к чату позже
+      if (autoReconnect && reconnectAttemptsRef.current < maxReconnectAttempts) {
+        console.log('Reconnecting to join chat...');
+        connectWebSocket();
+      }
     }
-  }, []);
+  }, [connectWebSocket, autoReconnect, maxReconnectAttempts]);
   
   // Подключаемся при монтировании компонента
   useEffect(() => {
-    connectWebSocket();
+    // Небольшая задержка перед первым подключением
+    setTimeout(() => {
+      connectWebSocket();
+    }, 500);
+    
+    // Функция для переподключения при восстановлении соединения с интернетом
+    const handleOnline = () => {
+      console.log('Network is back online. Reconnecting WebSocket...');
+      reconnectAttemptsRef.current = 0;
+      connectWebSocket();
+    };
+    
+    // Слушаем события онлайн/оффлайн
+    window.addEventListener('online', handleOnline);
     
     // Очистка при размонтировании
     return () => {
+      window.removeEventListener('online', handleOnline);
+      
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }
