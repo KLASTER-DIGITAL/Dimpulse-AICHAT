@@ -709,9 +709,8 @@ const Cabinet = () => {
                 {!uiEnabled && (
                   <div className="space-y-2 p-4 bg-gray-800 rounded-md">
                     <Label>Тема по умолчанию</Label>
-                    <RadioGroup defaultValue="dark" onValueChange={(value) => {
-                      // Обратите внимание, что свойство theme не определено в интерфейсе UI
-                      // и используется только для внутренней логики
+                    <RadioGroup defaultValue="dark" onValueChange={() => {
+                      // Обновляем UI настройки без включения кастомизации
                       const uiSettings = {
                         enabled: false,
                         colors: {
