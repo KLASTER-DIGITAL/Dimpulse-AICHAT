@@ -28,18 +28,44 @@ function Router() {
 }
 
 function App() {
-  // Add reconnection effect
+  // Improved WebSocket connection handling
   useEffect(() => {
-    const ws = new WebSocket(import.meta.env.VITE_WS_URL || 'ws://0.0.0.0:3000/ws');
-    
-    ws.onclose = () => {
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
+    let ws: WebSocket | null = null;
+    let reconnectTimeout: NodeJS.Timeout;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
+
+    const connect = () => {
+      try {
+        ws = new WebSocket(import.meta.env.VITE_WS_URL || `ws://${window.location.hostname}:3000/ws`);
+
+        ws.onopen = () => {
+          console.log('WebSocket connected');
+          reconnectAttempts = 0;
+        };
+
+        ws.onclose = () => {
+          if (reconnectAttempts < maxReconnectAttempts) {
+            reconnectAttempts++;
+            reconnectTimeout = setTimeout(connect, 1000);
+          }
+        };
+
+        ws.onerror = (error) => {
+          console.error('WebSocket error:', error);
+        };
+      } catch (error) {
+        console.error('WebSocket connection error:', error);
+      }
     };
 
+    connect();
+
     return () => {
-      ws.close();
+      if (ws) {
+        ws.close();
+      }
+      clearTimeout(reconnectTimeout);
     };
   }, []);
 

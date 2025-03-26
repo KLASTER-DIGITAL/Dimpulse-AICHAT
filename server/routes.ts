@@ -495,8 +495,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const httpServer = createServer(app);
   
-  // Создаем WebSocket сервер, закрепленный за HTTP сервером
-  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  // Создаем WebSocket сервер с улучшенной обработкой ошибок
+  const wss = new WebSocketServer({ 
+    server: httpServer, 
+    path: '/ws',
+    clientTracking: true,
+    perMessageDeflate: false
+  });
   
   // Хранилище для клиентов, организованное по чатам
   const clients = new Map<string, Set<WebSocket>>();
