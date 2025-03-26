@@ -17,7 +17,7 @@ import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { Badge } from "@/components/ui/badge";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { 
   Sheet,
   SheetContent, 
@@ -1323,8 +1323,8 @@ const Cabinet = () => {
         </Tabs>
 
         {/* Боковая панель для просмотра сообщений */}
-        <Sheet open={showChatSidebar} onOpenChange={setShowChatSidebar} side="right">
-          <SheetContent className="w-[500px] sm:w-[540px] bg-gray-900 text-white border-l border-gray-800">
+        <Sheet open={showChatSidebar} onOpenChange={setShowChatSidebar}>
+          <SheetContent side="right" className="w-[500px] sm:w-[540px] bg-gray-900 text-white border-l border-gray-800">
             <SheetHeader>
               <SheetTitle className="text-white">
                 {selectedChat?.chat?.title || "История сообщений"}

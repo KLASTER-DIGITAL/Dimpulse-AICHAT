@@ -495,6 +495,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Получение сообщений конкретного чата
+  app.get("/api/chat/:chatId/messages", async (req, res) => {
+    try {
+      const chatId = req.params.chatId;
+      if (!chatId) {
+        return res.status(400).json({ message: "Chat ID is required" });
+      }
+      
+      const messages = await storage.getMessagesByChatId(chatId);
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching chat messages:", error);
+      res.status(500).json({ message: "Failed to fetch chat messages" });
+    }
+  });
+  
   // Обработка URLs для клиентской маршрутизации (React Router)
   // Только для конкретных путей, чтобы не перехватывать запросы Vite в development
   app.get(['/login', '/cabinet', '/chat/*'], (req, res, next) => {
