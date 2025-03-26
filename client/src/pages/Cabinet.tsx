@@ -118,6 +118,10 @@ const defaultSettings: Settings = {
       enabled: false,
       position: "left",
       theme: "dark",
+      fontSize: 16,
+      width: 400,
+      height: 500,
+      text: "Онлайн-чат"
     },
   },
   ui: {
@@ -209,6 +213,10 @@ const Cabinet = () => {
         s.src = '${window.location.origin}/widget.js';
         s.setAttribute('data-position', '${widgetPosition}');
         s.setAttribute('data-theme', '${widgetTheme}');
+        s.setAttribute('data-width', '${widgetWidth}px');
+        s.setAttribute('data-height', '${widgetHeight}px');
+        s.setAttribute('data-font-size', '${widgetFontSize}');
+        s.setAttribute('data-greeting', '${widgetText}');
         d.head.appendChild(s);
       })(document, window);
     `;
@@ -397,6 +405,10 @@ const Cabinet = () => {
         enabled: widgetEnabled,
         position: widgetPosition,
         theme: widgetTheme,
+        fontSize: widgetFontSize,
+        width: widgetWidth,
+        height: widgetHeight,
+        text: widgetText
       },
     };
 
@@ -727,41 +739,15 @@ const Cabinet = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Текст приветствия</Label>
-                      <Input 
-                        value={widgetText} 
-                        onChange={(e) => setWidgetText(e.target.value)}
-                        placeholder="Чем могу помочь?"
+                      <Label>Размер шрифта (px)</Label>
+                      <Input
+                        type="number"
+                        value={widgetFontSize}
+                        onChange={(e) => setWidgetFontSize(Number(e.target.value))}
+                        min={10}
+                        max={24}
                         className="bg-gray-800 border-gray-700 text-white"
                       />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Размер виджета</Label>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label>Ширина (px)</Label>
-                          <Input
-                            type="number"
-                            value={widgetWidth}
-                            onChange={(e) => setWidgetWidth(Number(e.target.value))}
-                            min={200}
-                            max={600}
-                            className="bg-gray-800 border-gray-700 text-white"
-                          />
-                        </div>
-                        <div>
-                          <Label>Высота (px)</Label>
-                          <Input
-                            type="number"
-                            value={widgetHeight}
-                            onChange={(e) => setWidgetHeight(Number(e.target.value))}
-                            min={300}
-                            max={800}
-                            className="bg-gray-800 border-gray-700 text-white"
-                          />
-                        </div>
-                      </div>
                     </div>
                   </div>
 

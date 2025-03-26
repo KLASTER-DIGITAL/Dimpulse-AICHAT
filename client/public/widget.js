@@ -74,6 +74,13 @@
       border: 1px solid ${theme === 'light' ? '#e5e5e5' : '#333333'};
     }
     
+    /* Стили для расположения текстового поля внизу чата */
+    .chat-widget-iframe-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    
     .chat-widget-container.open {
       display: flex;
     }
@@ -153,7 +160,9 @@
       <h3 class="chat-widget-title chat-widget-text">${greetingText}</h3>
       <button class="chat-widget-close">✕</button>
     </div>
-    <iframe class="chat-widget-iframe" src="${serverUrl}?embed=true&theme=${theme}&fontSize=${fontSize}"></iframe>
+    <div class="chat-widget-iframe-container">
+      <iframe class="chat-widget-iframe" src="${serverUrl}?embed=true&theme=${theme}&fontSize=${fontSize}"></iframe>
+    </div>
   `;
   
   // Добавляем элементы на страницу
