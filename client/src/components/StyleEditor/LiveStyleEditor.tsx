@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Settings } from '@shared/schema';
-import { apiRequest } from '@/lib/queryClient';
+import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import { queryClient } from '@/lib/queryClient';
 
 interface LiveStyleEditorProps {
   initialSettings: Settings;
