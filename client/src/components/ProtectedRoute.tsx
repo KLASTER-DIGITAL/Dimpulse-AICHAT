@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 
 interface ProtectedRouteProps {
@@ -7,22 +7,33 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const [, navigate] = useLocation();
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
   useEffect(() => {
-    // Проверяем, авторизован ли пользователь
-    const isAuthenticated = localStorage.getItem("isAuthenticated") === "true";
+    // Проверяем, авторизован ли пользователь (только на стороне клиента)
+    const authStatus = localStorage.getItem("isAuthenticated") === "true";
+    setIsAuthenticated(authStatus);
     
-    if (!isAuthenticated) {
+    if (!authStatus) {
       // Если не авторизован, перенаправляем на страницу входа
       navigate("/login");
     }
   }, [navigate]);
 
-  // Получаем статус авторизации для рендеринга
-  const isAuthenticated = localStorage.getItem("isAuthenticated") === "true";
+  // Показываем загрузку, пока не определили статус аутентификации
+  if (isAuthenticated === null) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-black text-white">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white mx-auto"></div>
+          <p className="mt-4 text-xl">Проверка авторизации...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Если пользователь авторизован, показываем защищенный контент
-  // Если нет, показываем пустой div (перенаправление произойдет через useEffect)
+  // Если нет, показываем экран загрузки (перенаправление произойдет через useEffect)
   return isAuthenticated ? <>{children}</> : <div />;
 };
 
