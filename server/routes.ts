@@ -57,10 +57,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Регистрация
   app.post("/api/auth/register", async (req, res) => {
     try {
-      const { username, password } = req.body;
+      const { username, email, password } = req.body;
       
       if (!username || !password) {
         return res.status(400).json({ message: "Username and password are required" });
+      }
+      
+      // Валидация email для Supabase Auth
+      if (!email || !email.includes('@')) {
+        return res.status(400).json({ message: "Valid email is required" });
       }
       
       // Проверка наличия пользователя с таким именем
@@ -69,7 +74,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(409).json({ message: "Username already taken" });
       }
       
-      const user = await registerUser(username, password);
+      // Регистрация с использованием email
+      const user = await registerUser(username, email, password);
       
       if (!user) {
         return res.status(500).json({ message: "Registration failed" });
