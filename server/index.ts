@@ -65,13 +65,23 @@ app.use((req, res, next) => {
           const existingUser = await storage.getUserByUsername('admin');
           
           if (!existingUser) {
-            // Создаем пользователя admin с паролем admin123
-            const adminUser = await registerUser('admin', 'admin123');
+            // Вместо регистрации через Supabase Auth, создаем пользователя напрямую в нашей таблице
+            console.log('Creating admin user directly in database...');
             
-            if (adminUser) {
-              console.log('Admin user created successfully:', adminUser.username);
-            } else {
-              console.error('Failed to create admin user');
+            try {
+              // Создаем запись в нашей таблице пользователей
+              const admin = await storage.createUser({
+                username: 'admin',
+                password: 'admin123' // В реальном приложении пароль должен быть хэширован
+              });
+              
+              if (admin) {
+                console.log('Admin user created successfully in storage:', admin.username);
+              } else {
+                console.error('Failed to create admin user in storage');
+              }
+            } catch (storageError) {
+              console.error('Error creating admin user in storage:', storageError);
             }
           } else {
             console.log('Admin user already exists');
