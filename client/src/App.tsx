@@ -7,6 +7,7 @@ import Home from "@/pages/Home";
 import Login from "@/pages/Login";
 import Cabinet from "@/pages/Cabinet";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import UIStyleProvider from "@/components/ChatGPT/UIStyleProvider";
 
 function Router() {
   return (
@@ -29,8 +30,10 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Router />
-      <Toaster />
+      <UIStyleProvider>
+        <Router />
+        <Toaster />
+      </UIStyleProvider>
     </QueryClientProvider>
   );
 }
