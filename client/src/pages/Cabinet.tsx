@@ -83,7 +83,7 @@ const Cabinet = () => {
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
   const [isStyleEditorActive, setIsStyleEditorActive] = useState(false);
-  
+
   // Запрос настроек с сервера
   const { data: settings, isLoading } = useQuery({
     queryKey: ["/api/settings"],
@@ -139,11 +139,11 @@ const Cabinet = () => {
         d.head.appendChild(s);
       })(document, window);
     `;
-    
+
     document.head.appendChild(script);
     return cleanup;
   };
-  
+
   // UI настройки
   const [uiEnabled, setUiEnabled] = useState<boolean>(
     settings?.ui?.enabled || defaultSettings.ui.enabled
@@ -175,7 +175,7 @@ const Cabinet = () => {
         setWebhookUrl(settings.webhook.url ?? defaultSettings.webhook.url);
         setWebhookEnabled(settings.webhook.enabled ?? defaultSettings.webhook.enabled);
       }
-      
+
       // Интеграционные настройки
       if (settings.integration) {
         if (settings.integration.iframe) {
@@ -188,7 +188,7 @@ const Cabinet = () => {
           setWidgetTheme(settings.integration.widget.theme ?? defaultSettings.integration.widget.theme);
         }
       }
-      
+
       // UI настройки
       if (settings.ui) {
         setUiEnabled(settings.ui.enabled ?? defaultSettings.ui.enabled);
@@ -298,7 +298,7 @@ const Cabinet = () => {
 
     saveIntegrationMutation.mutate(integration);
   };
-  
+
   // Мутация для сохранения настроек UI
   const saveUiMutation = useMutation({
     mutationFn: async (ui: Settings['ui']) => {
@@ -324,7 +324,7 @@ const Cabinet = () => {
       console.error("Ошибка при сохранении настроек интерфейса:", error);
     },
   });
-  
+
   // Обработчик сохранения настроек UI
   const handleSaveUi = () => {
     const ui = {
@@ -473,7 +473,7 @@ const Cabinet = () => {
                     />
                     <Label htmlFor="iframe-enabled">Включить iframe интеграцию</Label>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label>Тема оформления</Label>
                     <RadioGroup value={iframeTheme} onValueChange={(value) => setIframeTheme(value as "light" | "dark" | "transparent")}>
@@ -491,7 +491,7 @@ const Cabinet = () => {
                       </div>
                     </RadioGroup>
                   </div>
-                  
+
                   {iframeEnabled && (
                     <div className="mt-4 space-y-2">
                       <Label>Код для вставки</Label>
@@ -543,8 +543,58 @@ const Cabinet = () => {
                     />
                     <Label htmlFor="widget-enabled">Включить виджет</Label>
                   </div>
-                  
+
                   <div className="grid gap-4">
+                    <div className="space-y-4">
+                      <div>
+                        <Label>Текст приветствия</Label>
+                        <Input 
+                          value={widgetText}
+                          onChange={(e) => setWidgetText(e.target.value)}
+                          placeholder="Введите текст приветствия"
+                          className="mt-2"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>Ширина (px)</Label>
+                          <Input
+                            type="number"
+                            value={widgetWidth}
+                            onChange={(e) => setWidgetWidth(Number(e.target.value))}
+                            min={200}
+                            max={600}
+                            className="mt-2"
+                          />
+                        </div>
+                        <div>
+                          <Label>Высота (px)</Label>
+                          <Input
+                            type="number"
+                            value={widgetHeight}
+                            onChange={(e) => setWidgetHeight(Number(e.target.value))}
+                            min={300}
+                            max={800}
+                            className="mt-2"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label>Расположение на странице</Label>
+                        <RadioGroup value={widgetPosition} onValueChange={(value) => setWidgetPosition(value as "left" | "right")}>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="left" id="position-left" />
+                          <Label htmlFor="position-left">Слева</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="right" id="position-right" />
+                          <Label htmlFor="position-right">Справа</Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+
                     <div className="space-y-2">
                       <Label>Текст приветствия</Label>
                       <Input 
@@ -554,7 +604,7 @@ const Cabinet = () => {
                         className="bg-gray-800 border-gray-700 text-white"
                       />
                     </div>
-                      
+
                     <div className="space-y-2">
                       <Label>Размер виджета</Label>
                       <div className="grid grid-cols-2 gap-4">
@@ -582,22 +632,8 @@ const Cabinet = () => {
                         </div>
                       </div>
                     </div>
-
-                    <div className="space-y-2">
-                      <Label>Расположение на странице</Label>
-                      <RadioGroup value={widgetPosition} onValueChange={(value) => setWidgetPosition(value as "left" | "right")}>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="left" id="position-left" />
-                          <Label htmlFor="position-left">Слева</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="right" id="position-right" />
-                          <Label htmlFor="position-right">Справа</Label>
-                        </div>
-                      </RadioGroup>
-                    </div>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label>Тема оформления</Label>
                     <RadioGroup value={widgetTheme} onValueChange={(value) => setWidgetTheme(value as "light" | "dark")}>
@@ -611,7 +647,7 @@ const Cabinet = () => {
                       </div>
                     </RadioGroup>
                   </div>
-                  
+
                   {widgetEnabled && (
                     <div className="mt-4 space-y-4">
                       <div className="flex items-center justify-between">
@@ -634,7 +670,7 @@ const Cabinet = () => {
                           }}
                         />
                       </div>
-                      
+
                       <Label>Код для вставки</Label>
                       <div className="bg-gray-800 p-4 rounded-md">
                         <code className="text-sm text-green-400 whitespace-pre-wrap break-all">
@@ -709,22 +745,12 @@ const Cabinet = () => {
                 {!uiEnabled && (
                   <div className="space-y-2 p-4 bg-gray-800 rounded-md">
                     <Label>Тема по умолчанию</Label>
-                    <RadioGroup defaultValue="dark" onValueChange={() => {
-                      // Обновляем UI настройки без включения кастомизации
-                      const uiSettings = {
+                    <RadioGroup value={settings?.ui?.theme || 'dark'} onValueChange={(value) => {
+                      saveUiMutation.mutate({
+                        ...settings?.ui,
                         enabled: false,
-                        colors: {
-                          primary: primaryColor,
-                          secondary: secondaryColor,
-                          accent: accentColor
-                        },
-                        elements: {
-                          roundedCorners: roundedCorners,
-                          shadows: shadows,
-                          animations: animations
-                        }
-                      };
-                      saveUiMutation.mutate(uiSettings);
+                        theme: value
+                      });
                     }}>
                       <div className="flex items-center space-x-2">
                         <RadioGroupItem value="light" id="theme-light-default" />
@@ -737,7 +763,7 @@ const Cabinet = () => {
                     </RadioGroup>
                   </div>
                 )}
-                
+
                 {uiEnabled && (
                   <>
                     {/* Кнопка для активации визуального редактора */}
@@ -757,11 +783,11 @@ const Cabinet = () => {
                         Позволяет редактировать стили наводя курсор на элементы интерфейса
                       </p>
                     </div>
-                    
+
                     {/* Настройки цветов */}
                     <div className="space-y-4">
                       <h3 className="text-lg font-medium">Цветовая схема</h3>
-                      
+
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="primary-color">Основной цвет</Label>
@@ -781,7 +807,7 @@ const Cabinet = () => {
                             />
                           </div>
                         </div>
-                        
+
                         <div className="space-y-2">
                           <Label htmlFor="secondary-color">Вторичный цвет</Label>
                           <div className="flex space-x-2">
@@ -800,7 +826,7 @@ const Cabinet = () => {
                             />
                           </div>
                         </div>
-                        
+
                         <div className="space-y-2">
                           <Label htmlFor="accent-color">Акцентный цвет</Label>
                           <div className="flex space-x-2">
@@ -820,10 +846,10 @@ const Cabinet = () => {
                           </div>
                         </div>
                       </div>
-                      
+
                       <div className="mt-4 p-4 bg-gray-800 rounded-md">
                         <h4 className="text-md font-medium mb-2">Элементы интерфейса</h4>
-                        
+
                         <div className="space-y-4">
                           <div className="space-y-2">
                             <Label>Кнопки</Label>
@@ -844,7 +870,7 @@ const Cabinet = () => {
                                 onChange={(e) => {
                                   const styles = document.documentElement.style;
                                   styles.setProperty('--button-radius', `${e.target.value}px`);
-                                }}
+                                }}}}
                               />
                             </div>
                           </div>
@@ -874,7 +900,7 @@ const Cabinet = () => {
                           </div>
                         </div>
                       </div>
-                      
+
                       <div className="mt-4 p-4 bg-gray-800 rounded-md">
                         <h4 className="text-md font-medium mb-2">Предпросмотр цветов</h4>
                         <div className="flex flex-wrap gap-3">
@@ -896,13 +922,13 @@ const Cabinet = () => {
                         </div>
                       </div>
                     </div>
-                    
+
                     <Separator className="my-4 bg-gray-800" />
-                    
+
                     {/* Настройки элементов */}
                     <div className="space-y-4">
                       <h3 className="text-lg font-medium">Элементы интерфейса</h3>
-                      
+
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
                           <Label htmlFor="rounded-corners">Скругленные углы</Label>
@@ -912,7 +938,7 @@ const Cabinet = () => {
                             onCheckedChange={setRoundedCorners}
                           />
                         </div>
-                        
+
                         <div className="flex items-center justify-between">
                           <Label htmlFor="shadows">Тени элементов</Label>
                           <Switch
@@ -921,7 +947,7 @@ const Cabinet = () => {
                             onCheckedChange={setShadows}
                           />
                         </div>
-                        
+
                         <div className="flex items-center justify-between">
                           <Label htmlFor="animations">Анимации</Label>
                           <Switch
@@ -931,7 +957,7 @@ const Cabinet = () => {
                           />
                         </div>
                       </div>
-                      
+
                       <div className="mt-4 p-4 bg-gray-800 rounded-md">
                         <h4 className="text-md font-medium mb-2">Пример элемента</h4>
                         <div 
@@ -960,7 +986,7 @@ const Cabinet = () => {
           </TabsContent>
         </Tabs>
       </main>
-      
+
       {/* Компонент визуального редактирования стилей */}
       {isStyleEditorActive && (
         <LiveStyleEditor 

@@ -35,6 +35,9 @@ function App() {
     let reconnectTimeout: NodeJS.Timeout;
     let reconnectAttempts = 0;
     const maxReconnectAttempts = 5;
+    const reconnectDelay = 3000;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
 
     const connect = () => {
       try {
