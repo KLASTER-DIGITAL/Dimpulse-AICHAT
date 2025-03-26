@@ -470,6 +470,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Получение статистики использования
+  app.get("/api/stats", async (req, res) => {
+    try {
+      const stats = await storage.getStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching stats:", error);
+      res.status(500).json({ message: "Failed to fetch statistics" });
+    }
+  });
+  
+  // Получение истории диалогов с пагинацией
+  app.get("/api/dialogs", async (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+      const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
+      
+      const dialogHistory = await storage.getDialogHistory(limit, offset);
+      res.json(dialogHistory);
+    } catch (error) {
+      console.error("Error fetching dialog history:", error);
+      res.status(500).json({ message: "Failed to fetch dialog history" });
+    }
+  });
+  
   // Обработка URLs для клиентской маршрутизации (React Router)
   // Только для конкретных путей, чтобы не перехватывать запросы Vite в development
   app.get(['/login', '/cabinet', '/chat/*'], (req, res, next) => {

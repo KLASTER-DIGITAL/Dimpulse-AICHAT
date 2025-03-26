@@ -14,6 +14,10 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import { Badge } from "@/components/ui/badge";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
 // Interfaces for data
 interface Settings {
@@ -45,6 +49,36 @@ interface Settings {
       animations: boolean;
     };
   };
+}
+
+interface Stats {
+  totalUsers: number;
+  totalChats: number;
+  totalMessages: number;
+  activeUsersLast24h: number;
+  activeChatsLast24h: number;
+  messagesPerDay: Array<{
+    date: string;
+    count: number;
+  }>;
+  topChats: Array<{
+    chatId: string;
+    title: string;
+    messageCount: number;
+  }>;
+}
+
+interface Chat {
+  id: string;
+  title: string;
+  userId: number | null;
+  createdAt: string;
+  lastActive: string;
+}
+
+interface DialogsResponse {
+  chats: Chat[];
+  totalCount: number;
 }
 
 const defaultSettings: Settings = {
@@ -166,6 +200,39 @@ const Cabinet = () => {
   const [animations, setAnimations] = useState<boolean>(
     settings?.ui?.elements.animations || defaultSettings.ui.elements.animations
   );
+  
+  // Состояние для пагинации диалогов
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  
+  // Запрос статистики использования
+  const { data: stats, isLoading: isLoadingStats } = useQuery({
+    queryKey: ["/api/stats"],
+    queryFn: async () => {
+      try {
+        const result = await apiRequest("/api/stats");
+        return result as Stats;
+      } catch (error) {
+        console.error("Ошибка при получении статистики:", error);
+        return null;
+      }
+    },
+  });
+  
+  // Запрос истории диалогов с пагинацией
+  const { data: dialogsData, isLoading: isLoadingDialogs } = useQuery({
+    queryKey: ["/api/dialogs", currentPage, pageSize],
+    queryFn: async () => {
+      try {
+        const offset = (currentPage - 1) * pageSize;
+        const result = await apiRequest(`/api/dialogs?limit=${pageSize}&offset=${offset}`);
+        return result as DialogsResponse;
+      } catch (error) {
+        console.error("Ошибка при получении истории диалогов:", error);
+        return { chats: [], totalCount: 0 };
+      }
+    },
+  });
 
   // Обновляем локальное состояние когда данные загружены
   React.useEffect(() => {
@@ -408,6 +475,8 @@ const Cabinet = () => {
             <TabsTrigger value="webhook">Настройка вебхука</TabsTrigger>
             <TabsTrigger value="integration">Интеграция</TabsTrigger>
             <TabsTrigger value="ui">Настройки UI</TabsTrigger>
+            <TabsTrigger value="dialogs">Диалоги</TabsTrigger>
+            <TabsTrigger value="stats">Статистика</TabsTrigger>
           </TabsList>
 
           {/* Раздел настройки вебхука */}
@@ -584,15 +653,16 @@ const Cabinet = () => {
                       <div>
                         <Label>Расположение на странице</Label>
                         <RadioGroup value={widgetPosition} onValueChange={(value) => setWidgetPosition(value as "left" | "right")}>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="left" id="position-left" />
-                          <Label htmlFor="position-left">Слева</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="right" id="position-right" />
-                          <Label htmlFor="position-right">Справа</Label>
-                        </div>
-                      </RadioGroup>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="left" id="position-left" />
+                            <Label htmlFor="position-left">Слева</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="right" id="position-right" />
+                            <Label htmlFor="position-right">Справа</Label>
+                          </div>
+                        </RadioGroup>
+                      </div>
                     </div>
 
                     <div className="space-y-2">
@@ -870,7 +940,7 @@ const Cabinet = () => {
                                 onChange={(e) => {
                                   const styles = document.documentElement.style;
                                   styles.setProperty('--button-radius', `${e.target.value}px`);
-                                }}}}
+                                }}
                               />
                             </div>
                           </div>
@@ -982,6 +1052,222 @@ const Cabinet = () => {
                   {saveUiMutation.isPending ? "Сохранение..." : "Сохранить настройки"}
                 </Button>
               </CardFooter>
+            </Card>
+          </TabsContent>
+
+          {/* Раздел диалогов */}
+          <TabsContent value="dialogs">
+            <Card className="bg-gray-900 text-white border-gray-800">
+              <CardHeader>
+                <CardTitle>История диалогов</CardTitle>
+                <CardDescription className="text-gray-400">
+                  Просмотр истории диалогов с пользователями.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoadingDialogs ? (
+                  <div className="flex justify-center items-center p-8">
+                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white"></div>
+                  </div>
+                ) : dialogsData?.chats.length === 0 ? (
+                  <div className="text-center p-8">
+                    <p className="text-gray-400">Нет доступных диалогов</p>
+                  </div>
+                ) : (
+                  <>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>ID</TableHead>
+                          <TableHead>Название</TableHead>
+                          <TableHead>Создан</TableHead>
+                          <TableHead>Последняя активность</TableHead>
+                          <TableHead>Статус</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {dialogsData?.chats.map((chat) => {
+                          const isActive = new Date(chat.lastActive) > new Date(Date.now() - 24 * 60 * 60 * 1000);
+                          return (
+                            <TableRow key={chat.id}>
+                              <TableCell className="font-mono text-xs">{chat.id.substring(0, 8)}...</TableCell>
+                              <TableCell>{chat.title}</TableCell>
+                              <TableCell>{new Date(chat.createdAt).toLocaleString()}</TableCell>
+                              <TableCell>{new Date(chat.lastActive).toLocaleString()}</TableCell>
+                              <TableCell>
+                                <Badge className={isActive ? "bg-green-500" : "bg-gray-500"}>
+                                  {isActive ? "Активный" : "Неактивный"}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+
+                    {/* Пагинация */}
+                    {dialogsData && dialogsData.totalCount > pageSize && (
+                      <div className="mt-4 flex justify-center">
+                        <Pagination>
+                          <PaginationContent>
+                            <PaginationItem>
+                              <PaginationPrevious 
+                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
+                                className={currentPage === 1 ? "opacity-50 cursor-not-allowed" : ""}
+                              />
+                            </PaginationItem>
+                            
+                            {Array.from({ length: Math.min(5, Math.ceil(dialogsData.totalCount / pageSize)) }, (_, i) => {
+                              const page = i + 1;
+                              return (
+                                <PaginationItem key={page}>
+                                  <PaginationLink 
+                                    isActive={currentPage === page}
+                                    onClick={() => setCurrentPage(page)}
+                                  >
+                                    {page}
+                                  </PaginationLink>
+                                </PaginationItem>
+                              );
+                            })}
+                            
+                            {Math.ceil(dialogsData.totalCount / pageSize) > 5 && (
+                              <PaginationItem>
+                                <PaginationEllipsis />
+                              </PaginationItem>
+                            )}
+                            
+                            <PaginationItem>
+                              <PaginationNext 
+                                onClick={() => {
+                                  if (currentPage < Math.ceil(dialogsData.totalCount / pageSize)) {
+                                    setCurrentPage(p => p + 1);
+                                  }
+                                }} 
+                                className={currentPage === Math.ceil(dialogsData.totalCount / pageSize) ? "opacity-50 cursor-not-allowed" : ""}
+                              />
+                            </PaginationItem>
+                          </PaginationContent>
+                        </Pagination>
+                      </div>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Раздел статистики */}
+          <TabsContent value="stats">
+            <Card className="bg-gray-900 text-white border-gray-800">
+              <CardHeader>
+                <CardTitle>Статистика использования</CardTitle>
+                <CardDescription className="text-gray-400">
+                  Данные об использовании платформы и активности пользователей.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoadingStats ? (
+                  <div className="flex justify-center items-center p-8">
+                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white"></div>
+                  </div>
+                ) : !stats ? (
+                  <div className="text-center p-8">
+                    <p className="text-gray-400">Статистика недоступна</p>
+                  </div>
+                ) : (
+                  <div className="space-y-8">
+                    {/* Общая информация */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <Card className="bg-gray-800 border-gray-700">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-lg">Всего пользователей</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-3xl font-bold">{stats.totalUsers}</p>
+                          <p className="text-sm text-gray-400 mt-1">Активных за 24ч: {stats.activeUsersLast24h}</p>
+                        </CardContent>
+                      </Card>
+                      
+                      <Card className="bg-gray-800 border-gray-700">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-lg">Всего диалогов</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-3xl font-bold">{stats.totalChats}</p>
+                          <p className="text-sm text-gray-400 mt-1">Активных за 24ч: {stats.activeChatsLast24h}</p>
+                        </CardContent>
+                      </Card>
+                      
+                      <Card className="bg-gray-800 border-gray-700">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-lg">Всего сообщений</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-3xl font-bold">{stats.totalMessages}</p>
+                          <p className="text-sm text-gray-400 mt-1">Среднее на диалог: {stats.totalChats ? Math.round(stats.totalMessages / stats.totalChats) : 0}</p>
+                        </CardContent>
+                      </Card>
+                    </div>
+                    
+                    {/* График сообщений по дням */}
+                    <div className="mt-8">
+                      <h3 className="text-lg font-medium mb-4">Активность по дням</h3>
+                      <div className="w-full h-80 bg-gray-800 rounded-md p-4">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={stats.messagesPerDay}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#444" />
+                            <XAxis 
+                              dataKey="date" 
+                              stroke="#888"
+                              tickFormatter={(value) => new Date(value).toLocaleDateString()}
+                            />
+                            <YAxis stroke="#888" />
+                            <Tooltip 
+                              contentStyle={{ backgroundColor: '#333', border: 'none' }}
+                              labelFormatter={(value) => new Date(value).toLocaleDateString()}
+                            />
+                            <Line 
+                              type="monotone" 
+                              dataKey="count" 
+                              name="Сообщений" 
+                              stroke="#10b981" 
+                              activeDot={{ r: 8 }} 
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                    
+                    {/* Топ чаты */}
+                    {stats.topChats.length > 0 && (
+                      <div className="mt-8">
+                        <h3 className="text-lg font-medium mb-4">Самые активные диалоги</h3>
+                        <div className="bg-gray-800 rounded-md p-4">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>ID</TableHead>
+                                <TableHead>Название</TableHead>
+                                <TableHead>Количество сообщений</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {stats.topChats.map((chat) => (
+                                <TableRow key={chat.chatId}>
+                                  <TableCell className="font-mono text-xs">{chat.chatId.substring(0, 8)}...</TableCell>
+                                  <TableCell>{chat.title}</TableCell>
+                                  <TableCell>{chat.messageCount}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
             </Card>
           </TabsContent>
         </Tabs>

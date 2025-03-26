@@ -1,4 +1,4 @@
-import { messages, chats, users, type User, type InsertUser, type Message, type InsertMessage, type Chat, type InsertChat, type Settings, settingsSchema } from "@shared/schema";
+import { messages, chats, users, type User, type InsertUser, type Message, type InsertMessage, type Chat, type InsertChat, type Settings, type Stats, settingsSchema, statsSchema } from "@shared/schema";
 
 export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
@@ -19,6 +19,10 @@ export interface IStorage {
   getSettings(): Promise<Settings>;
   updateSettings(settings: Settings): Promise<Settings>;
   updateWebhookUrl(url: string, enabled: boolean): Promise<Settings>;
+  
+  // Stats methods
+  getStats(): Promise<Stats>;
+  getDialogHistory(limit?: number, offset?: number): Promise<{chats: Chat[], totalCount: number}>;
 }
 
 export class MemStorage implements IStorage {
@@ -81,7 +85,11 @@ export class MemStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.currentUserId++;
-    const user: User = { ...insertUser, id };
+    const user: User = { 
+      ...insertUser, 
+      id,
+      lastActive: new Date()
+    };
     this.users.set(id, user);
     return user;
   }
@@ -91,7 +99,8 @@ export class MemStorage implements IStorage {
       id: chat.id,
       title: chat.title,
       userId: chat.userId || null,
-      createdAt: new Date()
+      createdAt: new Date(),
+      lastActive: new Date()
     };
     this.chats.set(chat.id, newChat);
     this.messages.set(chat.id, []);
@@ -163,6 +172,87 @@ export class MemStorage implements IStorage {
     this.settings.webhook.url = url;
     this.settings.webhook.enabled = enabled;
     return this.settings;
+  }
+  
+  // Методы для работы со статистикой
+  async getStats(): Promise<Stats> {
+    // Текущая дата для расчета активности за последние 24 часа
+    const now = new Date();
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    
+    // Получаем все сообщения для подсчета статистики
+    const allMessages: Message[] = [];
+    this.messages.forEach(messages => {
+      allMessages.push(...messages);
+    });
+    
+    // Считаем количество сообщений по дням
+    const messagesPerDayMap = new Map<string, number>();
+    allMessages.forEach(message => {
+      const date = message.createdAt.toISOString().split('T')[0];
+      messagesPerDayMap.set(date, (messagesPerDayMap.get(date) || 0) + 1);
+    });
+    
+    // Преобразуем в массив с сортировкой по дате
+    const messagesPerDay = Array.from(messagesPerDayMap.entries())
+      .map(([date, count]) => ({ date, count }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    
+    // Считаем чаты с наибольшим количеством сообщений
+    const chatMessageCount = new Map<string, number>();
+    this.messages.forEach((messages, chatId) => {
+      chatMessageCount.set(chatId, messages.length);
+    });
+    
+    // Получаем топ-5 чатов по количеству сообщений
+    const topChats = Array.from(chatMessageCount.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([chatId, messageCount]) => {
+        const chat = this.chats.get(chatId);
+        return {
+          chatId,
+          title: chat ? chat.title : "Неизвестный чат",
+          messageCount
+        };
+      });
+    
+    // Количество активных чатов за последние 24 часа
+    const activeChatsLast24h = Array.from(this.chats.values())
+      .filter(chat => {
+        // Проверяем, есть ли сообщения в чате за последние 24 часа
+        const chatMessages = this.messages.get(chat.id) || [];
+        return chatMessages.some(message => message.createdAt >= yesterday);
+      }).length;
+    
+    // Количество активных пользователей за последние 24 часа
+    // Для упрощения считаем всех пользователей активными, так как в данной реализации
+    // у нас нет отслеживания последней активности пользователя
+    const activeUsersLast24h = this.users.size;
+    
+    return {
+      totalUsers: this.users.size,
+      totalChats: this.chats.size,
+      totalMessages: allMessages.length,
+      activeUsersLast24h,
+      activeChatsLast24h,
+      messagesPerDay,
+      topChats
+    };
+  }
+  
+  async getDialogHistory(limit: number = 10, offset: number = 0): Promise<{chats: Chat[], totalCount: number}> {
+    // Получаем все чаты, сортируем по дате создания (сначала новые)
+    const allChats = Array.from(this.chats.values())
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    
+    // Применяем пагинацию
+    const paginatedChats = allChats.slice(offset, offset + limit);
+    
+    return {
+      chats: paginatedChats,
+      totalCount: allChats.length
+    };
   }
 }
 

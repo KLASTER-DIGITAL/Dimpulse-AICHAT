@@ -6,6 +6,7 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
+  lastActive: timestamp("last_active").defaultNow().notNull(),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
@@ -32,6 +33,7 @@ export const chats = pgTable("chats", {
   title: text("title").notNull(),
   userId: integer("user_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  lastActive: timestamp("last_active").defaultNow().notNull(),
 });
 
 export const insertChatSchema = createInsertSchema(chats).pick({
@@ -48,6 +50,26 @@ export type Message = typeof messages.$inferSelect;
 
 export type InsertChat = z.infer<typeof insertChatSchema>;
 export type Chat = typeof chats.$inferSelect;
+
+// Схема для статистики использования
+export const statsSchema = z.object({
+  totalUsers: z.number(),
+  totalChats: z.number(),
+  totalMessages: z.number(),
+  activeUsersLast24h: z.number(),
+  activeChatsLast24h: z.number(),
+  messagesPerDay: z.array(z.object({
+    date: z.string(),
+    count: z.number()
+  })),
+  topChats: z.array(z.object({
+    chatId: z.string(),
+    title: z.string(),
+    messageCount: z.number()
+  }))
+});
+
+export type Stats = z.infer<typeof statsSchema>;
 
 // Схема для настроек
 export const settingsSchema = z.object({
