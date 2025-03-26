@@ -545,9 +545,45 @@ const Cabinet = () => {
                   </div>
                   
                   <div className="grid gap-4">
-                    <div className="space-y-2">
-                      <Label>Расположение на странице</Label>
-                      <RadioGroup value={widgetPosition} onValueChange={(value) => setWidgetPosition(value as "left" | "right")}>
+                    <div className="space-y-4">
+                      <div>
+                        <Label>Текст приветствия</Label>
+                        <Input 
+                          value={widgetText}
+                          onChange={(e) => setWidgetText(e.target.value)}
+                          placeholder="Введите текст приветствия"
+                          className="mt-2"
+                        />
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>Ширина (px)</Label>
+                          <Input
+                            type="number"
+                            value={widgetWidth}
+                            onChange={(e) => setWidgetWidth(Number(e.target.value))}
+                            min={200}
+                            max={600}
+                            className="mt-2"
+                          />
+                        </div>
+                        <div>
+                          <Label>Высота (px)</Label>
+                          <Input
+                            type="number"
+                            value={widgetHeight}
+                            onChange={(e) => setWidgetHeight(Number(e.target.value))}
+                            min={300}
+                            max={800}
+                            className="mt-2"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label>Расположение на странице</Label>
+                        <RadioGroup value={widgetPosition} onValueChange={(value) => setWidgetPosition(value as "left" | "right")}>
                         <div className="flex items-center space-x-2">
                           <RadioGroupItem value="left" id="position-left" />
                           <Label htmlFor="position-left">Слева</Label>
