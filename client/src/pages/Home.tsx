@@ -327,8 +327,9 @@ const Home = () => {
       <div className="absolute top-2 right-2 z-50">
         <button
           onClick={() => navigate("/cabinet")}
-          className="p-2 text-gray-400 hover:text-white transition-colors"
+          className="p-2 text-gray-400 hover:text-white transition-colors bg-transparent"
           title="Войти в кабинет"
+          style={{ background: 'transparent', backdropFilter: 'blur(0px)' }}
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
