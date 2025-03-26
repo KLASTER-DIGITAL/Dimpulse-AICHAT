@@ -18,21 +18,33 @@ const Login = () => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
+    
+    console.log("Login: login attempt with username:", username);
 
     // Простая проверка учетных данных (логин: admin, пароль: admin123)
     if (username === "admin" && password === "admin123") {
-      // Создаем запись о том, что пользователь авторизован
-      localStorage.setItem("isAuthenticated", "true");
+      console.log("Login: credentials correct");
       
-      // Показываем уведомление об успешном входе
-      toast({
-        title: "Успешный вход",
-        description: "Вы успешно вошли в систему",
-      });
-      
-      // Перенаправляем в личный кабинет
-      navigate("/cabinet");
+      try {
+        // Создаем запись о том, что пользователь авторизован
+        localStorage.setItem("isAuthenticated", "true");
+        console.log("Login: authentication status set in localStorage");
+        
+        // Показываем уведомление об успешном входе
+        toast({
+          title: "Успешный вход",
+          description: "Вы успешно вошли в систему",
+        });
+        
+        // Перенаправляем в личный кабинет
+        console.log("Login: redirecting to /cabinet");
+        navigate("/cabinet");
+      } catch (error) {
+        console.error("Login: Error during login process:", error);
+        setError("Произошла ошибка при входе в систему");
+      }
     } else {
+      console.log("Login: incorrect credentials");
       setError("Неверное имя пользователя или пароль");
       toast({
         title: "Ошибка входа",

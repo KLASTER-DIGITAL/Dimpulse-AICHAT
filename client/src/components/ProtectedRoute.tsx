@@ -11,11 +11,22 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 
   useEffect(() => {
     // Проверяем, авторизован ли пользователь (только на стороне клиента)
-    const authStatus = localStorage.getItem("isAuthenticated") === "true";
-    setIsAuthenticated(authStatus);
-    
-    if (!authStatus) {
-      // Если не авторизован, перенаправляем на страницу входа
+    console.log("ProtectedRoute: checking authentication");
+    try {
+      const authStatus = localStorage.getItem("isAuthenticated") === "true";
+      console.log("ProtectedRoute: authStatus =", authStatus);
+      setIsAuthenticated(authStatus);
+      
+      if (!authStatus) {
+        // Если не авторизован, перенаправляем на страницу входа
+        console.log("ProtectedRoute: redirecting to /login");
+        navigate("/login");
+      } else {
+        console.log("ProtectedRoute: user is authenticated");
+      }
+    } catch (error) {
+      console.error("ProtectedRoute: Error checking authentication:", error);
+      setIsAuthenticated(false);
       navigate("/login");
     }
   }, [navigate]);
