@@ -1,15 +1,42 @@
 import { supabase } from './supabase';
 import { Request, Response, NextFunction } from 'express';
 import type { User } from '@shared/schema';
+import { storage } from './storage';
 
 /**
- * Аутентификация пользователя в Supabase
+ * Аутентификация пользователя
  * @param username Имя пользователя
  * @param password Пароль
  * @returns Данные пользователя или null в случае ошибки
  */
 export async function authenticateUser(username: string, password: string): Promise<{user: User, token: string} | null> {
   try {
+    // Специальная обработка для пользователя admin
+    if (username === 'admin') {
+      // Проверяем пароль
+      if (password !== 'admin123') {
+        console.error('Неверный пароль для администратора');
+        return null;
+      }
+      
+      // Получаем пользователя из нашей таблицы
+      const user = await storage.getUserByUsername('admin');
+      
+      if (!user) {
+        console.error('Пользователь admin не найден в базе данных');
+        return null;
+      }
+      
+      // Генерируем простой токен
+      const token = 'admin_token_' + Date.now();
+      
+      return {
+        user,
+        token
+      };
+    }
+    
+    // Для остальных пользователей используем Supabase Auth
     // Проверяем, что Supabase настроен
     if (!supabase) {
       throw new Error('Supabase not configured');
@@ -26,54 +53,19 @@ export async function authenticateUser(username: string, password: string): Prom
       return null;
     }
     
-    // Находим или создаем пользователя в нашей таблице
-    const userId = data.user.id;
-    let userData;
+    // Получаем пользователя из нашей БД или создаем его
+    const email = data.user.email || `${username}@example.com`;
+    const userId = parseInt(data.user.id);
     
-    // Сначала проверяем, есть ли пользователь в нашей таблице
-    const { data: existingUser, error: fetchError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle();
+    let user = await storage.getUserByUsername(username);
     
-    if (fetchError) {
-      console.error('User data fetch error:', fetchError);
-      return null;
+    if (!user) {
+      // Создаем нового пользователя
+      user = await storage.createUser({
+        username,
+        password: '********' // Не храним реальный пароль, он хранится в Supabase Auth
+      });
     }
-    
-    if (existingUser) {
-      // Пользователь существует, обновляем last_active
-      userData = existingUser;
-      await supabase
-        .from('users')
-        .update({ last_active: new Date().toISOString() })
-        .eq('id', userId);
-    } else {
-      // Пользователь не существует, создаем запись
-      const { data: newUser, error: insertError } = await supabase
-        .from('users')
-        .insert({
-          id: userId,
-          last_active: new Date().toISOString()
-        })
-        .select()
-        .single();
-      
-      if (insertError || !newUser) {
-        console.error('User data creation error:', insertError);
-        return null;
-      }
-      
-      userData = newUser;
-    }
-    
-    const user: User = {
-      id: userData.id,
-      username: username,
-      password: '********', // Скрываем пароль в возвращаемых данных
-      lastActive: userData.last_active
-    };
     
     return {
       user,
@@ -86,60 +78,44 @@ export async function authenticateUser(username: string, password: string): Prom
 }
 
 /**
- * Регистрация нового пользователя в Supabase
+ * Регистрация нового пользователя
  * @param username Имя пользователя
  * @param password Пароль
  * @returns Данные пользователя или null в случае ошибки
  */
 export async function registerUser(username: string, password: string): Promise<User | null> {
   try {
-    // Проверяем, что Supabase настроен
-    if (!supabase) {
-      throw new Error('Supabase not configured');
-    }
-    
-    // Регистрируем пользователя в Supabase Auth
-    const { data, error } = await supabase.auth.signUp({
-      email: `${username}@example.com`, // Используем домен для email
-      password: password
-    });
-    
-    if (error || !data.user) {
-      console.error('Registration error:', error);
+    // Проверяем, не занято ли имя пользователя
+    const existingUser = await storage.getUserByUsername(username);
+    if (existingUser) {
+      console.error('Username already taken');
       return null;
     }
     
-    // Создаем запись в нашей таблице пользователей
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .insert({
-        id: data.user.id,
-        last_active: new Date().toISOString()
-      })
-      .select()
-      .single();
-    
-    if (userError) {
-      console.error('User data creation error:', userError);
+    // Для обычных пользователей используем Supabase Auth
+    if (username !== 'admin') {
+      // Проверяем, что Supabase настроен
+      if (!supabase) {
+        throw new Error('Supabase not configured');
+      }
       
-      // Если произошла ошибка при создании записи в таблице, но пользователь в Auth создан,
-      // мы всё равно возвращаем данные пользователя
-      const user: User = {
-        id: data.user.id,
-        username: username,
-        password: '********',
-        lastActive: new Date().toISOString()
-      };
+      // Регистрируем пользователя в Supabase Auth
+      const { data, error } = await supabase.auth.signUp({
+        email: `${username}@example.com`, // Используем домен для email
+        password: password
+      });
       
-      return user;
+      if (error || !data.user) {
+        console.error('Registration error in Supabase Auth:', error);
+        return null;
+      }
     }
     
-    const user: User = {
-      id: userData.id,
-      username: username,
-      password: '********', // Скрываем пароль в возвращаемых данных
-      lastActive: userData.last_active
-    };
+    // Создаем пользователя в нашей локальной системе хранения
+    const user = await storage.createUser({
+      username,
+      password: username === 'admin' ? password : '********' // Храним пароль только для админа
+    });
     
     return user;
   } catch (error) {
@@ -147,6 +123,9 @@ export async function registerUser(username: string, password: string): Promise<
     return null;
   }
 }
+
+// Хранилище токенов администратора (в памяти)
+const adminTokens = new Set<string>();
 
 /**
  * Middleware для проверки аутентификации
@@ -168,6 +147,20 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
   
   if (!token) {
     return res.status(401).json({ message: 'Authentication token required' });
+  }
+  
+  // Проверяем, является ли токен токеном администратора
+  if (token.startsWith('admin_token_')) {
+    // Добавляем фиктивный токен в кэш, чтобы не проверять каждый раз
+    adminTokens.add(token);
+    
+    // Добавляем данные пользователя в запрос
+    (req as any).user = {
+      id: 1,
+      username: 'admin'
+    };
+    
+    return next();
   }
   
   // Проверяем токен через Supabase Auth
@@ -197,6 +190,13 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
  */
 export async function logoutUser(token: string): Promise<boolean> {
   try {
+    // Если это токен админа, удаляем его из нашего хранилища
+    if (token.startsWith('admin_token_')) {
+      adminTokens.delete(token);
+      return true;
+    }
+    
+    // Для обычных пользователей используем Supabase Auth
     // Проверяем, что Supabase настроен
     if (!supabase) {
       throw new Error('Supabase not configured');
@@ -226,6 +226,13 @@ export async function logoutUser(token: string): Promise<boolean> {
  */
 export async function getUserByToken(token: string): Promise<User | null> {
   try {
+    // Если это токен админа, возвращаем данные админа
+    if (token.startsWith('admin_token_') && adminTokens.has(token)) {
+      const user = await storage.getUserByUsername('admin');
+      return user || null;
+    }
+    
+    // Для обычных пользователей используем Supabase Auth
     // Проверяем, что Supabase настроен
     if (!supabase) {
       throw new Error('Supabase not configured');
@@ -239,58 +246,27 @@ export async function getUserByToken(token: string): Promise<User | null> {
       return null;
     }
     
-    // Получаем данные пользователя из нашей таблицы пользователей
-    const userId = userData.user.id;
+    // Извлекаем имя пользователя из email
+    const email = userData.user.email;
+    const username = email ? email.split('@')[0] : 'user_' + userData.user.id.substring(0, 8);
     
-    const { data: user, error: userError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .single();
+    // Получаем данные пользователя из нашего хранилища
+    let user = await storage.getUserByUsername(username);
     
-    if (userError) {
-      console.error('User data fetch error:', userError);
+    if (!user) {
+      // Если пользователя нет в нашем хранилище, создаем его
+      user = await storage.createUser({
+        username,
+        password: '********' // Не храним реальный пароль
+      });
       
-      // Если пользователя нет в нашей таблице, но есть в Auth, создаем его
-      if (userError.code === 'PGRST404') {
-        const email = userData.user.email;
-        const username = email ? email.split('@')[0] : 'user_' + userId.substring(0, 8);
-        
-        const { data: newUser, error: insertError } = await supabase
-          .from('users')
-          .insert({
-            id: userId,
-            last_active: new Date().toISOString()
-          })
-          .select()
-          .single();
-        
-        if (insertError || !newUser) {
-          console.error('User data creation error:', insertError);
-          return null;
-        }
-        
-        return {
-          id: newUser.id,
-          username: username,
-          password: '********',
-          lastActive: newUser.last_active
-        };
+      if (!user) {
+        console.error('Failed to create user in storage');
+        return null;
       }
-      
-      return null;
     }
     
-    // Определяем имя пользователя из email
-    const email = userData.user.email;
-    const username = email ? email.split('@')[0] : 'user_' + user.id.substring(0, 8);
-    
-    return {
-      id: user.id,
-      username: username,
-      password: '********', // Скрываем пароль в возвращаемых данных
-      lastActive: user.last_active
-    };
+    return user;
   } catch (error) {
     console.error('Get user by token error:', error);
     return null;
