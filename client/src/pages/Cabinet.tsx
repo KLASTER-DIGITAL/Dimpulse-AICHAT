@@ -110,71 +110,29 @@ const Cabinet = () => {
 
   // Функция для создания превью виджета
   const createWidgetPreview = () => {
-    const previewContainer = document.createElement('div');
-    previewContainer.id = 'widget-preview';
-    previewContainer.style.position = 'fixed';
-    previewContainer.style.bottom = '20px';
-    previewContainer.style[widgetPosition] = '20px';
-    previewContainer.style.zIndex = '9999';
-    previewContainer.style.transition = 'all 0.3s ease';
-
-    // Создаем кнопку виджета
-    const widgetButton = document.createElement('button');
-    widgetButton.className = `widget-button ${widgetTheme}`;
-    widgetButton.style.padding = '12px 24px';
-    widgetButton.style.borderRadius = '8px';
-    widgetButton.style.cursor = 'pointer';
-    widgetButton.style.border = 'none';
-    widgetButton.style.backgroundColor = widgetTheme === 'light' ? '#ffffff' : '#1a1a1a';
-    widgetButton.style.color = widgetTheme === 'light' ? '#000000' : '#ffffff';
-    widgetButton.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
-    widgetButton.textContent = 'Открыть чат';
-
-    // Создаем контейнер чата
-    const chatContainer = document.createElement('div');
-    chatContainer.style.display = 'none';
-    chatContainer.style.position = 'fixed';
-    chatContainer.style.bottom = '80px';
-    chatContainer.style[widgetPosition] = '20px';
-    chatContainer.style.width = '320px';
-    chatContainer.style.height = '480px';
-    chatContainer.style.backgroundColor = widgetTheme === 'light' ? '#ffffff' : '#1a1a1a';
-    chatContainer.style.borderRadius = '12px';
-    chatContainer.style.boxShadow = '0 8px 24px rgba(0,0,0,0.2)';
-    chatContainer.style.border = `1px solid ${widgetTheme === 'light' ? '#e5e5e5' : '#333333'}`;
-    chatContainer.style.zIndex = '9998';
-    chatContainer.style.transition = 'all 0.3s ease';
-    chatContainer.innerHTML = `
-      <div style="padding: 16px; border-bottom: 1px solid ${widgetTheme === 'light' ? '#e5e5e5' : '#333333'}; display: flex; justify-content: space-between; align-items: center;">
-        <span style="color: ${widgetTheme === 'light' ? '#000000' : '#ffffff'}; font-weight: 600;">Демо чат</span>
-        <button style="background: none; border: none; color: ${widgetTheme === 'light' ? '#000000' : '#ffffff'}; cursor: pointer;">✕</button>
-      </div>
-      <div style="padding: 16px; height: calc(100% - 120px); overflow-y: auto;">
-        <div style="color: ${widgetTheme === 'light' ? '#666666' : '#999999'}; text-align: center;">
-          Это демонстрация виджета чата.<br>Здесь будет отображаться переписка.
-        </div>
-      </div>
-      <div style="padding: 16px; border-top: 1px solid ${widgetTheme === 'light' ? '#e5e5e5' : '#333333'}; position: absolute; bottom: 0; width: 100%; box-sizing: border-box;">
-        <input type="text" placeholder="Введите сообщение..." style="width: 100%; padding: 8px; border: 1px solid ${widgetTheme === 'light' ? '#e5e5e5' : '#333333'}; border-radius: 4px; background: ${widgetTheme === 'light' ? '#ffffff' : '#2d2d2d'}; color: ${widgetTheme === 'light' ? '#000000' : '#ffffff'};">
-      </div>
-    `;
-
-    // Добавляем обработчики событий
-    widgetButton.onclick = () => {
-      chatContainer.style.display = chatContainer.style.display === 'none' ? 'block' : 'none';
-    };
-
-    chatContainer.querySelector('button').onclick = () => {
-      chatContainer.style.display = 'none';
-    };
-
-    previewContainer.appendChild(widgetButton);
-    document.body.appendChild(previewContainer);
-    document.body.appendChild(chatContainer);
+    // Создаем временный скрипт с кодом виджета
+    const script = document.createElement('script');
+    script.id = 'widget-preview-script';
+    script.setAttribute('data-position', widgetPosition);
+    script.setAttribute('data-theme', widgetTheme);
+    script.src = `${window.location.origin}/widget.js`;
+    
+    document.head.appendChild(script);
     
     return () => {
-      document.body.removeChild(previewContainer);
-      document.body.removeChild(chatContainer);
+      // Удаляем скрипт и все созданные им элементы при cleanup
+      const script = document.getElementById('widget-preview-script');
+      if (script) {
+        document.head.removeChild(script);
+      }
+      const widgetButton = document.querySelector('.chat-widget-button');
+      const widgetContainer = document.querySelector('.chat-widget-container');
+      if (widgetButton) {
+        document.body.removeChild(widgetButton);
+      }
+      if (widgetContainer) {
+        document.body.removeChild(widgetContainer);
+      }
     };
   };
   
