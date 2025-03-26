@@ -150,14 +150,17 @@ export class MemStorage implements IStorage {
       chats: Array.from(this.chats.entries()),
       messages: Array.from(this.messages.entries()),
       currentUserId: this.currentUserId,
-      currentMessageId: this.currentMessageId
+      currentMessageId: this.currentMessageId,
+      settings: this.settings // Сохраняем настройки в файл
     };
     
     try {
       const fs = await import('fs');
       fs.writeFileSync(this.storageFile, JSON.stringify(data));
+      console.log('Data successfully saved to file');
     } catch (error) {
       console.error('Error saving data:', error);
+      throw error; // Пробрасываем ошибку дальше для обработки
     }
   }
 
@@ -171,6 +174,46 @@ export class MemStorage implements IStorage {
         this.messages = new Map(data.messages);
         this.currentUserId = data.currentUserId;
         this.currentMessageId = data.currentMessageId;
+        
+        // Загружаем сохраненные настройки, если они есть
+        if (data.settings) {
+          // Проверяем и загружаем настройки с сохранением структуры по умолчанию
+          this.settings = {
+            ...this.settings, // Сохраняем значения по умолчанию
+            ...data.settings, // Перезаписываем сохраненными значениями
+            // Убедимся что вложенные объекты тоже правильно объединены
+            webhook: {
+              ...this.settings.webhook,
+              ...(data.settings.webhook || {})
+            },
+            integration: {
+              ...this.settings.integration,
+              ...(data.settings.integration || {}),
+              iframe: {
+                ...this.settings.integration.iframe,
+                ...(data.settings.integration?.iframe || {})
+              },
+              widget: {
+                ...this.settings.integration.widget,
+                ...(data.settings.integration?.widget || {})
+              }
+            },
+            ui: {
+              ...this.settings.ui,
+              ...(data.settings.ui || {}),
+              colors: {
+                ...this.settings.ui.colors,
+                ...(data.settings.ui?.colors || {})
+              },
+              elements: {
+                ...this.settings.ui.elements,
+                ...(data.settings.ui?.elements || {})
+              }
+            }
+          };
+        }
+        
+        console.log('Data successfully loaded from file');
       }
     } catch (error) {
       console.error('Error loading data:', error);
