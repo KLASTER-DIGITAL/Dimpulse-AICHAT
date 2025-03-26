@@ -110,30 +110,35 @@ const Cabinet = () => {
 
   // Функция для создания превью виджета
   const createWidgetPreview = () => {
-    // Создаем временный скрипт с кодом виджета
-    const script = document.createElement('script');
-    script.id = 'widget-preview-script';
-    script.setAttribute('data-position', widgetPosition);
-    script.setAttribute('data-theme', widgetTheme);
-    script.src = `${window.location.origin}/widget.js`;
-    
-    document.head.appendChild(script);
-    
-    return () => {
-      // Удаляем скрипт и все созданные им элементы при cleanup
-      const script = document.getElementById('widget-preview-script');
-      if (script) {
-        document.head.removeChild(script);
+    const cleanup = () => {
+      const existingScript = document.getElementById('widget-preview-script');
+      if (existingScript) {
+        document.head.removeChild(existingScript);
       }
       const widgetButton = document.querySelector('.chat-widget-button');
       const widgetContainer = document.querySelector('.chat-widget-container');
-      if (widgetButton) {
-        document.body.removeChild(widgetButton);
-      }
-      if (widgetContainer) {
-        document.body.removeChild(widgetContainer);
-      }
+      if (widgetButton) widgetButton.remove();
+      if (widgetContainer) widgetContainer.remove();
     };
+
+    // Очищаем предыдущий виджет если есть
+    cleanup();
+
+    // Создаем и добавляем новый скрипт
+    const script = document.createElement('script');
+    script.id = 'widget-preview-script';
+    script.textContent = `
+      (function(d, w) {
+        var s = d.createElement('script');
+        s.src = '${window.location.origin}/widget.js';
+        s.setAttribute('data-position', '${widgetPosition}');
+        s.setAttribute('data-theme', '${widgetTheme}');
+        d.head.appendChild(s);
+      })(document, window);
+    `;
+    
+    document.head.appendChild(script);
+    return cleanup;
   };
   
   // UI настройки
