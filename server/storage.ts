@@ -101,6 +101,7 @@ export class MemStorage implements IStorage {
       lastActive: new Date()
     };
     this.users.set(id, user);
+    await this.saveToFile(); // Сохраняем изменения в файл
     return user;
   }
 
@@ -139,6 +140,7 @@ export class MemStorage implements IStorage {
     if (chat) {
       chat.title = title;
       this.chats.set(id, chat);
+      await this.saveToFile(); // Сохраняем изменения в файл
     }
   }
 
@@ -186,7 +188,7 @@ export class MemStorage implements IStorage {
     const chatMessages = this.messages.get(message.chatId) || [];
     chatMessages.push(newMessage);
     this.messages.set(message.chatId, chatMessages);
-    this.saveToFile();
+    await this.saveToFile(); // Добавляем await для корректного сохранения
     
     // Update chat title if it's the first user message
     if (message.role === 'user' && chatMessages.length <= 2) {
@@ -210,12 +212,14 @@ export class MemStorage implements IStorage {
   
   async updateSettings(settings: Settings): Promise<Settings> {
     this.settings = settings;
+    await this.saveToFile(); // Сохраняем изменения в файл
     return this.settings;
   }
   
   async updateWebhookUrl(url: string, enabled: boolean): Promise<Settings> {
     this.settings.webhook.url = url;
     this.settings.webhook.enabled = enabled;
+    await this.saveToFile(); // Сохраняем изменения в файл
     return this.settings;
   }
   
