@@ -324,16 +324,18 @@ const Home = () => {
       className={`flex h-screen w-full ${embedMode.isEmbed ? '' : 'bg-black'} text-[#ECECF1] flex-col relative`}
       style={embedMode.isEmbed ? embedStyles : {}}
     >
+      <div className="absolute top-2 right-2 z-50">
         <button
           onClick={() => navigate("/cabinet")}
-          className="absolute top-2 right-2 w-8 h-8 opacity-0 hover:opacity-100 transition-opacity duration-200"
-          aria-label="Войти в кабинет"
+          className="p-2 text-gray-400 hover:text-white transition-colors"
+          title="Войти в кабинет"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-            <circle cx="12" cy="7" r="4" />
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
           </svg>
         </button>
+      </div>
       {/* Main Content */}
       <div className="flex-1 flex flex-col h-full">
         {/* Показываем приветственный экран вместо чата, если нет сообщений */}
