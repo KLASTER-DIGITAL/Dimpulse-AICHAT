@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
-import LiveStyleEditor from "@/components/StyleEditor/LiveStyleEditor";
+import { useStyleEditorState } from "@/App";
 
 // UI components
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -177,7 +177,8 @@ const Cabinet = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
-  const [isStyleEditorActive, setIsStyleEditorActive] = useState(false);
+  // Используем глобальное состояние редактора стилей из App.tsx
+  const { isStyleEditorActive, setIsStyleEditorActive } = useStyleEditorState();
 
   // Состояние для пагинации диалогов
   const [currentPage, setCurrentPage] = useState(1);
@@ -1687,61 +1688,7 @@ const Cabinet = () => {
         </Sheet>
       </main>
 
-      {/* Компонент визуального редактирования стилей */}
-      {isStyleEditorActive && (
-        <LiveStyleEditor 
-          initialSettings={{
-            webhook: {
-              url: webhookUrl,
-              enabled: webhookEnabled
-            },
-            integration: {
-              iframe: {
-                enabled: iframeEnabled,
-                theme: iframeTheme
-              },
-              widget: {
-                enabled: widgetEnabled,
-                position: widgetPosition,
-                theme: widgetTheme,
-                fontSize: widgetFontSize,
-                width: widgetWidth,
-                height: widgetHeight,
-                text: widgetText
-              }
-            },
-            ui: {
-              enabled: uiEnabled,
-              colors: {
-                primary: primaryColor,
-                secondary: secondaryColor,
-                accent: accentColor
-              },
-              elements: {
-                roundedCorners: roundedCorners,
-                shadows: shadows,
-                animations: animations
-              }
-            },
-            database: {
-              enabled: true,
-              type: "supabase",
-              supabase: {
-                tables: {
-                  messages: "messages",
-                  chats: "chats",
-                  users: "users",
-                  files: "files"
-                },
-                schema: "public",
-                autoMigrate: true
-              }
-            }
-          }}
-          isActive={isStyleEditorActive}
-          onClose={() => setIsStyleEditorActive(false)}
-        />
-      )}
+      {/* LiveStyleEditor перенесен в App.tsx и отображается глобально */}
     </div>
   );
 };
