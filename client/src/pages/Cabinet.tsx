@@ -146,6 +146,7 @@ const defaultSettings: Settings = {
   },
   ui: {
     enabled: false,
+    colorSchemeEnabled: false,
     colors: {
       primary: "#10a37f",
       secondary: "#343541",
@@ -267,6 +268,9 @@ const Cabinet = () => {
   // UI настройки
   const [uiEnabled, setUiEnabled] = useState<boolean>(
     settings?.ui?.enabled || defaultSettings.ui.enabled
+  );
+  const [uiColorSchemeEnabled, setUiColorSchemeEnabled] = useState<boolean>(
+    settings?.ui?.colorSchemeEnabled || defaultSettings.ui.colorSchemeEnabled
   );
   const [primaryColor, setPrimaryColor] = useState<string>(
     settings?.ui?.colors.primary || defaultSettings.ui.colors.primary
@@ -397,6 +401,7 @@ const Cabinet = () => {
       // UI настройки
       if (settings.ui) {
         setUiEnabled(settings.ui.enabled ?? defaultSettings.ui.enabled);
+        setUiColorSchemeEnabled(settings.ui.colorSchemeEnabled ?? defaultSettings.ui.colorSchemeEnabled);
         setPrimaryColor(settings.ui.colors?.primary ?? defaultSettings.ui.colors.primary);
         setSecondaryColor(settings.ui.colors?.secondary ?? defaultSettings.ui.colors.secondary);
         setAccentColor(settings.ui.colors?.accent ?? defaultSettings.ui.colors.accent);
@@ -580,6 +585,7 @@ const Cabinet = () => {
   const handleSaveUi = () => {
     const ui = {
       enabled: uiEnabled,
+      colorSchemeEnabled: uiColorSchemeEnabled,
       colors: {
         primary: primaryColor,
         secondary: secondaryColor,
@@ -1055,7 +1061,17 @@ const Cabinet = () => {
 
                     {/* Настройки цветов */}
                     <div className="space-y-4">
-                      <h3 className="text-lg font-medium">Цветовая схема</h3>
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-medium">Цветовая схема</h3>
+                        <div className="flex items-center space-x-2">
+                          <Label htmlFor="color-scheme-enabled" className="text-sm">Включить</Label>
+                          <Switch
+                            id="color-scheme-enabled"
+                            checked={uiColorSchemeEnabled}
+                            onCheckedChange={setUiColorSchemeEnabled}
+                          />
+                        </div>
+                      </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">

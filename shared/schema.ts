@@ -96,6 +96,7 @@ export const settingsSchema = z.object({
   }),
   ui: z.object({
     enabled: z.boolean(),
+    colorSchemeEnabled: z.boolean().default(false), // Цветовая схема выключена по умолчанию
     colors: z.object({
       primary: z.string(),
       secondary: z.string(),

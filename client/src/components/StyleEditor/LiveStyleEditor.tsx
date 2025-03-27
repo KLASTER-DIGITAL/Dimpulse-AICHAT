@@ -162,6 +162,7 @@ const LiveStyleEditor = ({ initialSettings, isActive, onClose }: LiveStyleEditor
       if (!updatedSettings.ui) {
         updatedSettings.ui = {
           enabled: true,
+          colorSchemeEnabled: false, // Цветовая схема отключена по умолчанию
           colors: { primary: '#19c37d', secondary: '#6b7280', accent: '#3b82f6' },
           elements: { roundedCorners: true, shadows: true, animations: true }
         };
@@ -486,6 +487,7 @@ const LiveStyleEditor = ({ initialSettings, isActive, onClose }: LiveStyleEditor
       if (!updatedSettings.ui.typography) {
         updatedSettings.ui = {
           ...updatedSettings.ui,
+          colorSchemeEnabled: updatedSettings.ui.colorSchemeEnabled || false,
           typography: {
             desktop: { fontSize: undefined, fontFamily: undefined, spacing: undefined },
             mobile: { fontSize: undefined, fontFamily: undefined, spacing: undefined }
@@ -653,11 +655,17 @@ const LiveStyleEditor = ({ initialSettings, isActive, onClose }: LiveStyleEditor
   
   // Вспомогательная функция для применения настроек к DOM
   const applySettingsToDOM = (settings: Settings) => {
-    if (settings?.ui?.colors) {
+    // Проверяем, включена ли цветовая схема
+    if (settings?.ui?.colors && settings.ui.colorSchemeEnabled) {
       const colors = settings.ui.colors;
       document.documentElement.style.setProperty('--primary-color', colors.primary || '#19c37d');
       document.documentElement.style.setProperty('--secondary-color', colors.secondary || '#6b7280');
       document.documentElement.style.setProperty('--accent-color', colors.accent || '#3b82f6');
+    } else if (!settings?.ui?.colorSchemeEnabled) {
+      // Если цветовая схема отключена, используем дефолтные значения
+      document.documentElement.style.setProperty('--primary-color', '#19c37d');
+      document.documentElement.style.setProperty('--secondary-color', '#6b7280');
+      document.documentElement.style.setProperty('--accent-color', '#3b82f6');
     }
     
     if (settings?.ui?.typography) {
