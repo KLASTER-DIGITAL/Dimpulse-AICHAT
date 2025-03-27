@@ -118,6 +118,14 @@ export const settingsSchema = z.object({
         spacing: z.number().optional(),
       }).optional(),
     }).optional(),
+    widget: z.object({
+      title: z.string().optional().default('AI Ассистент'),
+      backgroundColor: z.string().optional().default('#1e1e1e'),
+      headerColor: z.string().optional().default('#272727'),
+      textColor: z.string().optional().default('#ffffff'),
+      buttonColor: z.string().optional().default('#19c37d'),
+      pulsation: z.boolean().optional().default(false),
+    }).optional(),
   }),
   database: z.object({
     enabled: z.boolean().default(false),

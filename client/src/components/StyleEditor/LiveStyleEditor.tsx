@@ -154,6 +154,31 @@ const LiveStyleEditor = ({ initialSettings, isActive, onClose }: LiveStyleEditor
 
   // Поддержка разных размеров для десктопа и мобильных устройств
   const [isMobileView, setIsMobileView] = useState(false);
+  
+  // Убедимся, что есть виджет в настройках
+  useEffect(() => {
+    if (!currentSettings.ui.widget) {
+      const updatedSettings = { ...currentSettings };
+      if (!updatedSettings.ui) {
+        updatedSettings.ui = {
+          enabled: true,
+          colors: { primary: '#19c37d', secondary: '#6b7280', accent: '#3b82f6' },
+          elements: { roundedCorners: true, shadows: true, animations: true }
+        };
+      }
+      
+      updatedSettings.ui.widget = {
+        title: 'AI Ассистент',
+        backgroundColor: '#1e1e1e',
+        headerColor: '#272727',
+        textColor: '#ffffff',
+        buttonColor: '#19c37d',
+        pulsation: false
+      };
+      
+      setCurrentSettings(updatedSettings);
+    }
+  }, [currentSettings]);
 
   useEffect(() => {
     const checkMobileView = () => {
@@ -258,19 +283,33 @@ const LiveStyleEditor = ({ initialSettings, isActive, onClose }: LiveStyleEditor
 
     const handleMouseOver = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
+      
+      // Проверяем, не находится ли элемент внутри редактора
+      if (editorRef.current && (editorRef.current === target || editorRef.current.contains(target))) {
+        return; // Не выделяем элементы внутри редактора
+      }
+      
+      // Проверяем, не является ли элемент частью виджета для сайта
+      const isWidgetElement = target.closest('.website-widget-preview') !== null;
+      
       const editableSelectors = [
-        'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'span', 'div', 'button', 'input', 'textarea',
-        '.chat-message', '.user-message', '.assistant-message', '.typing-animation', '.primary'
+        'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'span', 'button', 'input', 'textarea',
+        '.chat-message', '.user-message', '.assistant-message', '.typing-animation', '.primary',
+        '.widget-preview-container', '.widget-button', '.widget-header', '.widget-body'
       ];
       
-      // Проверяем, что элемент подходит под один из селекторов или содержит текст
-      const isEditable = editableSelectors.some(selector => {
+      // Проверяем, что элемент подходит под один из селекторов и содержит текст
+      // или это виджет для сайта, который тоже можно стилизовать
+      const isTextElement = editableSelectors.some(selector => {
         if (selector.startsWith('.')) {
           return target.classList.contains(selector.substring(1));
         } else {
           return target.tagName.toLowerCase() === selector;
         }
       }) && (target.innerText.trim().length > 0 || target.tagName.toLowerCase() === 'button');
+      
+      // Элемент редактируемый если это текстовый элемент или виджет
+      const isEditable = isTextElement || isWidgetElement;
       
       if (isEditable) {
         setHoveredElement(target);
@@ -438,7 +477,7 @@ const LiveStyleEditor = ({ initialSettings, isActive, onClose }: LiveStyleEditor
     // Обновляем состояние
     setActiveElement(newActiveElement);
     
-    // Сохраняем изменения в глобальных настройках UI, если применимо
+    // Обновляем изменения в глобальных настройках UI, но НЕ сохраняем автоматически
     if (property === 'fontSize' && activeElement.type === 'text') {
       // Обновить размер шрифта в настройках для разных устройств
       const updatedSettings = { ...currentSettings };
@@ -474,8 +513,9 @@ const LiveStyleEditor = ({ initialSettings, isActive, onClose }: LiveStyleEditor
         };
       }
       
+      // Только обновляем состояние, НЕ сохраняем в localStorage или на сервер
       setCurrentSettings(updatedSettings);
-      saveSettings(updatedSettings);
+      // Удалено автоматическое сохранение: saveSettings(updatedSettings);
     }
   };
 
@@ -497,11 +537,14 @@ const LiveStyleEditor = ({ initialSettings, isActive, onClose }: LiveStyleEditor
     }
     target[path[path.length - 1]] = value;
     
-    // Обновляем состояние
+    // Обновляем состояние, НО не сохраняем автоматически
     setCurrentSettings(newSettings);
     
-    // Сохраняем настройки на сервере
-    saveSettings(newSettings);
+    // Применяем настройки к DOM, чтобы пользователь видел эффект
+    applySettingsToDOM(newSettings);
+    
+    // Сохранение произойдет только при явном нажатии кнопки "Сохранить"
+    // saveSettings(newSettings); - удалено автоматическое сохранение
   };
 
   const saveSettings = async (settings: Settings) => {
@@ -632,6 +675,65 @@ const LiveStyleEditor = ({ initialSettings, isActive, onClose }: LiveStyleEditor
       
       if (typoSettings?.fontFamily) {
         document.documentElement.style.setProperty('--font-family', typoSettings.fontFamily);
+      }
+    }
+    
+    // Применяем настройки виджета к превью в редакторе
+    if (settings?.ui?.widget) {
+      const widget = settings.ui.widget;
+      
+      // Находим элементы виджета в превью
+      const widgetPreviewContainer = document.querySelector('.widget-preview-container');
+      const widgetHeader = document.querySelector('.widget-header');
+      const widgetTitle = document.querySelector('.widget-title');
+      const widgetBody = document.querySelector('.widget-body');
+      const widgetMessage = document.querySelector('.widget-message');
+      const widgetButton = document.querySelector('.widget-button');
+      
+      if (widgetPreviewContainer) {
+        (widgetPreviewContainer as HTMLElement).style.backgroundColor = widget.backgroundColor || '#1e1e1e';
+      }
+      
+      if (widgetHeader) {
+        (widgetHeader as HTMLElement).style.backgroundColor = widget.headerColor || '#272727';
+      }
+      
+      if (widgetTitle) {
+        (widgetTitle as HTMLElement).style.color = widget.textColor || '#ffffff';
+        (widgetTitle as HTMLElement).textContent = widget.title || 'AI Ассистент';
+      }
+      
+      if (widgetBody) {
+        (widgetBody as HTMLElement).style.backgroundColor = widget.backgroundColor || '#1e1e1e';
+        (widgetBody as HTMLElement).style.color = widget.textColor || '#ffffff';
+      }
+      
+      if (widgetMessage) {
+        (widgetMessage as HTMLElement).style.color = widget.textColor || '#ffffff';
+      }
+      
+      if (widgetButton) {
+        (widgetButton as HTMLElement).style.backgroundColor = widget.buttonColor || '#19c37d';
+        
+        // Применяем анимацию пульсации
+        if (widget.pulsation) {
+          (widgetButton as HTMLElement).style.animation = 'pulse 2s infinite';
+        } else {
+          (widgetButton as HTMLElement).style.animation = 'none';
+        }
+      }
+      
+      // Также применяем эти настройки к виджету на сайте через CSS переменные
+      document.documentElement.style.setProperty('--widget-bg-color', widget.backgroundColor || '#1e1e1e');
+      document.documentElement.style.setProperty('--widget-header-color', widget.headerColor || '#272727');
+      document.documentElement.style.setProperty('--widget-text-color', widget.textColor || '#ffffff');
+      document.documentElement.style.setProperty('--widget-button-color', widget.buttonColor || '#19c37d');
+      
+      // Обновляем опцию пульсации в CSS
+      if (widget.pulsation) {
+        document.documentElement.classList.add('widget-pulse-enabled');
+      } else {
+        document.documentElement.classList.remove('widget-pulse-enabled');
       }
     }
   };
@@ -772,14 +874,229 @@ const LiveStyleEditor = ({ initialSettings, isActive, onClose }: LiveStyleEditor
       </div>
       
       {!activeElement && (
-        <div className="flex flex-col items-center justify-center py-8 text-gray-500 dark:text-gray-400 text-sm space-y-3">
-          <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="mb-2 text-blue-500">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.042 21.672L13.684 16.6m0 0l-2.51 2.225.569-9.47 5.227 7.917-3.286-.672zm-7.518-.267A8.25 8.25 0 1120.25 10.5M8.288 14.212A5.25 5.25 0 1117.25 10.5" />
-          </svg>
-          <p>Кликните на элемент для редактирования</p>
-          <p className="text-xs opacity-70">Текст, кнопки и другие элементы доступны для стилизации</p>
-        </div>
+        <>
+          {/* Секция настроек виджета для сайта */}
+          <div className="mb-8 border-b pb-8">
+            <h3 className="font-medium text-base mb-4">Настройки виджета для сайта</h3>
+            
+            {/* Превью виджета */}
+            <div className="website-widget-preview bg-gray-100 dark:bg-gray-800 rounded-lg p-4 mb-4 relative">
+              <div className="widget-preview-container" style={{ 
+                maxWidth: '240px',
+                borderRadius: '16px',
+                boxShadow: '0 8px 16px rgba(0, 0, 0, 0.1)',
+                overflow: 'hidden',
+                backgroundColor: currentSettings?.ui?.widget?.backgroundColor || '#1e1e1e'
+              }}>
+                <div className="widget-header p-3 flex justify-between items-center" style={{
+                  backgroundColor: currentSettings?.ui?.widget?.headerColor || '#272727'
+                }}>
+                  <span className="font-medium text-sm widget-title" style={{ 
+                    color: currentSettings?.ui?.widget?.textColor || '#ffffff'
+                  }}>
+                    {currentSettings?.ui?.widget?.title || 'AI Ассистент'}
+                  </span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 6L6 18M6 6l12 12" />
+                  </svg>
+                </div>
+                <div className="widget-body p-3" style={{
+                  backgroundColor: currentSettings?.ui?.widget?.backgroundColor || '#1e1e1e',
+                  color: currentSettings?.ui?.widget?.textColor || '#ffffff'
+                }}>
+                  <p className="text-sm widget-message">Здравствуйте! Чем я могу вам помочь?</p>
+                </div>
+              </div>
+              
+              <div className="mt-3 flex justify-end">
+                <div className="widget-button" style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '50%',
+                  backgroundColor: currentSettings?.ui?.widget?.buttonColor || '#19c37d',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
+                  animation: currentSettings?.ui?.widget?.pulsation ? 'pulse 2s infinite' : 'none'
+                }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+            
+            {/* Настройки виджета */}
+            <div className="space-y-4">
+              {/* Заголовок виджета */}
+              <div className="space-y-2">
+                <label className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">Заголовок виджета</label>
+                <input 
+                  type="text" 
+                  value={currentSettings?.ui?.widget?.title || 'AI Ассистент'}
+                  onChange={(e) => updateSettingsProperty('ui.widget.title', e.target.value)}
+                  className="w-full border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  placeholder="Введите заголовок"
+                />
+              </div>
+              
+              {/* Цвета виджета */}
+              <div className="space-y-2">
+                <label className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">Цвет фона</label>
+                <div className="flex items-center space-x-2">
+                  <div 
+                    className="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer shadow-sm transition-transform hover:scale-105"
+                    style={{ backgroundColor: currentSettings?.ui?.widget?.backgroundColor || '#1e1e1e' }}
+                    onClick={() => {
+                      const input = document.createElement('input');
+                      input.type = 'color';
+                      input.value = currentSettings?.ui?.widget?.backgroundColor || '#1e1e1e';
+                      input.addEventListener('change', (e) => {
+                        updateSettingsProperty('ui.widget.backgroundColor', (e.target as HTMLInputElement).value);
+                      });
+                      input.click();
+                    }}
+                  />
+                  <input 
+                    type="text" 
+                    value={currentSettings?.ui?.widget?.backgroundColor || '#1e1e1e'}
+                    onChange={(e) => updateSettingsProperty('ui.widget.backgroundColor', e.target.value)}
+                    className="flex-1 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">Цвет заголовка</label>
+                <div className="flex items-center space-x-2">
+                  <div 
+                    className="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer shadow-sm transition-transform hover:scale-105"
+                    style={{ backgroundColor: currentSettings?.ui?.widget?.headerColor || '#272727' }}
+                    onClick={() => {
+                      const input = document.createElement('input');
+                      input.type = 'color';
+                      input.value = currentSettings?.ui?.widget?.headerColor || '#272727';
+                      input.addEventListener('change', (e) => {
+                        updateSettingsProperty('ui.widget.headerColor', (e.target as HTMLInputElement).value);
+                      });
+                      input.click();
+                    }}
+                  />
+                  <input 
+                    type="text" 
+                    value={currentSettings?.ui?.widget?.headerColor || '#272727'}
+                    onChange={(e) => updateSettingsProperty('ui.widget.headerColor', e.target.value)}
+                    className="flex-1 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">Цвет текста</label>
+                <div className="flex items-center space-x-2">
+                  <div 
+                    className="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer shadow-sm transition-transform hover:scale-105"
+                    style={{ backgroundColor: currentSettings?.ui?.widget?.textColor || '#ffffff' }}
+                    onClick={() => {
+                      const input = document.createElement('input');
+                      input.type = 'color';
+                      input.value = currentSettings?.ui?.widget?.textColor || '#ffffff';
+                      input.addEventListener('change', (e) => {
+                        updateSettingsProperty('ui.widget.textColor', (e.target as HTMLInputElement).value);
+                      });
+                      input.click();
+                    }}
+                  />
+                  <input 
+                    type="text" 
+                    value={currentSettings?.ui?.widget?.textColor || '#ffffff'}
+                    onChange={(e) => updateSettingsProperty('ui.widget.textColor', e.target.value)}
+                    className="flex-1 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">Цвет кнопки</label>
+                <div className="flex items-center space-x-2">
+                  <div 
+                    className="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer shadow-sm transition-transform hover:scale-105"
+                    style={{ backgroundColor: currentSettings?.ui?.widget?.buttonColor || '#19c37d' }}
+                    onClick={() => {
+                      const input = document.createElement('input');
+                      input.type = 'color';
+                      input.value = currentSettings?.ui?.widget?.buttonColor || '#19c37d';
+                      input.addEventListener('change', (e) => {
+                        updateSettingsProperty('ui.widget.buttonColor', (e.target as HTMLInputElement).value);
+                      });
+                      input.click();
+                    }}
+                  />
+                  <input 
+                    type="text" 
+                    value={currentSettings?.ui?.widget?.buttonColor || '#19c37d'}
+                    onChange={(e) => updateSettingsProperty('ui.widget.buttonColor', e.target.value)}
+                    className="flex-1 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  />
+                </div>
+              </div>
+              
+              {/* Пульсация */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">Эффект пульсации</label>
+                  <div className="relative inline-block w-10 align-middle select-none">
+                    <input 
+                      type="checkbox"
+                      checked={currentSettings?.ui?.widget?.pulsation || false}
+                      onChange={(e) => updateSettingsProperty('ui.widget.pulsation', e.target.checked)}
+                      className="hidden"
+                      id="toggle-pulsation"
+                    />
+                    <label 
+                      htmlFor="toggle-pulsation"
+                      className={`block overflow-hidden h-6 rounded-full cursor-pointer ${
+                        currentSettings?.ui?.widget?.pulsation ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-700'
+                      }`}
+                    >
+                      <span 
+                        className={`block h-6 w-6 rounded-full bg-white shadow transform transition-transform ${
+                          currentSettings?.ui?.widget?.pulsation ? 'translate-x-4' : 'translate-x-0'
+                        }`}
+                      ></span>
+                    </label>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-400">Привлекает внимание анимацией пульсации кнопки чата</p>
+              </div>
+            </div>
+          </div>
+          
+          {/* Инструкция по начальному редактированию */}
+          <div className="flex flex-col items-center justify-center py-6 text-gray-500 dark:text-gray-400 text-sm space-y-3">
+            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="mb-2 text-blue-500">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.042 21.672L13.684 16.6m0 0l-2.51 2.225.569-9.47 5.227 7.917-3.286-.672zm-7.518-.267A8.25 8.25 0 1120.25 10.5M8.288 14.212A5.25 5.25 0 1117.25 10.5" />
+            </svg>
+            <p>Кликните на элемент для редактирования</p>
+            <p className="text-xs opacity-70">Текст, кнопки и другие элементы доступны для стилизации</p>
+          </div>
+        </>
       )}
+      
+      {/* Кнопка Сохранить внизу редактора (всегда видима) */}
+      <div className="fixed bottom-0 right-0 w-[350px] p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 z-10">
+        <button
+          onClick={() => saveSettings(currentSettings)}
+          className="w-full py-2.5 px-4 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-sm"
+        >
+          Сохранить изменения
+        </button>
+      </div>
+      
+      {/* Добавляем отступ внизу для кнопки */}
+      <div className="h-20"></div>
       
       {activeElement && (
         <div className="space-y-5">
