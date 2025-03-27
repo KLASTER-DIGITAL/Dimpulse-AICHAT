@@ -270,7 +270,7 @@ const Cabinet = () => {
     settings?.ui?.enabled || defaultSettings.ui.enabled
   );
   const [uiColorSchemeEnabled, setUiColorSchemeEnabled] = useState<boolean>(
-    settings?.ui?.colorSchemeEnabled || defaultSettings.ui.colorSchemeEnabled
+    settings?.ui?.colorSchemeEnabled !== undefined ? settings.ui.colorSchemeEnabled : defaultSettings.ui.colorSchemeEnabled
   );
   const [primaryColor, setPrimaryColor] = useState<string>(
     settings?.ui?.colors.primary || defaultSettings.ui.colors.primary
