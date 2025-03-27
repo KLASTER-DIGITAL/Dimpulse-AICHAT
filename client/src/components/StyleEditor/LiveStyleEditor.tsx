@@ -48,23 +48,68 @@ const LiveStyleEditor = ({ initialSettings, isActive, onClose }: LiveStyleEditor
   const editorRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   
-  // Загрузка настроек из localStorage при инициализации
+  // Загрузка настроек при инициализации с приоритетом: 
+  // 1. Переданные через initialSettings из пропсов
+  // 2. Сохраненные в localStorage
+  // 3. Резервная копия из sessionStorage
   useEffect(() => {
-    try {
-      const localSettings = localStorage.getItem('liveStyleEditorSettings');
-      if (localSettings) {
-        const parsedSettings = JSON.parse(localSettings) as Settings;
-        setCurrentSettings(parsedSettings);
+    let settings = initialSettings;
+    let settingsUpdated = false;
+    
+    // Функция для загрузки настроек из хранилищ с приоритетом
+    const loadSettings = () => {
+      try {
+        // 1. Пробуем загрузить из localStorage
+        const localSettings = localStorage.getItem('liveStyleEditorSettings');
+        if (localSettings) {
+          try {
+            const parsedLocalSettings = JSON.parse(localSettings) as Settings;
+            if (parsedLocalSettings.ui) {
+              settings = parsedLocalSettings;
+              settingsUpdated = true;
+              console.log('Настройки загружены из localStorage');
+              return true;
+            }
+          } catch (e) {
+            console.warn('Ошибка при парсинге настроек из localStorage:', e);
+          }
+        }
         
-        // Применяем настройки к UI
-        document.documentElement.style.setProperty('--primary-color', parsedSettings.ui.colors.primary);
-        document.documentElement.style.setProperty('--secondary-color', parsedSettings.ui.colors.secondary);
-        document.documentElement.style.setProperty('--accent-color', parsedSettings.ui.colors.accent);
+        // 2. Если не удалось, пробуем из sessionStorage (резервная копия)
+        const backupSettings = sessionStorage.getItem('liveStyleEditorSettings_backup');
+        if (backupSettings) {
+          try {
+            const parsedBackupSettings = JSON.parse(backupSettings) as Settings;
+            if (parsedBackupSettings.ui) {
+              settings = parsedBackupSettings;
+              settingsUpdated = true;
+              console.log('Настройки загружены из резервной копии в sessionStorage');
+              return true;
+            }
+          } catch (e) {
+            console.warn('Ошибка при парсинге настроек из sessionStorage:', e);
+          }
+        }
+        
+        return false;
+      } catch (e) {
+        console.error('Ошибка при загрузке настроек из хранилищ:', e);
+        return false;
       }
-    } catch (e) {
-      console.error('Ошибка при загрузке настроек из localStorage:', e);
+    };
+    
+    // Пробуем загрузить настройки
+    if (loadSettings() && settingsUpdated) {
+      setCurrentSettings(settings);
+      
+      // Применяем настройки к DOM
+      try {
+        applySettingsToDOM(settings);
+      } catch (e) {
+        console.error('Ошибка при применении настроек к DOM:', e);
+      }
     }
-  }, []);
+  }, [initialSettings]);
 
   // Поддержка разных размеров для десктопа и мобильных устройств
   const [isMobileView, setIsMobileView] = useState(false);
@@ -419,59 +464,115 @@ const LiveStyleEditor = ({ initialSettings, isActive, onClose }: LiveStyleEditor
   };
 
   const saveSettings = async (settings: Settings) => {
+    // Создаем состояние для отслеживания процесса сохранения
+    let serverSaveSuccess = false;
+    let localSaveSuccess = false;
+    
+    // Обновляем UI настройки локально для немедленного эффекта
     try {
-      // Сначала сохраняем в localStorage для резервного копирования
+      applySettingsToDOM(settings);
+    } catch (e) {
+      console.error('Ошибка при применении настроек к DOM:', e);
+    }
+    
+    // Шаг 1: Сохраняем в localStorage для надежности
+    try {
       localStorage.setItem('liveStyleEditorSettings', JSON.stringify(settings));
+      localSaveSuccess = true;
+      console.log('Настройки успешно сохранены в localStorage');
+    } catch (error) {
+      console.error('Ошибка при сохранении в localStorage:', error);
+    }
+    
+    // Шаг 2: Пытаемся сохранить на сервер
+    try {
+      // Устанавливаем таймаут для запроса с использованием Promise.race
+      const fetchWithTimeout = async () => {
+        let timeoutId: NodeJS.Timeout;
+        
+        // Создаем промис для таймаута
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(() => {
+            reject(new Error('Время ожидания сохранения настроек истекло'));
+          }, 5000);
+        });
+        
+        try {
+          // Выполняем запрос и гонку с таймаутом
+          return await Promise.race([
+            apiRequest('/api/settings', {
+              method: 'POST',
+              data: settings
+            }),
+            timeoutPromise
+          ]);
+        } finally {
+          // Очищаем таймаут в любом случае
+          clearTimeout(timeoutId);
+        }
+      };
       
-      // Затем пытаемся сохранить через API
-      await apiRequest('/api/settings', {
-        method: 'POST',
-        data: settings,
-      });
+      // Выполняем запрос с таймаутом
+      const response = await fetchWithTimeout();
       
       // Обновляем кеш запросов
       queryClient.invalidateQueries({ queryKey: ['/api/settings'] });
-      
-      // Обновляем UI настройки локально
-      document.documentElement.style.setProperty('--primary-color', settings.ui.colors.primary);
-      document.documentElement.style.setProperty('--secondary-color', settings.ui.colors.secondary);
-      document.documentElement.style.setProperty('--accent-color', settings.ui.colors.accent);
-      
-      // Отображаем уведомление
+      serverSaveSuccess = true;
+      console.log('Настройки успешно сохранены на сервере', response);
+    } catch (error) {
+      console.error('Ошибка при сохранении на сервере:', error);
+      // Попробуем создать резервную копию в sessionStorage на случай проблем с localStorage
+      try {
+        sessionStorage.setItem('liveStyleEditorSettings_backup', JSON.stringify(settings));
+      } catch (e) {
+        console.error('Не удалось создать резервную копию в sessionStorage:', e);
+      }
+    }
+    
+    // Отображаем соответствующее уведомление в зависимости от результата
+    if (serverSaveSuccess) {
       toast({
         title: 'Настройки сохранены',
-        description: 'Изменения успешно применены',
+        description: 'Изменения успешно применены и сохранены на сервере',
       });
-    } catch (error) {
-      console.error('Ошибка при сохранении настроек:', error);
+    } else if (localSaveSuccess) {
+      toast({
+        title: 'Настройки сохранены локально',
+        description: 'Изменения применены и сохранены в локальном хранилище',
+      });
+    } else {
+      toast({
+        title: 'Проблема с сохранением',
+        description: 'Изменения применены, но не удалось сохранить настройки',
+        variant: 'destructive',
+      });
+    }
+  };
+  
+  // Вспомогательная функция для применения настроек к DOM
+  const applySettingsToDOM = (settings: Settings) => {
+    if (settings?.ui?.colors) {
+      const colors = settings.ui.colors;
+      document.documentElement.style.setProperty('--primary-color', colors.primary || '#19c37d');
+      document.documentElement.style.setProperty('--secondary-color', colors.secondary || '#6b7280');
+      document.documentElement.style.setProperty('--accent-color', colors.accent || '#3b82f6');
+    }
+    
+    if (settings?.ui?.typography) {
+      const typography = settings.ui.typography;
+      const isMobile = window.innerWidth < 768;
       
-      // В случае ошибки пытаемся загрузить настройки из localStorage
-      try {
-        const localSettings = localStorage.getItem('liveStyleEditorSettings');
-        if (localSettings) {
-          // Обновляем UI настройки локально из localStorage
-          const parsedSettings = JSON.parse(localSettings) as Settings;
-          document.documentElement.style.setProperty('--primary-color', parsedSettings.ui.colors.primary);
-          document.documentElement.style.setProperty('--secondary-color', parsedSettings.ui.colors.secondary);
-          document.documentElement.style.setProperty('--accent-color', parsedSettings.ui.colors.accent);
-          
-          toast({
-            title: 'Настройки сохранены локально',
-            description: 'Не удалось сохранить настройки на сервере, но изменения применены локально',
-          });
-        } else {
-          toast({
-            title: 'Ошибка сохранения',
-            description: 'Не удалось сохранить настройки',
-            variant: 'destructive',
-          });
-        }
-      } catch (e) {
-        toast({
-          title: 'Ошибка сохранения',
-          description: 'Не удалось сохранить настройки',
-          variant: 'destructive',
-        });
+      const typoSettings = isMobile ? typography.mobile : typography.desktop;
+      if (typoSettings?.fontSize) {
+        document.documentElement.style.setProperty('--base-font-size', `${typoSettings.fontSize}px`);
+      }
+      
+      if (typoSettings?.spacing) {
+        document.documentElement.style.setProperty('--base-line-height', typoSettings.spacing.toString());
+      }
+      
+      if (typoSettings?.fontFamily) {
+        document.documentElement.style.setProperty('--font-family', typoSettings.fontFamily);
       }
     }
   };
@@ -579,69 +680,95 @@ const LiveStyleEditor = ({ initialSettings, isActive, onClose }: LiveStyleEditor
   return (
     <div 
       ref={editorRef}
-      className="fixed bg-white p-4 rounded-lg shadow-lg z-50 border border-gray-200 text-gray-800 w-72"
+      className="fixed bg-white dark:bg-gray-900 p-5 rounded-xl shadow-2xl z-50 border border-gray-100 dark:border-gray-800 text-gray-800 dark:text-gray-100 w-80"
       style={{ 
         top: `${editorPosition.top}px`, 
         left: `${editorPosition.left}px`,
         maxHeight: '80vh',
         overflowY: 'auto',
-        cursor: isDragging ? 'grabbing' : 'auto'
+        cursor: isDragging ? 'grabbing' : 'auto',
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)',
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
       }}
     >
       <div 
-        className="flex justify-between items-center mb-4 cursor-grab drag-handle" 
+        className="flex justify-between items-center mb-5 cursor-grab drag-handle border-b pb-3" 
         onMouseDown={handleMouseDown}
       >
-        <h3 className="font-medium text-sm">Редактирование элемента</h3>
+        <h3 className="font-semibold text-base text-gray-700 dark:text-gray-200">Редактор стилей</h3>
         <button 
           onClick={onClose}
-          className="text-gray-500 hover:text-gray-700 focus:outline-none"
+          className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none transition-colors duration-200"
+          aria-label="Закрыть редактор"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="hover:scale-110 transition-transform">
             <path d="M18 6L6 18M6 6l12 12" />
           </svg>
         </button>
       </div>
       
       {!activeElement && (
-        <div className="text-center py-4 text-gray-500 text-sm">
-          Кликните на элемент для начала редактирования
+        <div className="flex flex-col items-center justify-center py-8 text-gray-500 dark:text-gray-400 text-sm space-y-3">
+          <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="mb-2 text-blue-500">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.042 21.672L13.684 16.6m0 0l-2.51 2.225.569-9.47 5.227 7.917-3.286-.672zm-7.518-.267A8.25 8.25 0 1120.25 10.5M8.288 14.212A5.25 5.25 0 1117.25 10.5" />
+          </svg>
+          <p>Кликните на элемент для редактирования</p>
+          <p className="text-xs opacity-70">Текст, кнопки и другие элементы доступны для стилизации</p>
         </div>
       )}
       
       {activeElement && (
-        <div className="space-y-4">
+        <div className="space-y-5">
           {/* Выравнивание */}
-          <div className="space-y-1">
-            <div className="text-xs text-gray-500 uppercase tracking-wider">Выравнивание</div>
-            <div className="grid grid-cols-3 gap-1">
+          <div className="space-y-2">
+            <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">Выравнивание</div>
+            <div className="bg-gray-50 dark:bg-gray-800 p-1 rounded-lg flex items-center">
               <button 
                 onClick={() => updateElementStyle('alignment', 'left')}
-                className={`border py-1 rounded text-xs ${activeElement.style.alignment === 'left' ? 'bg-gray-200 border-gray-400' : 'border-gray-300'}`}
+                className={`flex-1 p-2 rounded-md text-xs font-medium transition-all ${activeElement.style.alignment === 'left' 
+                  ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 shadow-sm' 
+                  : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}
               >
-                Left
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mx-auto">
+                  <line x1="3" y1="6" x2="21" y2="6"></line>
+                  <line x1="3" y1="12" x2="15" y2="12"></line>
+                  <line x1="3" y1="18" x2="18" y2="18"></line>
+                </svg>
               </button>
               <button 
                 onClick={() => updateElementStyle('alignment', 'center')}
-                className={`border py-1 rounded text-xs ${activeElement.style.alignment === 'center' ? 'bg-gray-200 border-gray-400' : 'border-gray-300'}`}
+                className={`flex-1 p-2 rounded-md text-xs font-medium transition-all ${activeElement.style.alignment === 'center' 
+                  ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 shadow-sm' 
+                  : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}
               >
-                Center
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mx-auto">
+                  <line x1="3" y1="6" x2="21" y2="6"></line>
+                  <line x1="8" y1="12" x2="16" y2="12"></line>
+                  <line x1="6" y1="18" x2="18" y2="18"></line>
+                </svg>
               </button>
               <button 
                 onClick={() => updateElementStyle('alignment', 'right')}
-                className={`border py-1 rounded text-xs ${activeElement.style.alignment === 'right' ? 'bg-gray-200 border-gray-400' : 'border-gray-300'}`}
+                className={`flex-1 p-2 rounded-md text-xs font-medium transition-all ${activeElement.style.alignment === 'right' 
+                  ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 shadow-sm' 
+                  : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}
               >
-                Right
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mx-auto">
+                  <line x1="3" y1="6" x2="21" y2="6"></line>
+                  <line x1="9" y1="12" x2="21" y2="12"></line>
+                  <line x1="6" y1="18" x2="21" y2="18"></line>
+                </svg>
               </button>
             </div>
           </div>
           
           {/* Цвет */}
-          <div className="space-y-1">
-            <div className="text-xs text-gray-500 uppercase tracking-wider">Цвет</div>
+          <div className="space-y-2">
+            <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">Цвет текста</div>
             <div className="flex items-center space-x-2">
               <div 
-                className="w-6 h-6 rounded-full border border-gray-300 cursor-pointer"
+                className="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer shadow-sm transition-transform hover:scale-105"
                 style={{ backgroundColor: activeElement.style.color }}
                 onClick={() => {
                   const input = document.createElement('input');
@@ -657,16 +784,16 @@ const LiveStyleEditor = ({ initialSettings, isActive, onClose }: LiveStyleEditor
                 type="text" 
                 value={activeElement.style.color}
                 onChange={(e) => updateElementStyle('color', e.target.value)}
-                className="flex-1 border border-gray-300 px-2 py-1 rounded text-xs"
+                className="flex-1 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               />
             </div>
           </div>
           
           {/* Размер текста */}
-          <div className="space-y-1">
+          <div className="space-y-2">
             <div className="flex justify-between items-center">
-              <div className="text-xs text-gray-500 uppercase tracking-wider">Размер</div>
-              <div className="font-medium text-sm">{activeElement.style.fontSize}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">Размер шрифта</div>
+              <div className="font-medium text-sm bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-md">{activeElement.style.fontSize}px</div>
             </div>
             <input 
               type="range" 
@@ -674,15 +801,19 @@ const LiveStyleEditor = ({ initialSettings, isActive, onClose }: LiveStyleEditor
               max="48" 
               value={activeElement.style.fontSize}
               onChange={(e) => updateElementStyle('fontSize', parseInt(e.target.value))}
-              className="w-full"
+              className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
             />
+            <div className="flex justify-between text-xs text-gray-400">
+              <span>10px</span>
+              <span>48px</span>
+            </div>
           </div>
           
           {/* Интервал */}
-          <div className="space-y-1">
+          <div className="space-y-2">
             <div className="flex justify-between items-center">
-              <div className="text-xs text-gray-500 uppercase tracking-wider">Интервал</div>
-              <div className="font-medium text-sm">{activeElement.style.spacing}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">Интервал строк</div>
+              <div className="font-medium text-sm bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-md">{activeElement.style.spacing}x</div>
             </div>
             <input 
               type="range" 
@@ -691,84 +822,19 @@ const LiveStyleEditor = ({ initialSettings, isActive, onClose }: LiveStyleEditor
               step="0.05"
               value={activeElement.style.spacing}
               onChange={(e) => updateElementStyle('spacing', parseFloat(e.target.value))}
-              className="w-full"
+              className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
             />
-          </div>
-          
-          {/* Прозрачность */}
-          <div className="space-y-1">
-            <div className="flex justify-between items-center">
-              <div className="text-xs text-gray-500 uppercase tracking-wider">Прозрачность</div>
-              <div className="font-medium text-sm">{activeElement.style.opacity}</div>
-            </div>
-            <input 
-              type="range" 
-              min="0" 
-              max="100" 
-              value={activeElement.style.opacity}
-              onChange={(e) => updateElementStyle('opacity', parseInt(e.target.value))}
-              className="w-full"
-            />
-          </div>
-          
-          {/* Поворот */}
-          <div className="space-y-1">
-            <div className="flex justify-between items-center">
-              <div className="text-xs text-gray-500 uppercase tracking-wider">Поворот</div>
-              <div className="font-medium text-sm">{activeElement.style.rotate}°</div>
-            </div>
-            <input 
-              type="range" 
-              min="-180" 
-              max="180" 
-              value={activeElement.style.rotate}
-              onChange={(e) => updateElementStyle('rotate', parseInt(e.target.value))}
-              className="w-full"
-            />
-          </div>
-          
-          {/* Действия */}
-          <div className="space-y-1">
-            <div className="text-xs text-gray-500 uppercase tracking-wider">Действия</div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => navigator.clipboard.writeText(activeElement.element.innerText || '')}
-                className="px-2 py-1 bg-gray-100 text-xs rounded border border-gray-300 hover:bg-gray-200"
-              >
-                Копировать
-              </button>
-              <button
-                onClick={resetElementStyles}
-                className="px-2 py-1 bg-gray-100 text-xs rounded border border-gray-300 hover:bg-gray-200"
-              >
-                Сбросить
-              </button>
-              <button
-                onClick={() => {}}
-                className="px-2 py-1 bg-gray-100 text-xs rounded border border-gray-300 hover:bg-gray-200"
-              >
-                Блокировать
-              </button>
-            </div>
-            <div className="mt-1">
-              <button
-                onClick={() => {}}
-                className="w-full px-2 py-1 bg-gray-100 text-xs rounded border border-gray-300 hover:bg-gray-200"
-              >
-                Сгруппировать
-              </button>
-            </div>
           </div>
           
           {/* Эффекты */}
-          <div className="space-y-1">
-            <div className="text-xs text-gray-500 uppercase tracking-wider">Эффект</div>
+          <div className="space-y-2">
+            <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">Эффект</div>
             <select
               value={activeElement.style.effectType}
               onChange={(e) => updateElementStyle('effectType', e.target.value)}
-              className="w-full border border-gray-300 rounded text-sm p-1"
+              className="w-full border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              <option value="none">Нет</option>
+              <option value="none">Без эффекта</option>
               <option value="shadow">Тень</option>
               <option value="glow">Свечение</option>
               <option value="outline">Обводка</option>
@@ -776,35 +842,64 @@ const LiveStyleEditor = ({ initialSettings, isActive, onClose }: LiveStyleEditor
           </div>
           
           {/* Устройство (для разных размеров) */}
-          <div className="space-y-1 border-t pt-2 mt-2">
-            <div className="text-xs text-gray-500 uppercase tracking-wider">Устройство</div>
-            <div className="flex gap-2">
+          <div className="space-y-2">
+            <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">Устройство</div>
+            <div className="bg-gray-50 dark:bg-gray-800 p-1 rounded-lg flex">
               <button
                 onClick={() => setIsMobileView(false)}
-                className={`flex-1 px-2 py-1 text-xs rounded ${!isMobileView ? 'bg-blue-100 border-blue-300 text-blue-800' : 'bg-gray-100 border border-gray-300'}`}
+                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${!isMobileView 
+                  ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 shadow-sm' 
+                  : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                aria-label="Настройки для десктопа"
               >
-                Десктоп
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+                  <line x1="8" y1="21" x2="16" y2="21"></line>
+                  <line x1="12" y1="17" x2="12" y2="21"></line>
+                </svg>
+                <span>Десктоп</span>
               </button>
               <button
                 onClick={() => setIsMobileView(true)}
-                className={`flex-1 px-2 py-1 text-xs rounded ${isMobileView ? 'bg-blue-100 border-blue-300 text-blue-800' : 'bg-gray-100 border border-gray-300'}`}
+                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${isMobileView 
+                  ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 shadow-sm' 
+                  : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                aria-label="Настройки для мобильных устройств"
               >
-                Мобильный
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="7" y="2" width="10" height="20" rx="2"></rect>
+                  <line x1="12" y1="18" x2="12" y2="18.01"></line>
+                </svg>
+                <span>Мобильный</span>
               </button>
             </div>
           </div>
           
-          {/* Редактирование текста (если это текстовый элемент) */}
-          {activeElement.type === 'text' && (
-            <div className="space-y-1 border-t pt-2 mt-2">
-              <div className="text-xs text-gray-500 uppercase tracking-wider">Текст</div>
-              <textarea
-                value={activeElement.element.innerText || ''}
-                onChange={(e) => editElementText(e.target.value)}
-                className="w-full border border-gray-300 rounded text-sm p-2 h-20"
-              />
-            </div>
-          )}
+          {/* Кнопки действий */}
+          <div className="border-t pt-4 mt-4 space-y-3">
+            <button
+              onClick={resetElementStyles}
+              className="flex items-center justify-center gap-2 w-full px-3 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-sm rounded-lg transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                <path d="M3 3v5h5"></path>
+              </svg>
+              Сбросить стили
+            </button>
+            
+            <button
+              onClick={() => saveSettings(currentSettings)}
+              className="flex items-center justify-center gap-2 w-full px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg font-medium transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                <polyline points="7 3 7 8 15 8"></polyline>
+              </svg>
+              Сохранить настройки
+            </button>
+          </div>
         </div>
       )}
     </div>
