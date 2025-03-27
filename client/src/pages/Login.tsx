@@ -53,15 +53,38 @@ const Login = () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ username, password }),
+      }).catch(err => {
+        console.error("Network error during login:", err);
+        throw new Error("Ошибка сети при отправке запроса авторизации");
       });
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Ошибка при входе в систему");
+      if (!response || !response.ok) {
+        let errorMessage = "Ошибка при входе в систему";
+        
+        try {
+          const errorData = await response.json();
+          if (errorData && errorData.message) {
+            errorMessage = errorData.message;
+          }
+        } catch (jsonError) {
+          console.error("Error parsing error response:", jsonError);
+        }
+        
+        throw new Error(errorMessage);
       }
       
-      const data = await response.json() as AuthResponse;
-      console.log("Login: successful login response", data);
+      let data: AuthResponse;
+      try {
+        data = await response.json() as AuthResponse;
+        console.log("Login: successful login response", data);
+      } catch (jsonError) {
+        console.error("Error parsing login response:", jsonError);
+        throw new Error("Неверный формат ответа сервера");
+      }
+      
+      if (!data || !data.token || !data.user) {
+        throw new Error("Сервер вернул неполные данные авторизации");
+      }
       
       // Сохраняем токен и информацию о пользователе
       localStorage.setItem("authToken", data.token);
@@ -74,9 +97,12 @@ const Login = () => {
         description: "Вы успешно вошли в систему",
       });
       
-      // Перенаправляем в личный кабинет
-      console.log("Login: redirecting to /cabinet");
-      navigate("/cabinet");
+      // Добавляем небольшую задержку для обновления состояния
+      setTimeout(() => {
+        // Перенаправляем в личный кабинет
+        console.log("Login: redirecting to /cabinet");
+        navigate("/cabinet");
+      }, 100);
     } catch (error: any) {
       console.error("Login: Error during login process:", error);
       const errorMessage = error?.message || "Произошла ошибка при входе в систему";
@@ -119,15 +145,34 @@ const Login = () => {
           email: regEmail,
           password: regPassword 
         }),
+      }).catch(err => {
+        console.error("Network error during registration:", err);
+        throw new Error("Ошибка сети при отправке запроса регистрации");
       });
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Ошибка при регистрации");
+      if (!response || !response.ok) {
+        let errorMessage = "Ошибка при регистрации";
+        
+        try {
+          const errorData = await response.json();
+          if (errorData && errorData.message) {
+            errorMessage = errorData.message;
+          }
+        } catch (jsonError) {
+          console.error("Error parsing error response:", jsonError);
+        }
+        
+        throw new Error(errorMessage);
       }
       
-      const data = await response.json();
-      console.log("Register: successful registration response", data);
+      let data;
+      try {
+        data = await response.json();
+        console.log("Register: successful registration response", data);
+      } catch (jsonError) {
+        console.error("Error parsing registration response:", jsonError);
+        throw new Error("Неверный формат ответа сервера");
+      }
       
       // Показываем уведомление об успешной регистрации
       toast({
@@ -162,6 +207,7 @@ const Login = () => {
   // Функция для быстрого входа администратора
   const handleAdminLogin = async () => {
     setIsAdminLoginLoading(true);
+    setError("");
     
     try {
       console.log("Login: admin login attempt");
@@ -175,15 +221,38 @@ const Login = () => {
           username: "admin", 
           password: "admin123" 
         }),
+      }).catch(err => {
+        console.error("Network error during login:", err);
+        throw new Error("Ошибка сети при отправке запроса авторизации");
       });
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Ошибка при входе администратора");
+      if (!response || !response.ok) {
+        let errorMessage = "Ошибка при входе администратора";
+        
+        try {
+          const errorData = await response.json();
+          if (errorData && errorData.message) {
+            errorMessage = errorData.message;
+          }
+        } catch (jsonError) {
+          console.error("Error parsing error response:", jsonError);
+        }
+        
+        throw new Error(errorMessage);
       }
       
-      const data = await response.json() as AuthResponse;
-      console.log("Login: successful admin login response", data);
+      let data: AuthResponse;
+      try {
+        data = await response.json() as AuthResponse;
+        console.log("Login: successful admin login response", data);
+      } catch (jsonError) {
+        console.error("Error parsing login response:", jsonError);
+        throw new Error("Неверный формат ответа сервера");
+      }
+      
+      if (!data || !data.token || !data.user) {
+        throw new Error("Сервер вернул неполные данные авторизации");
+      }
       
       // Сохраняем токен и информацию о пользователе
       localStorage.setItem("authToken", data.token);
@@ -196,9 +265,12 @@ const Login = () => {
         description: "Вы успешно вошли в систему как администратор",
       });
       
-      // Перенаправляем в личный кабинет
-      console.log("Login: redirecting to /cabinet");
-      navigate("/cabinet");
+      // Добавляем небольшую задержку для обновления состояния
+      setTimeout(() => {
+        // Перенаправляем в личный кабинет
+        console.log("Login: redirecting to /cabinet");
+        navigate("/cabinet");
+      }, 100);
     } catch (error: any) {
       console.error("Login: Error during admin login process:", error);
       const errorMessage = error?.message || "Произошла ошибка при входе администратора";

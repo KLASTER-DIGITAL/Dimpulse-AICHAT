@@ -26,6 +26,12 @@ import {
   SheetTitle, 
   SheetFooter 
 } from "@/components/ui/sheet";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 // Interfaces for data
 interface Settings {

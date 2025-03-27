@@ -19,17 +19,33 @@ const checkAuthToken = async (token: string): Promise<AuthUser | null> => {
       headers: {
         Authorization: `Bearer ${token}`,
       },
+    }).catch(err => {
+      console.error("Network error checking auth token:", err);
+      throw new Error("Ошибка сети при проверке токена авторизации");
     });
-
-    if (!response.ok) {
+    
+    if (!response || !response.ok) {
+      console.log("Auth check returned error status:", response?.status);
       return null;
     }
-
-    const data = await response.json();
+    
+    let data;
+    try {
+      data = await response.json();
+    } catch (jsonError) {
+      console.error("Error parsing auth check response:", jsonError);
+      throw new Error("Неверный формат ответа при проверке авторизации");
+    }
+    
+    if (!data || !data.user) {
+      console.log("Auth check response missing user data:", data);
+      return null;
+    }
+    
     return data.user;
   } catch (error) {
     console.error("Error checking auth token:", error);
-    return null;
+    throw error;
   }
 };
 
@@ -45,6 +61,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
       try {
         // Проверяем наличие токена в localStorage
         const token = localStorage.getItem("authToken");
+        const savedAuthStatus = localStorage.getItem("isAuthenticated");
         
         if (!token) {
           console.log("ProtectedRoute: No auth token found");
@@ -53,32 +70,69 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
           return;
         }
         
-        // Проверяем токен через API
-        const user = await checkAuthToken(token);
+        // Если у нас есть сохраненный статус аутентификации, временно используем его
+        if (savedAuthStatus === "true") {
+          // Устанавливаем временное состояние аутентификации, чтобы не мерцало
+          setIsAuthenticated(true);
+          
+          console.log("ProtectedRoute: authStatus =", savedAuthStatus);
+        }
         
-        if (!user) {
-          console.log("ProtectedRoute: Invalid or expired token");
+        try {
+          // Проверяем токен через API
+          const user = await checkAuthToken(token);
+          
+          if (!user) {
+            console.log("ProtectedRoute: Invalid or expired token");
+            localStorage.removeItem("authToken");
+            localStorage.removeItem("user");
+            localStorage.removeItem("isAuthenticated");
+            setIsAuthenticated(false);
+            
+            toast({
+              title: "Необходима авторизация",
+              description: "Ваша сессия истекла. Пожалуйста, войдите снова.",
+              variant: "destructive",
+            });
+            
+            navigate("/login");
+            return;
+          }
+          
+          // Если токен валидный, обновляем информацию о пользователе
+          localStorage.setItem("user", JSON.stringify(user));
+          localStorage.setItem("isAuthenticated", "true");
+          
+          console.log("ProtectedRoute: User is authenticated:", user);
+          setIsAuthenticated(true);
+        } catch (apiError) {
+          console.error("ProtectedRoute: API Error checking token:", apiError);
+          
+          // Если при проверке токена через API возникла ошибка, но у нас есть сохраненный статус
+          // аутентификации и информация о пользователе, то временно считаем пользователя аутентифицированным
+          if (savedAuthStatus === "true") {
+            const savedUser = localStorage.getItem("user");
+            if (savedUser) {
+              console.log("ProtectedRoute: Using saved authentication status due to API error");
+              setIsAuthenticated(true);
+              return;
+            }
+          }
+          
+          // Иначе сбрасываем аутентификацию
           localStorage.removeItem("authToken");
           localStorage.removeItem("user");
           localStorage.removeItem("isAuthenticated");
           setIsAuthenticated(false);
           
           toast({
-            title: "Необходима авторизация",
-            description: "Ваша сессия истекла. Пожалуйста, войдите снова.",
+            title: "Ошибка проверки аутентификации",
+            description: "Произошла ошибка при проверке вашей сессии. Пожалуйста, войдите снова.",
             variant: "destructive",
           });
           
           navigate("/login");
-          return;
         }
-        
-        // Если токен валидный, обновляем информацию о пользователе
-        localStorage.setItem("user", JSON.stringify(user));
-        localStorage.setItem("isAuthenticated", "true");
-        
-        console.log("ProtectedRoute: User is authenticated:", user);
-        setIsAuthenticated(true);
       } catch (error) {
         console.error("ProtectedRoute: Error checking authentication:", error);
         setIsAuthenticated(false);
