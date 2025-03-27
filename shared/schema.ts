@@ -106,6 +106,18 @@ export const settingsSchema = z.object({
       shadows: z.boolean(),
       animations: z.boolean(),
     }),
+    typography: z.object({
+      desktop: z.object({
+        fontSize: z.number().optional(),
+        fontFamily: z.string().optional(),
+        spacing: z.number().optional(),
+      }).optional(),
+      mobile: z.object({
+        fontSize: z.number().optional(),
+        fontFamily: z.string().optional(),
+        spacing: z.number().optional(),
+      }).optional(),
+    }).optional(),
   }),
   database: z.object({
     enabled: z.boolean().default(false),

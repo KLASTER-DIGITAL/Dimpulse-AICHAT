@@ -1029,7 +1029,15 @@ const Cabinet = () => {
                     {/* Кнопка для активации визуального редактора */}
                     <div className="mb-6">
                       <Button 
-                        onClick={() => setIsStyleEditorActive(true)}
+                        onClick={() => {
+                          setIsStyleEditorActive(true);
+                          // Открываем главную страницу для редактирования
+                          window.open('/', '_blank');
+                          toast({
+                            title: "Редактирование активировано",
+                            description: "Редактор открыт на главной странице. Наведите курсор на элемент для редактирования.",
+                          });
+                        }}
                         variant="outline"
                         className="bg-gray-800 hover:bg-gray-700"
                       >

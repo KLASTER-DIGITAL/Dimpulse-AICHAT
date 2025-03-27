@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Settings } from '@shared/schema';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
@@ -9,47 +9,179 @@ interface LiveStyleEditorProps {
   onClose: () => void;
 }
 
+interface ElementStyle {
+  fontSize: number;
+  color: string;
+  alignment: 'left' | 'center' | 'right';
+  spacing: number;
+  opacity: number;
+  rotate: number;
+  fit: 'small' | 'medium' | 'large';
+  effectType: 'none' | 'shadow' | 'glow' | 'outline';
+}
+
+interface EditableElement {
+  element: HTMLElement;
+  type: string;
+  style: ElementStyle;
+  originalStyles: {
+    fontSize: string;
+    color: string;
+    textAlign: string;
+    lineHeight: string;
+    opacity: string;
+    transform: string;
+    width: string;
+    boxShadow: string;
+    textShadow: string;
+    outline: string;
+  };
+}
+
 const LiveStyleEditor = ({ initialSettings, isActive, onClose }: LiveStyleEditorProps) => {
   const [hoveredElement, setHoveredElement] = useState<HTMLElement | null>(null);
-  const [activeElement, setActiveElement] = useState<HTMLElement | null>(null);
+  const [activeElement, setActiveElement] = useState<EditableElement | null>(null);
   const [currentSettings, setCurrentSettings] = useState<Settings>(initialSettings);
+  const [editorPosition, setEditorPosition] = useState({ top: 0, left: 0 });
+  const editorRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  // Поддержка разных размеров для десктопа и мобильных устройств
+  const [isMobileView, setIsMobileView] = useState(false);
+
+  useEffect(() => {
+    const checkMobileView = () => {
+      setIsMobileView(window.innerWidth < 768);
+    };
+    
+    checkMobileView();
+    window.addEventListener('resize', checkMobileView);
+    
+    return () => {
+      window.removeEventListener('resize', checkMobileView);
+    };
+  }, []);
+
+  // Создаем объект с информацией о редактируемом элементе
+  const createEditableElement = (element: HTMLElement): EditableElement => {
+    const computedStyle = window.getComputedStyle(element);
+    const fontSize = parseInt(computedStyle.fontSize);
+    const color = computedStyle.color;
+    const textAlign = computedStyle.textAlign as 'left' | 'center' | 'right';
+    const lineHeight = parseFloat(computedStyle.lineHeight) / fontSize;
+    const opacity = parseFloat(computedStyle.opacity) * 100;
+    const transform = computedStyle.transform;
+    const rotate = transform.includes('rotate') ? 
+      parseInt(transform.split('rotate(')[1]) : 0;
+    
+    // Определяем тип элемента
+    let type = 'text';
+    if (element.tagName.toLowerCase() === 'button') type = 'button';
+    else if (element.classList.contains('chat-message')) type = 'message';
+    else if (element.classList.contains('user-message')) type = 'user-message';
+    else if (element.classList.contains('assistant-message')) type = 'assistant-message';
+    else if (element.classList.contains('typing-animation')) type = 'typing';
+    
+    // Хранение оригинальных стилей
+    const originalStyles = {
+      fontSize: computedStyle.fontSize,
+      color: computedStyle.color,
+      textAlign: computedStyle.textAlign,
+      lineHeight: computedStyle.lineHeight,
+      opacity: computedStyle.opacity,
+      transform: computedStyle.transform,
+      width: computedStyle.width,
+      boxShadow: computedStyle.boxShadow,
+      textShadow: computedStyle.textShadow,
+      outline: computedStyle.outline
+    };
+    
+    // Определяем текущие установленные значения
+    let fit: 'small' | 'medium' | 'large' = 'medium';
+    if (element.classList.contains('fit-small')) fit = 'small';
+    else if (element.classList.contains('fit-large')) fit = 'large';
+    
+    // Определяем текущий эффект
+    let effectType: 'none' | 'shadow' | 'glow' | 'outline' = 'none';
+    if (computedStyle.boxShadow !== 'none') effectType = 'shadow';
+    else if (computedStyle.textShadow !== 'none') effectType = 'glow';
+    else if (computedStyle.outline !== 'none') effectType = 'outline';
+    
+    return {
+      element,
+      type,
+      style: {
+        fontSize,
+        color,
+        alignment: textAlign,
+        spacing: Math.round(lineHeight * 100) / 100,
+        opacity,
+        rotate,
+        fit,
+        effectType
+      },
+      originalStyles
+    };
+  };
+  
+  // Позиционируем панель редактирования рядом с элементом
+  const positionEditor = (element: HTMLElement) => {
+    const rect = element.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    
+    // Базовое позиционирование
+    let top = rect.bottom + 10;
+    let left = rect.left;
+    
+    // Проверяем, поместится ли редактор снизу
+    if (top + 400 > viewportHeight) {
+      top = Math.max(10, rect.top - 410); // Размещаем сверху с отступом 400px
+    }
+    
+    // Проверяем, не выйдет ли редактор за правый край
+    if (left + 300 > viewportWidth) {
+      left = Math.max(10, viewportWidth - 310);
+    }
+    
+    setEditorPosition({ top, left });
+  };
 
   useEffect(() => {
     if (!isActive) return;
 
     const handleMouseOver = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      if (target.classList.contains('chat-message') || 
-          target.classList.contains('chat-sidebar') || 
-          target.classList.contains('chat-input-container') ||
-          target.classList.contains('chat-input') ||
-          target.classList.contains('primary') ||
-          target.classList.contains('typing-animation') ||
-          target.classList.contains('user-message') ||
-          target.classList.contains('assistant-message')) {
+      const editableSelectors = [
+        'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'span', 'div', 'button', 'input', 'textarea',
+        '.chat-message', '.user-message', '.assistant-message', '.typing-animation', '.primary'
+      ];
+      
+      // Проверяем, что элемент подходит под один из селекторов или содержит текст
+      const isEditable = editableSelectors.some(selector => {
+        if (selector.startsWith('.')) {
+          return target.classList.contains(selector.substring(1));
+        } else {
+          return target.tagName.toLowerCase() === selector;
+        }
+      }) && (target.innerText.trim().length > 0 || target.tagName.toLowerCase() === 'button');
+      
+      if (isEditable) {
         setHoveredElement(target);
         
         // Добавляем подсветку элемента
-        target.style.outline = '2px dashed var(--primary-color)';
+        target.style.outline = '2px dashed #19c37d';
         target.style.outlineOffset = '2px';
       }
     };
 
     const handleMouseOut = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      if (target.classList.contains('chat-message') || 
-          target.classList.contains('chat-sidebar') || 
-          target.classList.contains('chat-input-container') ||
-          target.classList.contains('chat-input') ||
-          target.classList.contains('primary') ||
-          target.classList.contains('typing-animation') ||
-          target.classList.contains('user-message') ||
-          target.classList.contains('assistant-message')) {
+      if (hoveredElement === target) {
         setHoveredElement(null);
         
         // Убираем подсветку, если элемент не активный
-        if (target !== activeElement) {
+        if (!activeElement || activeElement.element !== target) {
           target.style.outline = '';
           target.style.outlineOffset = '';
         }
@@ -63,54 +195,185 @@ const LiveStyleEditor = ({ initialSettings, isActive, onClose }: LiveStyleEditor
       e.stopPropagation();
       
       // Убираем выделение с предыдущего активного элемента
-      if (activeElement && activeElement !== hoveredElement) {
-        activeElement.style.outline = '';
-        activeElement.style.outlineOffset = '';
+      if (activeElement && activeElement.element !== hoveredElement) {
+        activeElement.element.style.outline = '';
+        activeElement.element.style.outlineOffset = '';
       }
       
-      setActiveElement(hoveredElement);
+      // Если элемент уже активен, снимаем выделение
+      if (activeElement && activeElement.element === hoveredElement) {
+        setActiveElement(null);
+        hoveredElement.style.outline = '';
+        hoveredElement.style.outlineOffset = '';
+        return;
+      }
+      
+      // Создаем объект редактируемого элемента
+      const newActiveElement = createEditableElement(hoveredElement);
+      setActiveElement(newActiveElement);
       
       // Добавляем постоянную подсветку для активного элемента
-      hoveredElement.style.outline = '2px solid var(--primary-color)';
+      hoveredElement.style.outline = '2px solid #19c37d';
       hoveredElement.style.outlineOffset = '2px';
       
-      // Показываем панель редактирования рядом с элементом
-      showEditPanel(hoveredElement);
+      // Позиционируем панель редактирования рядом с элементом
+      positionEditor(hoveredElement);
     };
 
     document.addEventListener('mouseover', handleMouseOver);
     document.addEventListener('mouseout', handleMouseOut);
     document.addEventListener('click', handleClick);
 
+    // Обработчик для закрытия редактора при клике вне редактора и активного элемента
+    const handleClickOutside = (e: MouseEvent) => {
+      if (activeElement && 
+          e.target !== activeElement.element && 
+          !activeElement.element.contains(e.target as Node) &&
+          editorRef.current && 
+          !editorRef.current.contains(e.target as Node)) {
+        // Убираем выделение с активного элемента
+        activeElement.element.style.outline = '';
+        activeElement.element.style.outlineOffset = '';
+        setActiveElement(null);
+      }
+    };
+    
+    document.addEventListener('click', handleClickOutside);
+
     return () => {
       document.removeEventListener('mouseover', handleMouseOver);
       document.removeEventListener('mouseout', handleMouseOut);
       document.removeEventListener('click', handleClick);
+      document.removeEventListener('click', handleClickOutside);
       
       // Убираем все выделения при деактивации
-      document.querySelectorAll('.chat-message, .chat-sidebar, .chat-input-container, .chat-input, .primary, .typing-animation, .user-message, .assistant-message').forEach((el) => {
+      document.querySelectorAll('h1, h2, h3, h4, h5, h6, p, span, div, button, input, textarea').forEach((el) => {
         (el as HTMLElement).style.outline = '';
         (el as HTMLElement).style.outlineOffset = '';
       });
     };
   }, [isActive, hoveredElement, activeElement]);
 
-  const showEditPanel = (element: HTMLElement) => {
-    // Определяем тип элемента по классам
-    let elementType = '';
+  // Применяем стиль к элементу
+  const applyStyle = (element: HTMLElement, style: Partial<ElementStyle>) => {
+    if (style.fontSize !== undefined) {
+      element.style.fontSize = `${style.fontSize}px`;
+    }
     
-    if (element.classList.contains('chat-sidebar')) elementType = 'sidebar';
-    else if (element.classList.contains('chat-input') || element.classList.contains('chat-input-container')) elementType = 'input';
-    else if (element.classList.contains('primary')) elementType = 'button';
-    else if (element.classList.contains('typing-animation')) elementType = 'typing';
-    else if (element.classList.contains('user-message')) elementType = 'user-message';
-    else if (element.classList.contains('assistant-message')) elementType = 'assistant-message';
-    else if (element.classList.contains('chat-message')) elementType = 'message';
+    if (style.color !== undefined) {
+      element.style.color = style.color;
+    }
     
-    // Показываем соответствующие настройки в боковой панели
-    console.log(`Редактирование элемента: ${elementType}`);
+    if (style.alignment !== undefined) {
+      element.style.textAlign = style.alignment;
+    }
+    
+    if (style.spacing !== undefined) {
+      element.style.lineHeight = style.spacing.toString();
+    }
+    
+    if (style.opacity !== undefined) {
+      element.style.opacity = (style.opacity / 100).toString();
+    }
+    
+    if (style.rotate !== undefined) {
+      element.style.transform = `rotate(${style.rotate}deg)`;
+    }
+    
+    if (style.fit !== undefined) {
+      // Удаляем предыдущие классы размеров
+      element.classList.remove('fit-small', 'fit-medium', 'fit-large');
+      element.classList.add(`fit-${style.fit}`);
+      
+      // Применяем размеры в зависимости от fit
+      switch (style.fit) {
+        case 'small':
+          element.style.width = '70%';
+          break;
+        case 'medium':
+          element.style.width = '85%';
+          break;
+        case 'large':
+          element.style.width = '100%';
+          break;
+      }
+    }
+    
+    if (style.effectType !== undefined) {
+      // Сбросить все эффекты
+      element.style.boxShadow = 'none';
+      element.style.textShadow = 'none';
+      
+      // Применить выбранный эффект
+      switch (style.effectType) {
+        case 'shadow':
+          element.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+          break;
+        case 'glow':
+          element.style.textShadow = '0 0 8px rgba(25, 195, 125, 0.8)';
+          break;
+        case 'outline':
+          element.style.textShadow = '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000';
+          break;
+      }
+    }
   };
 
+  // Обновить стиль активного элемента
+  const updateElementStyle = (property: keyof ElementStyle, value: any) => {
+    if (!activeElement) return;
+    
+    const newStyle = { ...activeElement.style, [property]: value };
+    const newActiveElement = { ...activeElement, style: newStyle };
+    
+    // Применяем стиль
+    applyStyle(activeElement.element, { [property]: value });
+    
+    // Обновляем состояние
+    setActiveElement(newActiveElement);
+    
+    // Сохраняем изменения в глобальных настройках UI, если применимо
+    if (property === 'fontSize' && activeElement.type === 'text') {
+      // Обновить размер шрифта в настройках для разных устройств
+      const updatedSettings = { ...currentSettings };
+      
+      // Убедимся, что объект typography существует
+      if (!updatedSettings.ui.typography) {
+        updatedSettings.ui = {
+          ...updatedSettings.ui,
+          typography: {
+            desktop: { fontSize: undefined, fontFamily: undefined, spacing: undefined },
+            mobile: { fontSize: undefined, fontFamily: undefined, spacing: undefined }
+          }
+        };
+      }
+      
+      if (isMobileView) {
+        // Обновляем размер для мобильных устройств
+        updatedSettings.ui.typography = {
+          ...updatedSettings.ui.typography,
+          mobile: {
+            ...(updatedSettings.ui.typography?.mobile || {}),
+            fontSize: value
+          }
+        };
+      } else {
+        // Обновляем размер для десктопа
+        updatedSettings.ui.typography = {
+          ...updatedSettings.ui.typography,
+          desktop: {
+            ...(updatedSettings.ui.typography?.desktop || {}),
+            fontSize: value
+          }
+        };
+      }
+      
+      setCurrentSettings(updatedSettings);
+      saveSettings(updatedSettings);
+    }
+  };
+
+  // Обновить глобальные настройки UI
   const updateSettingsProperty = (property: string, value: any) => {
     // Создаем копию текущих настроек
     const newSettings = { ...currentSettings };
@@ -121,6 +384,9 @@ const LiveStyleEditor = ({ initialSettings, isActive, onClose }: LiveStyleEditor
     // Обновляем значение по указанному пути
     let target = newSettings as any;
     for (let i = 0; i < path.length - 1; i++) {
+      if (!target[path[i]]) {
+        target[path[i]] = {};
+      }
       target = target[path[i]];
     }
     target[path[path.length - 1]] = value;
@@ -156,168 +422,276 @@ const LiveStyleEditor = ({ initialSettings, isActive, onClose }: LiveStyleEditor
     }
   };
 
+  // Функции для редактирования текста
+  const editElementText = (newText: string) => {
+    if (!activeElement) return;
+    activeElement.element.textContent = newText;
+  };
+
+  // Сброс стилей для элемента
+  const resetElementStyles = () => {
+    if (!activeElement) return;
+    
+    const { originalStyles, element } = activeElement;
+    
+    element.style.fontSize = originalStyles.fontSize;
+    element.style.color = originalStyles.color;
+    element.style.textAlign = originalStyles.textAlign;
+    element.style.lineHeight = originalStyles.lineHeight;
+    element.style.opacity = originalStyles.opacity;
+    element.style.transform = originalStyles.transform;
+    element.style.width = originalStyles.width;
+    element.style.boxShadow = originalStyles.boxShadow;
+    element.style.textShadow = originalStyles.textShadow;
+    
+    // Удаляем классы размеров
+    element.classList.remove('fit-small', 'fit-medium', 'fit-large');
+    
+    // Обновляем активный элемент
+    setActiveElement({
+      element,
+      type: activeElement.type,
+      style: {
+        fontSize: parseInt(originalStyles.fontSize),
+        color: originalStyles.color,
+        alignment: originalStyles.textAlign as 'left' | 'center' | 'right',
+        spacing: parseFloat(originalStyles.lineHeight),
+        opacity: parseFloat(originalStyles.opacity) * 100,
+        rotate: 0,
+        fit: 'medium',
+        effectType: 'none'
+      },
+      originalStyles
+    });
+  };
+
   if (!isActive) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 bg-gray-900 p-4 rounded-lg shadow-lg z-50 border border-gray-800 text-white">
+    <div 
+      ref={editorRef}
+      className="fixed bg-white p-4 rounded-lg shadow-lg z-50 border border-gray-200 text-gray-800 w-72"
+      style={{ 
+        top: `${editorPosition.top}px`, 
+        left: `${editorPosition.left}px`,
+        maxHeight: '80vh',
+        overflowY: 'auto'
+      }}
+    >
       <div className="flex justify-between items-center mb-4">
-        <h3 className="font-medium">Режим редактирования стилей</h3>
+        <h3 className="font-medium text-sm">Редактирование элемента</h3>
         <button 
           onClick={onClose}
-          className="text-gray-400 hover:text-white focus:outline-none"
+          className="text-gray-500 hover:text-gray-700 focus:outline-none"
         >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M18 6L6 18M6 6l12 12" />
           </svg>
         </button>
       </div>
       
-      <div className="text-sm text-gray-300 mb-4">
-        Наведите курсор на элемент и кликните для редактирования его стиля
-      </div>
-      
-      {activeElement && (
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <label className="block text-sm font-medium">Основной цвет</label>
-            <div className="flex items-center space-x-2">
-              <input 
-                type="color" 
-                value={currentSettings.ui.colors.primary}
-                onChange={(e) => updateSettingsProperty('ui.colors.primary', e.target.value)}
-                className="w-8 h-8 rounded cursor-pointer"
-              />
-              <input 
-                type="text" 
-                value={currentSettings.ui.colors.primary} 
-                onChange={(e) => updateSettingsProperty('ui.colors.primary', e.target.value)}
-                className="flex-1 bg-gray-800 px-2 py-1 rounded text-sm"
-              />
-            </div>
-          </div>
-          
-          <div className="space-y-2">
-            <label className="block text-sm font-medium">Вторичный цвет</label>
-            <div className="flex items-center space-x-2">
-              <input 
-                type="color" 
-                value={currentSettings.ui.colors.secondary}
-                onChange={(e) => updateSettingsProperty('ui.colors.secondary', e.target.value)}
-                className="w-8 h-8 rounded cursor-pointer"
-              />
-              <input 
-                type="text" 
-                value={currentSettings.ui.colors.secondary} 
-                onChange={(e) => updateSettingsProperty('ui.colors.secondary', e.target.value)}
-                className="flex-1 bg-gray-800 px-2 py-1 rounded text-sm"
-              />
-            </div>
-          </div>
-          
-          <div className="space-y-2">
-            <label className="block text-sm font-medium">Дополнительный цвет</label>
-            <div className="flex items-center space-x-2">
-              <input 
-                type="color" 
-                value={currentSettings.ui.colors.accent}
-                onChange={(e) => updateSettingsProperty('ui.colors.accent', e.target.value)}
-                className="w-8 h-8 rounded cursor-pointer"
-              />
-              <input 
-                type="text" 
-                value={currentSettings.ui.colors.accent} 
-                onChange={(e) => updateSettingsProperty('ui.colors.accent', e.target.value)}
-                className="flex-1 bg-gray-800 px-2 py-1 rounded text-sm"
-              />
-            </div>
-          </div>
-          
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">Скругленные углы</label>
-              <div className="relative inline-block w-10 h-5 rounded-full">
-                <input 
-                  type="checkbox" 
-                  checked={currentSettings.ui.elements.roundedCorners}
-                  onChange={(e) => updateSettingsProperty('ui.elements.roundedCorners', e.target.checked)}
-                  className="opacity-0 w-0 h-0"
-                  id="corners-toggle"
-                />
-                <label 
-                  htmlFor="corners-toggle"
-                  className={`absolute cursor-pointer top-0 left-0 right-0 bottom-0 rounded-full transition-colors duration-200 ease-in-out ${
-                    currentSettings.ui.elements.roundedCorners ? 'bg-blue-600' : 'bg-gray-600'
-                  }`}
-                >
-                  <span 
-                    className={`absolute left-0.5 bottom-0.5 w-4 h-4 bg-white rounded-full transition-transform duration-200 ease-in-out ${
-                      currentSettings.ui.elements.roundedCorners ? 'transform translate-x-5' : ''
-                    }`}
-                  ></span>
-                </label>
-              </div>
-            </div>
-          </div>
-          
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">Тени</label>
-              <div className="relative inline-block w-10 h-5 rounded-full">
-                <input 
-                  type="checkbox" 
-                  checked={currentSettings.ui.elements.shadows}
-                  onChange={(e) => updateSettingsProperty('ui.elements.shadows', e.target.checked)}
-                  className="opacity-0 w-0 h-0"
-                  id="shadows-toggle"
-                />
-                <label 
-                  htmlFor="shadows-toggle"
-                  className={`absolute cursor-pointer top-0 left-0 right-0 bottom-0 rounded-full transition-colors duration-200 ease-in-out ${
-                    currentSettings.ui.elements.shadows ? 'bg-blue-600' : 'bg-gray-600'
-                  }`}
-                >
-                  <span 
-                    className={`absolute left-0.5 bottom-0.5 w-4 h-4 bg-white rounded-full transition-transform duration-200 ease-in-out ${
-                      currentSettings.ui.elements.shadows ? 'transform translate-x-5' : ''
-                    }`}
-                  ></span>
-                </label>
-              </div>
-            </div>
-          </div>
-          
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">Анимации</label>
-              <div className="relative inline-block w-10 h-5 rounded-full">
-                <input 
-                  type="checkbox" 
-                  checked={currentSettings.ui.elements.animations}
-                  onChange={(e) => updateSettingsProperty('ui.elements.animations', e.target.checked)}
-                  className="opacity-0 w-0 h-0"
-                  id="animations-toggle"
-                />
-                <label 
-                  htmlFor="animations-toggle"
-                  className={`absolute cursor-pointer top-0 left-0 right-0 bottom-0 rounded-full transition-colors duration-200 ease-in-out ${
-                    currentSettings.ui.elements.animations ? 'bg-blue-600' : 'bg-gray-600'
-                  }`}
-                >
-                  <span 
-                    className={`absolute left-0.5 bottom-0.5 w-4 h-4 bg-white rounded-full transition-transform duration-200 ease-in-out ${
-                      currentSettings.ui.elements.animations ? 'transform translate-x-5' : ''
-                    }`}
-                  ></span>
-                </label>
-              </div>
-            </div>
-          </div>
+      {!activeElement && (
+        <div className="text-center py-4 text-gray-500 text-sm">
+          Кликните на элемент для начала редактирования
         </div>
       )}
       
-      {!activeElement && (
-        <div className="text-center py-4 text-gray-400">
-          Кликните на элемент для начала редактирования
+      {activeElement && (
+        <div className="space-y-4">
+          {/* Выравнивание */}
+          <div className="space-y-1">
+            <div className="text-xs text-gray-500 uppercase tracking-wider">Выравнивание</div>
+            <div className="grid grid-cols-3 gap-1">
+              <button 
+                onClick={() => updateElementStyle('alignment', 'left')}
+                className={`border py-1 rounded text-xs ${activeElement.style.alignment === 'left' ? 'bg-gray-200 border-gray-400' : 'border-gray-300'}`}
+              >
+                Left
+              </button>
+              <button 
+                onClick={() => updateElementStyle('alignment', 'center')}
+                className={`border py-1 rounded text-xs ${activeElement.style.alignment === 'center' ? 'bg-gray-200 border-gray-400' : 'border-gray-300'}`}
+              >
+                Center
+              </button>
+              <button 
+                onClick={() => updateElementStyle('alignment', 'right')}
+                className={`border py-1 rounded text-xs ${activeElement.style.alignment === 'right' ? 'bg-gray-200 border-gray-400' : 'border-gray-300'}`}
+              >
+                Right
+              </button>
+            </div>
+          </div>
+          
+          {/* Цвет */}
+          <div className="space-y-1">
+            <div className="text-xs text-gray-500 uppercase tracking-wider">Цвет</div>
+            <div className="flex items-center space-x-2">
+              <div 
+                className="w-6 h-6 rounded-full border border-gray-300 cursor-pointer"
+                style={{ backgroundColor: activeElement.style.color }}
+                onClick={() => {
+                  const input = document.createElement('input');
+                  input.type = 'color';
+                  input.value = activeElement.style.color;
+                  input.addEventListener('change', (e) => {
+                    updateElementStyle('color', (e.target as HTMLInputElement).value);
+                  });
+                  input.click();
+                }}
+              />
+              <input 
+                type="text" 
+                value={activeElement.style.color}
+                onChange={(e) => updateElementStyle('color', e.target.value)}
+                className="flex-1 border border-gray-300 px-2 py-1 rounded text-xs"
+              />
+            </div>
+          </div>
+          
+          {/* Размер текста */}
+          <div className="space-y-1">
+            <div className="flex justify-between items-center">
+              <div className="text-xs text-gray-500 uppercase tracking-wider">Размер</div>
+              <div className="font-medium text-sm">{activeElement.style.fontSize}</div>
+            </div>
+            <input 
+              type="range" 
+              min="10" 
+              max="48" 
+              value={activeElement.style.fontSize}
+              onChange={(e) => updateElementStyle('fontSize', parseInt(e.target.value))}
+              className="w-full"
+            />
+          </div>
+          
+          {/* Интервал */}
+          <div className="space-y-1">
+            <div className="flex justify-between items-center">
+              <div className="text-xs text-gray-500 uppercase tracking-wider">Интервал</div>
+              <div className="font-medium text-sm">{activeElement.style.spacing}</div>
+            </div>
+            <input 
+              type="range" 
+              min="0.8" 
+              max="2.5" 
+              step="0.05"
+              value={activeElement.style.spacing}
+              onChange={(e) => updateElementStyle('spacing', parseFloat(e.target.value))}
+              className="w-full"
+            />
+          </div>
+          
+          {/* Прозрачность */}
+          <div className="space-y-1">
+            <div className="flex justify-between items-center">
+              <div className="text-xs text-gray-500 uppercase tracking-wider">Прозрачность</div>
+              <div className="font-medium text-sm">{activeElement.style.opacity}</div>
+            </div>
+            <input 
+              type="range" 
+              min="0" 
+              max="100" 
+              value={activeElement.style.opacity}
+              onChange={(e) => updateElementStyle('opacity', parseInt(e.target.value))}
+              className="w-full"
+            />
+          </div>
+          
+          {/* Поворот */}
+          <div className="space-y-1">
+            <div className="flex justify-between items-center">
+              <div className="text-xs text-gray-500 uppercase tracking-wider">Поворот</div>
+              <div className="font-medium text-sm">{activeElement.style.rotate}°</div>
+            </div>
+            <input 
+              type="range" 
+              min="-180" 
+              max="180" 
+              value={activeElement.style.rotate}
+              onChange={(e) => updateElementStyle('rotate', parseInt(e.target.value))}
+              className="w-full"
+            />
+          </div>
+          
+          {/* Действия */}
+          <div className="space-y-1">
+            <div className="text-xs text-gray-500 uppercase tracking-wider">Действия</div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => navigator.clipboard.writeText(activeElement.element.innerText || '')}
+                className="px-2 py-1 bg-gray-100 text-xs rounded border border-gray-300 hover:bg-gray-200"
+              >
+                Копировать
+              </button>
+              <button
+                onClick={resetElementStyles}
+                className="px-2 py-1 bg-gray-100 text-xs rounded border border-gray-300 hover:bg-gray-200"
+              >
+                Сбросить
+              </button>
+              <button
+                onClick={() => {}}
+                className="px-2 py-1 bg-gray-100 text-xs rounded border border-gray-300 hover:bg-gray-200"
+              >
+                Блокировать
+              </button>
+            </div>
+            <div className="mt-1">
+              <button
+                onClick={() => {}}
+                className="w-full px-2 py-1 bg-gray-100 text-xs rounded border border-gray-300 hover:bg-gray-200"
+              >
+                Сгруппировать
+              </button>
+            </div>
+          </div>
+          
+          {/* Эффекты */}
+          <div className="space-y-1">
+            <div className="text-xs text-gray-500 uppercase tracking-wider">Эффект</div>
+            <select
+              value={activeElement.style.effectType}
+              onChange={(e) => updateElementStyle('effectType', e.target.value)}
+              className="w-full border border-gray-300 rounded text-sm p-1"
+            >
+              <option value="none">Нет</option>
+              <option value="shadow">Тень</option>
+              <option value="glow">Свечение</option>
+              <option value="outline">Обводка</option>
+            </select>
+          </div>
+          
+          {/* Устройство (для разных размеров) */}
+          <div className="space-y-1 border-t pt-2 mt-2">
+            <div className="text-xs text-gray-500 uppercase tracking-wider">Устройство</div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setIsMobileView(false)}
+                className={`flex-1 px-2 py-1 text-xs rounded ${!isMobileView ? 'bg-blue-100 border-blue-300 text-blue-800' : 'bg-gray-100 border border-gray-300'}`}
+              >
+                Десктоп
+              </button>
+              <button
+                onClick={() => setIsMobileView(true)}
+                className={`flex-1 px-2 py-1 text-xs rounded ${isMobileView ? 'bg-blue-100 border-blue-300 text-blue-800' : 'bg-gray-100 border border-gray-300'}`}
+              >
+                Мобильный
+              </button>
+            </div>
+          </div>
+          
+          {/* Редактирование текста (если это текстовый элемент) */}
+          {activeElement.type === 'text' && (
+            <div className="space-y-1 border-t pt-2 mt-2">
+              <div className="text-xs text-gray-500 uppercase tracking-wider">Текст</div>
+              <textarea
+                value={activeElement.element.innerText || ''}
+                onChange={(e) => editElementText(e.target.value)}
+                className="w-full border border-gray-300 rounded text-sm p-2 h-20"
+              />
+            </div>
+          )}
         </div>
       )}
     </div>
