@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Settings } from '@shared/schema';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
@@ -48,34 +48,31 @@ const LiveStyleEditor = ({ initialSettings, isActive, onClose }: LiveStyleEditor
   const editorRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   
-  // Загрузка настроек при инициализации с приоритетом: 
-  // 1. Переданные через initialSettings из пропсов
-  // 2. Сохраненные в localStorage
-  // 3. Резервная копия из sessionStorage
-  useEffect(() => {
+  // Функция для загрузки и применения настроек из хранилища (localStorage, sessionStorage, backend)
+  const loadAndApplyStoredSettings = useCallback(async () => {
     let settings = initialSettings;
     let settingsUpdated = false;
     
-    // Функция для загрузки настроек из хранилищ с приоритетом
-    const loadSettings = () => {
-      try {
-        // 1. Пробуем загрузить из localStorage
-        const localSettings = localStorage.getItem('liveStyleEditorSettings');
-        if (localSettings) {
-          try {
-            const parsedLocalSettings = JSON.parse(localSettings) as Settings;
-            if (parsedLocalSettings.ui) {
-              settings = parsedLocalSettings;
-              settingsUpdated = true;
-              console.log('Настройки загружены из localStorage');
-              return true;
-            }
-          } catch (e) {
-            console.warn('Ошибка при парсинге настроек из localStorage:', e);
+    console.log('Загрузка сохраненных настроек стилей...');
+    
+    try {
+      // Приоритет 1: localStorage (локальное хранилище браузера)
+      const localSettings = localStorage.getItem('liveStyleEditorSettings');
+      if (localSettings) {
+        try {
+          const parsedLocalSettings = JSON.parse(localSettings) as Settings;
+          if (parsedLocalSettings.ui) {
+            settings = parsedLocalSettings;
+            settingsUpdated = true;
+            console.log('✅ Настройки успешно загружены из localStorage');
           }
+        } catch (e) {
+          console.warn('⚠️ Ошибка при парсинге настроек из localStorage:', e);
         }
-        
-        // 2. Если не удалось, пробуем из sessionStorage (резервная копия)
+      }
+      
+      // Приоритет 2: Если не удалось из localStorage, пробуем из sessionStorage
+      if (!settingsUpdated) {
         const backupSettings = sessionStorage.getItem('liveStyleEditorSettings_backup');
         if (backupSettings) {
           try {
@@ -83,33 +80,77 @@ const LiveStyleEditor = ({ initialSettings, isActive, onClose }: LiveStyleEditor
             if (parsedBackupSettings.ui) {
               settings = parsedBackupSettings;
               settingsUpdated = true;
-              console.log('Настройки загружены из резервной копии в sessionStorage');
-              return true;
+              console.log('✅ Настройки успешно загружены из резервной копии в sessionStorage');
             }
           } catch (e) {
-            console.warn('Ошибка при парсинге настроек из sessionStorage:', e);
+            console.warn('⚠️ Ошибка при парсинге настроек из sessionStorage:', e);
           }
         }
-        
-        return false;
-      } catch (e) {
-        console.error('Ошибка при загрузке настроек из хранилищ:', e);
-        return false;
       }
+      
+      // Приоритет 3: Если все еще нет настроек, пробуем загрузить с сервера 
+      if (!settingsUpdated) {
+        try {
+          const response = await fetch('/api/settings', {
+            method: 'GET',
+            headers: {
+              ...(localStorage.getItem('authToken') ? { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` } : {})
+            },
+            credentials: 'include'
+          });
+          
+          if (response.ok) {
+            const serverSettings = await response.json();
+            if (serverSettings && serverSettings.ui) {
+              settings = serverSettings;
+              settingsUpdated = true;
+              
+              // Сохраняем в localStorage для быстрого доступа в будущем
+              localStorage.setItem('liveStyleEditorSettings', JSON.stringify(serverSettings));
+              console.log('✅ Настройки успешно загружены с сервера и сохранены в localStorage');
+            }
+          } else {
+            console.warn(`⚠️ Не удалось загрузить настройки с сервера: ${response.status} ${response.statusText}`);
+          }
+        } catch (e) {
+          console.warn('⚠️ Ошибка при загрузке настроек с сервера:', e);
+        }
+      }
+      
+      // Если удалось загрузить настройки из любого источника, применяем их
+      if (settingsUpdated) {
+        setCurrentSettings(settings);
+        
+        // Применяем настройки к DOM
+        applySettingsToDOM(settings);
+        console.log('✅ Настройки успешно применены к DOM');
+      } else {
+        console.log('ℹ️ Не найдено сохраненных настроек, используются настройки по умолчанию');
+      }
+    } catch (e) {
+      console.error('❌ Критическая ошибка при загрузке настроек:', e);
+    }
+    
+    return { settingsUpdated, settings };
+  }, [initialSettings]);
+  
+  // При инициализации загружаем и применяем сохраненные настройки
+  useEffect(() => {
+    // Загружаем настройки при монтировании компонента
+    loadAndApplyStoredSettings();
+    
+    // Также применяем настройки при каждом обновлении страницы
+    const handlePageRefresh = () => {
+      loadAndApplyStoredSettings();
     };
     
-    // Пробуем загрузить настройки
-    if (loadSettings() && settingsUpdated) {
-      setCurrentSettings(settings);
-      
-      // Применяем настройки к DOM
-      try {
-        applySettingsToDOM(settings);
-      } catch (e) {
-        console.error('Ошибка при применении настроек к DOM:', e);
-      }
-    }
-  }, [initialSettings]);
+    // Слушаем события загрузки страницы
+    window.addEventListener('load', handlePageRefresh);
+    
+    return () => {
+      window.removeEventListener('load', handlePageRefresh);
+    };
+  }, [loadAndApplyStoredSettings]);
 
   // Поддержка разных размеров для десктопа и мобильных устройств
   const [isMobileView, setIsMobileView] = useState(false);
@@ -468,85 +509,103 @@ const LiveStyleEditor = ({ initialSettings, isActive, onClose }: LiveStyleEditor
     let serverSaveSuccess = false;
     let localSaveSuccess = false;
     
-    // Обновляем UI настройки локально для немедленного эффекта
+    // ВАЖНО: Немедленно применяем настройки к DOM, чтобы пользователь видел эффект
     try {
       applySettingsToDOM(settings);
+      console.log('Настройки успешно применены к DOM');
     } catch (e) {
       console.error('Ошибка при применении настроек к DOM:', e);
     }
     
-    // Шаг 1: Сохраняем в localStorage для надежности
+    // Шаг 1: Сохраняем в localStorage для надежности (даже если сервер недоступен)
     try {
-      localStorage.setItem('liveStyleEditorSettings', JSON.stringify(settings));
+      // Используем структурированное клонирование для безопасного хранения в localStorage
+      const safeSettings = JSON.parse(JSON.stringify(settings));
+      localStorage.setItem('liveStyleEditorSettings', JSON.stringify(safeSettings));
       localSaveSuccess = true;
       console.log('Настройки успешно сохранены в localStorage');
+      
+      // Дополнительно сохраняем в sessionStorage для резервного копирования
+      sessionStorage.setItem('liveStyleEditorSettings_backup', JSON.stringify(safeSettings));
     } catch (error) {
-      console.error('Ошибка при сохранении в localStorage:', error);
+      console.error('Ошибка при сохранении в локальное хранилище:', error);
     }
     
-    // Шаг 2: Пытаемся сохранить на сервер
+    // Шаг 2: Сохраняем на сервер
     try {
-      // Устанавливаем таймаут для запроса с использованием Promise.race
-      const fetchWithTimeout = async () => {
-        let timeoutId: NodeJS.Timeout;
-        
-        // Создаем промис для таймаута
-        const timeoutPromise = new Promise<never>((_, reject) => {
-          timeoutId = setTimeout(() => {
-            reject(new Error('Время ожидания сохранения настроек истекло'));
-          }, 5000);
-        });
-        
-        try {
-          // Выполняем запрос и гонку с таймаутом
-          return await Promise.race([
-            apiRequest('/api/settings', {
-              method: 'POST',
-              data: settings
-            }),
-            timeoutPromise
-          ]);
-        } finally {
-          // Очищаем таймаут в любом случае
-          clearTimeout(timeoutId);
-        }
-      };
+      // Простой таймаут для запроса
+      const timeoutMs = 5000;
+      let timeoutId: NodeJS.Timeout | undefined;
+      const controller = new AbortController();
       
-      // Выполняем запрос с таймаутом
-      const response = await fetchWithTimeout();
+      // Создаем таймаут и сохраняем его ID
+      timeoutId = setTimeout(() => {
+        controller.abort();
+      }, timeoutMs);
+      
+      const response = await fetch('/api/settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(localStorage.getItem('authToken') ? { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` } : {})
+        },
+        body: JSON.stringify(settings),
+        credentials: 'include',
+        signal: controller.signal
+      });
+      
+      // Очищаем таймаут только если он был установлен
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      
+      if (!response.ok) {
+        throw new Error(`Ошибка сервера: ${response.status} ${response.statusText}`);
+      }
+      
+      // Также сохраняем настройки интерфейса
+      await fetch('/api/settings/ui', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(localStorage.getItem('authToken') ? { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` } : {})
+        },
+        body: JSON.stringify({ ui: settings.ui }),
+        credentials: 'include'
+      });
       
       // Обновляем кеш запросов
       queryClient.invalidateQueries({ queryKey: ['/api/settings'] });
       serverSaveSuccess = true;
-      console.log('Настройки успешно сохранены на сервере', response);
+      console.log('Настройки успешно сохранены на сервере');
     } catch (error) {
       console.error('Ошибка при сохранении на сервере:', error);
-      // Попробуем создать резервную копию в sessionStorage на случай проблем с localStorage
-      try {
-        sessionStorage.setItem('liveStyleEditorSettings_backup', JSON.stringify(settings));
-      } catch (e) {
-        console.error('Не удалось создать резервную копию в sessionStorage:', e);
-      }
     }
     
     // Отображаем соответствующее уведомление в зависимости от результата
     if (serverSaveSuccess) {
       toast({
         title: 'Настройки сохранены',
-        description: 'Изменения успешно применены и сохранены на сервере',
+        description: 'Изменения применены и сохранены на сервере',
+        duration: 3000,
       });
     } else if (localSaveSuccess) {
       toast({
         title: 'Настройки сохранены локально',
         description: 'Изменения применены и сохранены в локальном хранилище',
+        duration: 3000,
       });
     } else {
       toast({
-        title: 'Проблема с сохранением',
-        description: 'Изменения применены, но не удалось сохранить настройки',
+        title: 'Настройки применены',
+        description: 'Изменения применены, но возникли проблемы с сохранением',
         variant: 'destructive',
+        duration: 3000,
       });
     }
+    
+    // Возвращаем результат для возможной обработки вызывающим кодом
+    return { serverSaveSuccess, localSaveSuccess };
   };
   
   // Вспомогательная функция для применения настроек к DOM
@@ -680,16 +739,20 @@ const LiveStyleEditor = ({ initialSettings, isActive, onClose }: LiveStyleEditor
   return (
     <div 
       ref={editorRef}
-      className="fixed bg-white dark:bg-gray-900 p-5 rounded-xl shadow-2xl z-50 border border-gray-100 dark:border-gray-800 text-gray-800 dark:text-gray-100 w-80"
+      className="fixed bg-white dark:bg-gray-900 p-5 rounded-l-xl shadow-2xl z-50 border-l border-t border-b border-gray-100 dark:border-gray-800 text-gray-800 dark:text-gray-100 w-[350px]"
       style={{ 
-        top: `${editorPosition.top}px`, 
-        left: `${editorPosition.left}px`,
-        maxHeight: '80vh',
+        top: '0',
+        right: '0',
+        height: '100vh',
         overflowY: 'auto',
-        cursor: isDragging ? 'grabbing' : 'auto',
         backdropFilter: 'blur(10px)',
         WebkitBackdropFilter: 'blur(10px)',
-        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        backgroundColor: 'rgba(255, 255, 255, 0.98)',
+        borderTopLeftRadius: '16px',
+        borderBottomLeftRadius: '16px',
+        boxShadow: '-5px 0 25px rgba(0, 0, 0, 0.1)',
+        transition: 'transform 0.3s ease-in-out',
+        transform: isActive ? 'translateX(0)' : 'translateX(100%)'
       }}
     >
       <div 

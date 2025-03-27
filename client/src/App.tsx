@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -13,6 +13,7 @@ import UIStyleProvider from "@/components/ChatGPT/UIStyleProvider";
 import LiveStyleEditor from "@/components/StyleEditor/LiveStyleEditor";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import type { Settings } from "@shared/schema";
 
 // Глобальное состояние для отслеживания активации редактора стилей
 export const useStyleEditorState = () => {

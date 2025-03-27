@@ -1,15 +1,20 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Settings } from '@shared/schema';
 import { useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { queryClient } from '@/lib/queryClient';
 
 /**
  * Компонент UIStyleProvider применяет глобальные стили из настроек UI
  * Поддерживает разные настройки для мобильных и десктопных устройств
  */
 const UIStyleProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { data: settings } = useQuery({
+  // Состояние для локально загруженных настроек
+  const [localSettings, setLocalSettings] = useState<Settings | null>(null);
+  
+  // Загружаем настройки с сервера (с кэшированием)
+  const { data: serverSettings } = useQuery({
     queryKey: ['/api/settings'],
     queryFn: async () => {
       const result = await apiRequest('/api/settings');
@@ -17,8 +22,46 @@ const UIStyleProvider: React.FC<{ children: React.ReactNode }> = ({ children }) 
     },
   });
   
+  // Используем настройки из localStorage или с сервера
+  const settings = localSettings || serverSettings;
+  
   const isMobile = useIsMobile();
   const [styleElement, setStyleElement] = useState<HTMLStyleElement | null>(null);
+  
+  // Функция загрузки настроек из localStorage
+  const loadSettingsFromLocalStorage = useCallback(() => {
+    try {
+      const storedSettings = localStorage.getItem('liveStyleEditorSettings');
+      if (storedSettings) {
+        const parsedSettings = JSON.parse(storedSettings) as Settings;
+        if (parsedSettings?.ui) {
+          setLocalSettings(parsedSettings);
+          console.log('✅ UIStyleProvider: Настройки загружены из localStorage');
+          return true;
+        }
+      }
+    } catch (e) {
+      console.warn('⚠️ UIStyleProvider: Ошибка при загрузке настроек из localStorage:', e);
+    }
+    return false;
+  }, []);
+  
+  // Загружаем настройки из localStorage при монтировании компонента
+  useEffect(() => {
+    loadSettingsFromLocalStorage();
+    
+    // Подписываемся на изменения localStorage
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'liveStyleEditorSettings' && e.newValue) {
+        loadSettingsFromLocalStorage();
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [loadSettingsFromLocalStorage]);
   
   useEffect(() => {
     // Создаем элемент стиля, если его еще нет
