@@ -291,7 +291,8 @@ const LiveStyleEditor = ({ initialSettings, isActive, onClose }: LiveStyleEditor
       }
       
       // Проверяем, не является ли элемент частью виджета для сайта
-      const isWidgetElement = target.closest('.website-widget-preview') !== null;
+      // Больше не редактируем виджет в основном редакторе - он должен настраиваться только в кабинете в разделе интеграций
+      const isWidgetElement = false;
       
       const editableSelectors = [
         'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'span', 'button', 'input', 'textarea',
@@ -446,850 +447,622 @@ const LiveStyleEditor = ({ initialSettings, isActive, onClose }: LiveStyleEditor
     }
     
     if (style.effectType !== undefined) {
-      // Сбросить все эффекты
+      // Сбрасываем все эффекты
       element.style.boxShadow = 'none';
       element.style.textShadow = 'none';
+      element.style.outline = 'none';
       
-      // Применить выбранный эффект
+      // Применяем новый эффект
       switch (style.effectType) {
         case 'shadow':
-          element.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+          element.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.2)';
           break;
         case 'glow':
-          element.style.textShadow = '0 0 8px rgba(25, 195, 125, 0.8)';
+          element.style.textShadow = '0 0 5px rgba(25, 195, 125, 0.8), 0 0 10px rgba(25, 195, 125, 0.5)';
           break;
         case 'outline':
-          element.style.textShadow = '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000';
+          element.style.outline = '2px solid rgba(25, 195, 125, 0.7)';
+          element.style.outlineOffset = '2px';
           break;
       }
     }
   };
 
-  // Обновить стиль активного элемента
-  const updateElementStyle = (property: keyof ElementStyle, value: any) => {
-    if (!activeElement) return;
+  // Сохранение настроек на сервер
+  const saveSettings = async (settings: Settings) => {
+    try {
+      const response = await apiRequest({
+        url: '/api/settings',
+        method: 'POST',
+        data: settings,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(localStorage.getItem('authToken') ? { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` } : {})
+        },
+        includeCredentials: true
+      });
+      
+      // Сохраняем настройки в localStorage и sessionStorage для быстрого доступа в будущем
+      try {
+        localStorage.setItem('liveStyleEditorSettings', JSON.stringify(settings));
+        sessionStorage.setItem('liveStyleEditorSettings_backup', JSON.stringify(settings));
+        console.log('✅ Настройки успешно сохранены в локальное хранилище браузера');
+      } catch (e) {
+        console.warn('⚠️ Не удалось сохранить настройки в хранилище браузера:', e);
+      }
+      
+      if (response) {
+        toast({
+          title: 'Настройки сохранены',
+          description: 'Ваши настройки интерфейса успешно сохранены',
+          variant: 'success',
+        });
+        
+        // Обновляем кэш в React Query
+        queryClient.invalidateQueries({ queryKey: ['/api/settings'] });
+        
+        return true;
+      } else {
+        toast({
+          title: 'Ошибка сохранения',
+          description: 'Не удалось сохранить настройки. Пожалуйста, попробуйте еще раз.',
+          variant: 'destructive',
+        });
+        return false;
+      }
+    } catch (error) {
+      console.error('Ошибка при сохранении настроек:', error);
+      toast({
+        title: 'Ошибка сохранения',
+        description: 'Возникла ошибка при сохранении настроек. Проверьте подключение к интернету.',
+        variant: 'destructive',
+      });
+      return false;
+    }
+  };
+
+  // Обновление настроек
+  const updateSettingsProperty = (path: string, value: any) => {
+    // Разбиваем путь на части
+    const pathParts = path.split('.');
     
-    const newStyle = { ...activeElement.style, [property]: value };
-    const newActiveElement = { ...activeElement, style: newStyle };
+    // Создаем копию текущих настроек
+    const updatedSettings = { ...currentSettings };
     
-    // Применяем стиль
-    applyStyle(activeElement.element, { [property]: value });
+    // Рекурсивно обновляем значение в объекте
+    let currentObj: any = updatedSettings;
+    for (let i = 0; i < pathParts.length - 1; i++) {
+      const part = pathParts[i];
+      if (!currentObj[part]) {
+        currentObj[part] = {};
+      }
+      currentObj = currentObj[part];
+    }
+    
+    // Устанавливаем новое значение
+    currentObj[pathParts[pathParts.length - 1]] = value;
     
     // Обновляем состояние
-    setActiveElement(newActiveElement);
+    setCurrentSettings(updatedSettings);
     
-    // Обновляем изменения в глобальных настройках UI, но НЕ сохраняем автоматически
-    if (property === 'fontSize' && activeElement.type === 'text') {
-      // Обновить размер шрифта в настройках для разных устройств
-      const updatedSettings = { ...currentSettings };
-      
-      // Убедимся, что объект typography существует
-      if (!updatedSettings.ui.typography) {
-        updatedSettings.ui = {
-          ...updatedSettings.ui,
-          colorSchemeEnabled: updatedSettings.ui.colorSchemeEnabled || false,
-          typography: {
-            desktop: { fontSize: undefined, fontFamily: undefined, spacing: undefined },
-            mobile: { fontSize: undefined, fontFamily: undefined, spacing: undefined }
-          }
-        };
-      }
-      
-      if (isMobileView) {
-        // Обновляем размер для мобильных устройств
-        updatedSettings.ui.typography = {
-          ...updatedSettings.ui.typography,
-          mobile: {
-            ...(updatedSettings.ui.typography?.mobile || {}),
-            fontSize: value
-          }
-        };
-      } else {
-        // Обновляем размер для десктопа
-        updatedSettings.ui.typography = {
-          ...updatedSettings.ui.typography,
-          desktop: {
-            ...(updatedSettings.ui.typography?.desktop || {}),
-            fontSize: value
-          }
-        };
-      }
-      
-      // Только обновляем состояние, НЕ сохраняем в localStorage или на сервер
-      setCurrentSettings(updatedSettings);
-      // Удалено автоматическое сохранение: saveSettings(updatedSettings);
-    }
+    // Применяем настройки к DOM
+    applySettingsToDOM(updatedSettings);
   };
 
-  // Обновить глобальные настройки UI
-  const updateSettingsProperty = (property: string, value: any) => {
-    // Создаем копию текущих настроек
-    const newSettings = { ...currentSettings };
-    
-    // Разбиваем путь к свойству на части
-    const path = property.split('.');
-    
-    // Обновляем значение по указанному пути
-    let target = newSettings as any;
-    for (let i = 0; i < path.length - 1; i++) {
-      if (!target[path[i]]) {
-        target[path[i]] = {};
-      }
-      target = target[path[i]];
-    }
-    target[path[path.length - 1]] = value;
-    
-    // Обновляем состояние, НО не сохраняем автоматически
-    setCurrentSettings(newSettings);
-    
-    // Применяем настройки к DOM, чтобы пользователь видел эффект
-    applySettingsToDOM(newSettings);
-    
-    // Сохранение произойдет только при явном нажатии кнопки "Сохранить"
-    // saveSettings(newSettings); - удалено автоматическое сохранение
-  };
-
-  const saveSettings = async (settings: Settings) => {
-    // Создаем состояние для отслеживания процесса сохранения
-    let serverSaveSuccess = false;
-    let localSaveSuccess = false;
-    
-    // ВАЖНО: Немедленно применяем настройки к DOM, чтобы пользователь видел эффект
-    try {
-      applySettingsToDOM(settings);
-      console.log('Настройки успешно применены к DOM');
-    } catch (e) {
-      console.error('Ошибка при применении настроек к DOM:', e);
-    }
-    
-    // Шаг 1: Сохраняем в localStorage для надежности (даже если сервер недоступен)
-    try {
-      // Используем структурированное клонирование для безопасного хранения в localStorage
-      const safeSettings = JSON.parse(JSON.stringify(settings));
-      localStorage.setItem('liveStyleEditorSettings', JSON.stringify(safeSettings));
-      localSaveSuccess = true;
-      console.log('Настройки успешно сохранены в localStorage');
-      
-      // Дополнительно сохраняем в sessionStorage для резервного копирования
-      sessionStorage.setItem('liveStyleEditorSettings_backup', JSON.stringify(safeSettings));
-    } catch (error) {
-      console.error('Ошибка при сохранении в локальное хранилище:', error);
-    }
-    
-    // Шаг 2: Сохраняем на сервер
-    try {
-      // Простой таймаут для запроса
-      const timeoutMs = 5000;
-      let timeoutId: NodeJS.Timeout | undefined;
-      const controller = new AbortController();
-      
-      // Создаем таймаут и сохраняем его ID
-      timeoutId = setTimeout(() => {
-        controller.abort();
-      }, timeoutMs);
-      
-      const response = await fetch('/api/settings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(localStorage.getItem('authToken') ? { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` } : {})
-        },
-        body: JSON.stringify(settings),
-        credentials: 'include',
-        signal: controller.signal
-      });
-      
-      // Очищаем таймаут только если он был установлен
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-      
-      if (!response.ok) {
-        throw new Error(`Ошибка сервера: ${response.status} ${response.statusText}`);
-      }
-      
-      // Также сохраняем настройки интерфейса
-      await fetch('/api/settings/ui', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(localStorage.getItem('authToken') ? { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` } : {})
-        },
-        body: JSON.stringify({ ui: settings.ui }),
-        credentials: 'include'
-      });
-      
-      // Обновляем кеш запросов
-      queryClient.invalidateQueries({ queryKey: ['/api/settings'] });
-      serverSaveSuccess = true;
-      console.log('Настройки успешно сохранены на сервере');
-    } catch (error) {
-      console.error('Ошибка при сохранении на сервере:', error);
-    }
-    
-    // Отображаем соответствующее уведомление в зависимости от результата
-    if (serverSaveSuccess) {
-      toast({
-        title: 'Настройки сохранены',
-        description: 'Изменения применены и сохранены на сервере',
-        duration: 3000,
-      });
-    } else if (localSaveSuccess) {
-      toast({
-        title: 'Настройки сохранены локально',
-        description: 'Изменения применены и сохранены в локальном хранилище',
-        duration: 3000,
-      });
-    } else {
-      toast({
-        title: 'Настройки применены',
-        description: 'Изменения применены, но возникли проблемы с сохранением',
-        variant: 'destructive',
-        duration: 3000,
-      });
-    }
-    
-    // Возвращаем результат для возможной обработки вызывающим кодом
-    return { serverSaveSuccess, localSaveSuccess };
-  };
-  
-  // Вспомогательная функция для применения настроек к DOM
+  // Применение настроек к элементам DOM
   const applySettingsToDOM = (settings: Settings) => {
-    // Проверяем, включена ли цветовая схема
-    if (settings?.ui?.colors && settings.ui.colorSchemeEnabled) {
-      const colors = settings.ui.colors;
-      document.documentElement.style.setProperty('--primary-color', colors.primary || '#19c37d');
-      document.documentElement.style.setProperty('--secondary-color', colors.secondary || '#6b7280');
-      document.documentElement.style.setProperty('--accent-color', colors.accent || '#3b82f6');
-    } else if (!settings?.ui?.colorSchemeEnabled) {
-      // Если цветовая схема отключена, используем дефолтные значения
-      document.documentElement.style.setProperty('--primary-color', '#19c37d');
-      document.documentElement.style.setProperty('--secondary-color', '#6b7280');
-      document.documentElement.style.setProperty('--accent-color', '#3b82f6');
-    }
+    if (!settings.ui || !settings.ui.enabled) return;
     
-    if (settings?.ui?.typography) {
-      const typography = settings.ui.typography;
-      const isMobile = window.innerWidth < 768;
-      
-      const typoSettings = isMobile ? typography.mobile : typography.desktop;
-      if (typoSettings?.fontSize) {
-        document.documentElement.style.setProperty('--base-font-size', `${typoSettings.fontSize}px`);
-      }
-      
-      if (typoSettings?.spacing) {
-        document.documentElement.style.setProperty('--base-line-height', typoSettings.spacing.toString());
-      }
-      
-      if (typoSettings?.fontFamily) {
-        document.documentElement.style.setProperty('--font-family', typoSettings.fontFamily);
-      }
-    }
-    
-    // Применяем настройки виджета к превью в редакторе
-    if (settings?.ui?.widget) {
-      const widget = settings.ui.widget;
-      
-      // Находим элементы виджета в превью
-      const widgetPreviewContainer = document.querySelector('.widget-preview-container');
-      const widgetHeader = document.querySelector('.widget-header');
-      const widgetTitle = document.querySelector('.widget-title');
-      const widgetBody = document.querySelector('.widget-body');
-      const widgetMessage = document.querySelector('.widget-message');
-      const widgetButton = document.querySelector('.widget-button');
-      
-      if (widgetPreviewContainer) {
-        (widgetPreviewContainer as HTMLElement).style.backgroundColor = widget.backgroundColor || '#1e1e1e';
-      }
-      
-      if (widgetHeader) {
-        (widgetHeader as HTMLElement).style.backgroundColor = widget.headerColor || '#272727';
-      }
-      
-      if (widgetTitle) {
-        (widgetTitle as HTMLElement).style.color = widget.textColor || '#ffffff';
-        (widgetTitle as HTMLElement).textContent = widget.title || 'AI Ассистент';
-      }
-      
-      if (widgetBody) {
-        (widgetBody as HTMLElement).style.backgroundColor = widget.backgroundColor || '#1e1e1e';
-        (widgetBody as HTMLElement).style.color = widget.textColor || '#ffffff';
-      }
-      
-      if (widgetMessage) {
-        (widgetMessage as HTMLElement).style.color = widget.textColor || '#ffffff';
-      }
-      
-      if (widgetButton) {
-        (widgetButton as HTMLElement).style.backgroundColor = widget.buttonColor || '#19c37d';
+    try {
+      // Применяем цветовую схему, если она включена
+      if (settings.ui.colorSchemeEnabled) {
+        const appElement = document.getElementById('app') || document.body;
         
-        // Применяем анимацию пульсации
-        if (widget.pulsation) {
-          (widgetButton as HTMLElement).style.animation = 'pulse 2s infinite';
-        } else {
-          (widgetButton as HTMLElement).style.animation = 'none';
+        // Задаем CSS-переменные для цветов
+        if (settings.ui.colors) {
+          appElement.style.setProperty('--primary', settings.ui.colors.primary);
+          appElement.style.setProperty('--secondary', settings.ui.colors.secondary);
+          appElement.style.setProperty('--accent', settings.ui.colors.accent);
         }
       }
-      
-      // Также применяем эти настройки к виджету на сайте через CSS переменные
-      document.documentElement.style.setProperty('--widget-bg-color', widget.backgroundColor || '#1e1e1e');
-      document.documentElement.style.setProperty('--widget-header-color', widget.headerColor || '#272727');
-      document.documentElement.style.setProperty('--widget-text-color', widget.textColor || '#ffffff');
-      document.documentElement.style.setProperty('--widget-button-color', widget.buttonColor || '#19c37d');
-      
-      // Обновляем опцию пульсации в CSS
-      if (widget.pulsation) {
-        document.documentElement.classList.add('widget-pulse-enabled');
-      } else {
-        document.documentElement.classList.remove('widget-pulse-enabled');
-      }
+    } catch (e) {
+      console.error('Ошибка при применении настроек:', e);
     }
   };
 
-  // Функции для редактирования текста
-  const editElementText = (newText: string) => {
-    if (!activeElement) return;
-    activeElement.element.textContent = newText;
-  };
-
-  // Сброс стилей для элемента
-  const resetElementStyles = () => {
-    if (!activeElement) return;
-    
-    const { originalStyles, element } = activeElement;
-    
-    element.style.fontSize = originalStyles.fontSize;
-    element.style.color = originalStyles.color;
-    element.style.textAlign = originalStyles.textAlign;
-    element.style.lineHeight = originalStyles.lineHeight;
-    element.style.opacity = originalStyles.opacity;
-    element.style.transform = originalStyles.transform;
-    element.style.width = originalStyles.width;
-    element.style.boxShadow = originalStyles.boxShadow;
-    element.style.textShadow = originalStyles.textShadow;
-    
-    // Удаляем классы размеров
-    element.classList.remove('fit-small', 'fit-medium', 'fit-large');
-    
-    // Обновляем активный элемент
-    setActiveElement({
-      element,
-      type: activeElement.type,
-      style: {
-        fontSize: parseInt(originalStyles.fontSize),
-        color: originalStyles.color,
-        alignment: originalStyles.textAlign as 'left' | 'center' | 'right',
-        spacing: parseFloat(originalStyles.lineHeight),
-        opacity: parseFloat(originalStyles.opacity) * 100,
-        rotate: 0,
-        fit: 'medium',
-        effectType: 'none'
-      },
-      originalStyles
-    });
-  };
-  
-  // Обработчики для перетаскивания редактора
-  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    // Проверяем, что нажатие было на заголовке, а не на элементах управления внутри редактора
-    const target = e.target as HTMLElement;
-    const isHeader = target.tagName === 'H3' || 
-                     target.classList.contains('drag-handle') || 
-                     target === e.currentTarget.querySelector('.flex.justify-between');
-                     
-    if (isHeader) {
-      setIsDragging(true);
-      setDragStartPosition({ 
-        x: e.clientX - editorPosition.left, 
-        y: e.clientY - editorPosition.top 
-      });
-    }
-  };
-  
+  // Обработчик перемещения редактора
   const handleMouseMove = (e: MouseEvent) => {
     if (!isDragging) return;
     
-    const left = e.clientX - dragStartPosition.x;
-    const top = e.clientY - dragStartPosition.y;
+    const deltaX = e.clientX - dragStartPosition.x;
+    const deltaY = e.clientY - dragStartPosition.y;
     
-    // Убедимся, что редактор не выходит за пределы экрана
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    const editorWidth = editorRef.current?.offsetWidth || 300;
-    const editorHeight = editorRef.current?.offsetHeight || 400;
+    setEditorPosition(prev => ({
+      top: prev.top + deltaY,
+      left: prev.left + deltaX
+    }));
     
-    const constrainedLeft = Math.max(0, Math.min(left, viewportWidth - editorWidth));
-    const constrainedTop = Math.max(0, Math.min(top, viewportHeight - editorHeight));
-    
-    setEditorPosition({ top: constrainedTop, left: constrainedLeft });
+    setDragStartPosition({
+      x: e.clientX,
+      y: e.clientY
+    });
   };
-  
-  const handleMouseUp = () => {
+
+  // Обработчик начала перемещения редактора
+  const handleDragStart = (e: React.MouseEvent<HTMLDivElement>) => {
+    setIsDragging(true);
+    setDragStartPosition({
+      x: e.clientX,
+      y: e.clientY
+    });
+  };
+
+  // Обработчик окончания перемещения редактора
+  const handleDragEnd = () => {
     setIsDragging(false);
   };
-  
-  // Добавляем глобальные обработчики для перетаскивания
+
+  // Добавляем обработчики перемещения редактора
   useEffect(() => {
     if (isDragging) {
       document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('mouseup', handleDragEnd);
     } else {
       document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('mouseup', handleDragEnd);
     }
     
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('mouseup', handleDragEnd);
     };
   }, [isDragging]);
+
+  // Обработчик сохранения настроек
+  const handleSaveSettings = async () => {
+    // Выполняем сохранение настроек
+    const success = await saveSettings(currentSettings);
+    
+    if (success) {
+      console.log('✅ Настройки успешно сохранены на сервере');
+    }
+  };
 
   if (!isActive) return null;
 
   return (
     <div 
       ref={editorRef}
-      className="fixed bg-white dark:bg-gray-900 p-5 rounded-l-xl shadow-2xl z-50 border-l border-t border-b border-gray-100 dark:border-gray-800 text-gray-800 dark:text-gray-100 w-[350px]"
-      style={{ 
-        top: '0',
-        right: '0',
-        height: '100vh',
-        overflowY: 'auto',
-        backdropFilter: 'blur(10px)',
-        WebkitBackdropFilter: 'blur(10px)',
-        backgroundColor: 'rgba(255, 255, 255, 0.98)',
-        borderTopLeftRadius: '16px',
-        borderBottomLeftRadius: '16px',
-        boxShadow: '-5px 0 25px rgba(0, 0, 0, 0.1)',
-        transition: 'transform 0.3s ease-in-out',
-        transform: isActive ? 'translateX(0)' : 'translateX(100%)'
+      className={`live-style-editor fixed right-0 top-0 h-full overflow-auto z-50 bg-white dark:bg-gray-900 shadow-lg border-l border-gray-200 dark:border-gray-800 transition-all ${
+        isMobileView ? 'w-full' : 'w-80'
+      }`}
+      style={{
+        transform: isActive ? 'translateX(0)' : 'translateX(100%)',
       }}
     >
       <div 
-        className="flex justify-between items-center mb-5 cursor-grab drag-handle border-b pb-3" 
-        onMouseDown={handleMouseDown}
+        className="editor-header flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800"
+        onMouseDown={handleDragStart}
       >
-        <h3 className="font-semibold text-base text-gray-700 dark:text-gray-200">Редактор стилей</h3>
+        <h2 className="text-lg font-semibold">Редактор стилей</h2>
         <button 
+          className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
           onClick={onClose}
-          className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none transition-colors duration-200"
-          aria-label="Закрыть редактор"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="hover:scale-110 transition-transform">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M18 6L6 18M6 6l12 12" />
           </svg>
         </button>
       </div>
       
+      <div className="editor-content p-4">
       {!activeElement && (
         <>
-          {/* Секция настроек виджета для сайта */}
-          <div className="mb-8 border-b pb-8">
-            <h3 className="font-medium text-base mb-4">Настройки виджета для сайта</h3>
-            
-            {/* Превью виджета */}
-            <div className="website-widget-preview bg-gray-100 dark:bg-gray-800 rounded-lg p-4 mb-4 relative">
-              <div className="widget-preview-container" style={{ 
-                maxWidth: '240px',
-                borderRadius: '16px',
-                boxShadow: '0 8px 16px rgba(0, 0, 0, 0.1)',
-                overflow: 'hidden',
-                backgroundColor: currentSettings?.ui?.widget?.backgroundColor || '#1e1e1e'
-              }}>
-                <div className="widget-header p-3 flex justify-between items-center" style={{
-                  backgroundColor: currentSettings?.ui?.widget?.headerColor || '#272727'
-                }}>
-                  <span className="font-medium text-sm widget-title" style={{ 
-                    color: currentSettings?.ui?.widget?.textColor || '#ffffff'
-                  }}>
-                    {currentSettings?.ui?.widget?.title || 'AI Ассистент'}
-                  </span>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M18 6L6 18M6 6l12 12" />
-                  </svg>
-                </div>
-                <div className="widget-body p-3" style={{
-                  backgroundColor: currentSettings?.ui?.widget?.backgroundColor || '#1e1e1e',
-                  color: currentSettings?.ui?.widget?.textColor || '#ffffff'
-                }}>
-                  <p className="text-sm widget-message">Здравствуйте! Чем я могу вам помочь?</p>
-                </div>
-              </div>
-              
-              <div className="mt-3 flex justify-end">
-                <div className="widget-button" style={{
-                  width: '48px',
-                  height: '48px',
-                  borderRadius: '50%',
-                  backgroundColor: currentSettings?.ui?.widget?.buttonColor || '#19c37d',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
-                  animation: currentSettings?.ui?.widget?.pulsation ? 'pulse 2s infinite' : 'none'
-                }}>
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                  </svg>
-                </div>
-              </div>
-            </div>
-            
-            {/* Настройки виджета */}
-            <div className="space-y-4">
-              {/* Заголовок виджета */}
-              <div className="space-y-2">
-                <label className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">Заголовок виджета</label>
-                <input 
-                  type="text" 
-                  value={currentSettings?.ui?.widget?.title || 'AI Ассистент'}
-                  onChange={(e) => updateSettingsProperty('ui.widget.title', e.target.value)}
-                  className="w-full border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  placeholder="Введите заголовок"
-                />
-              </div>
-              
-              {/* Цвета виджета */}
-              <div className="space-y-2">
-                <label className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">Цвет фона</label>
-                <div className="flex items-center space-x-2">
-                  <div 
-                    className="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer shadow-sm transition-transform hover:scale-105"
-                    style={{ backgroundColor: currentSettings?.ui?.widget?.backgroundColor || '#1e1e1e' }}
-                    onClick={() => {
-                      const input = document.createElement('input');
-                      input.type = 'color';
-                      input.value = currentSettings?.ui?.widget?.backgroundColor || '#1e1e1e';
-                      input.addEventListener('change', (e) => {
-                        updateSettingsProperty('ui.widget.backgroundColor', (e.target as HTMLInputElement).value);
-                      });
-                      input.click();
-                    }}
-                  />
-                  <input 
-                    type="text" 
-                    value={currentSettings?.ui?.widget?.backgroundColor || '#1e1e1e'}
-                    onChange={(e) => updateSettingsProperty('ui.widget.backgroundColor', e.target.value)}
-                    className="flex-1 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  />
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <label className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">Цвет заголовка</label>
-                <div className="flex items-center space-x-2">
-                  <div 
-                    className="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer shadow-sm transition-transform hover:scale-105"
-                    style={{ backgroundColor: currentSettings?.ui?.widget?.headerColor || '#272727' }}
-                    onClick={() => {
-                      const input = document.createElement('input');
-                      input.type = 'color';
-                      input.value = currentSettings?.ui?.widget?.headerColor || '#272727';
-                      input.addEventListener('change', (e) => {
-                        updateSettingsProperty('ui.widget.headerColor', (e.target as HTMLInputElement).value);
-                      });
-                      input.click();
-                    }}
-                  />
-                  <input 
-                    type="text" 
-                    value={currentSettings?.ui?.widget?.headerColor || '#272727'}
-                    onChange={(e) => updateSettingsProperty('ui.widget.headerColor', e.target.value)}
-                    className="flex-1 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  />
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <label className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">Цвет текста</label>
-                <div className="flex items-center space-x-2">
-                  <div 
-                    className="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer shadow-sm transition-transform hover:scale-105"
-                    style={{ backgroundColor: currentSettings?.ui?.widget?.textColor || '#ffffff' }}
-                    onClick={() => {
-                      const input = document.createElement('input');
-                      input.type = 'color';
-                      input.value = currentSettings?.ui?.widget?.textColor || '#ffffff';
-                      input.addEventListener('change', (e) => {
-                        updateSettingsProperty('ui.widget.textColor', (e.target as HTMLInputElement).value);
-                      });
-                      input.click();
-                    }}
-                  />
-                  <input 
-                    type="text" 
-                    value={currentSettings?.ui?.widget?.textColor || '#ffffff'}
-                    onChange={(e) => updateSettingsProperty('ui.widget.textColor', e.target.value)}
-                    className="flex-1 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  />
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <label className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">Цвет кнопки</label>
-                <div className="flex items-center space-x-2">
-                  <div 
-                    className="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer shadow-sm transition-transform hover:scale-105"
-                    style={{ backgroundColor: currentSettings?.ui?.widget?.buttonColor || '#19c37d' }}
-                    onClick={() => {
-                      const input = document.createElement('input');
-                      input.type = 'color';
-                      input.value = currentSettings?.ui?.widget?.buttonColor || '#19c37d';
-                      input.addEventListener('change', (e) => {
-                        updateSettingsProperty('ui.widget.buttonColor', (e.target as HTMLInputElement).value);
-                      });
-                      input.click();
-                    }}
-                  />
-                  <input 
-                    type="text" 
-                    value={currentSettings?.ui?.widget?.buttonColor || '#19c37d'}
-                    onChange={(e) => updateSettingsProperty('ui.widget.buttonColor', e.target.value)}
-                    className="flex-1 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  />
-                </div>
-              </div>
-              
-              {/* Пульсация */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">Эффект пульсации</label>
-                  <div className="relative inline-block w-10 align-middle select-none">
-                    <input 
-                      type="checkbox"
-                      checked={currentSettings?.ui?.widget?.pulsation || false}
-                      onChange={(e) => updateSettingsProperty('ui.widget.pulsation', e.target.checked)}
-                      className="hidden"
-                      id="toggle-pulsation"
-                    />
-                    <label 
-                      htmlFor="toggle-pulsation"
-                      className={`block overflow-hidden h-6 rounded-full cursor-pointer ${
-                        currentSettings?.ui?.widget?.pulsation ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-700'
-                      }`}
-                    >
-                      <span 
-                        className={`block h-6 w-6 rounded-full bg-white shadow transform transition-transform ${
-                          currentSettings?.ui?.widget?.pulsation ? 'translate-x-4' : 'translate-x-0'
-                        }`}
-                      ></span>
-                    </label>
-                  </div>
-                </div>
-                <p className="text-xs text-gray-400">Привлекает внимание анимацией пульсации кнопки чата</p>
-              </div>
-            </div>
-          </div>
-          
           {/* Инструкция по начальному редактированию */}
           <div className="flex flex-col items-center justify-center py-6 text-gray-500 dark:text-gray-400 text-sm space-y-3">
             <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="mb-2 text-blue-500">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.042 21.672L13.684 16.6m0 0l-2.51 2.225.569-9.47 5.227 7.917-3.286-.672zm-7.518-.267A8.25 8.25 0 1120.25 10.5M8.288 14.212A5.25 5.25 0 1117.25 10.5" />
             </svg>
-            <p>Кликните на элемент для редактирования</p>
-            <p className="text-xs opacity-70">Текст, кнопки и другие элементы доступны для стилизации</p>
-          </div>
-        </>
-      )}
-      
-      {/* Кнопка Сохранить внизу редактора (всегда видима) */}
-      <div className="fixed bottom-0 right-0 w-[350px] p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 z-10">
-        <button
-          onClick={() => saveSettings(currentSettings)}
-          className="w-full py-2.5 px-4 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-sm"
-        >
-          Сохранить изменения
-        </button>
-      </div>
-      
-      {/* Добавляем отступ внизу для кнопки */}
-      <div className="h-20"></div>
-      
-      {activeElement && (
-        <div className="space-y-5">
-          {/* Выравнивание */}
-          <div className="space-y-2">
-            <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">Выравнивание</div>
-            <div className="bg-gray-50 dark:bg-gray-800 p-1 rounded-lg flex items-center">
-              <button 
-                onClick={() => updateElementStyle('alignment', 'left')}
-                className={`flex-1 p-2 rounded-md text-xs font-medium transition-all ${activeElement.style.alignment === 'left' 
-                  ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 shadow-sm' 
-                  : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mx-auto">
-                  <line x1="3" y1="6" x2="21" y2="6"></line>
-                  <line x1="3" y1="12" x2="15" y2="12"></line>
-                  <line x1="3" y1="18" x2="18" y2="18"></line>
-                </svg>
-              </button>
-              <button 
-                onClick={() => updateElementStyle('alignment', 'center')}
-                className={`flex-1 p-2 rounded-md text-xs font-medium transition-all ${activeElement.style.alignment === 'center' 
-                  ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 shadow-sm' 
-                  : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mx-auto">
-                  <line x1="3" y1="6" x2="21" y2="6"></line>
-                  <line x1="8" y1="12" x2="16" y2="12"></line>
-                  <line x1="6" y1="18" x2="18" y2="18"></line>
-                </svg>
-              </button>
-              <button 
-                onClick={() => updateElementStyle('alignment', 'right')}
-                className={`flex-1 p-2 rounded-md text-xs font-medium transition-all ${activeElement.style.alignment === 'right' 
-                  ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 shadow-sm' 
-                  : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mx-auto">
-                  <line x1="3" y1="6" x2="21" y2="6"></line>
-                  <line x1="9" y1="12" x2="21" y2="12"></line>
-                  <line x1="6" y1="18" x2="21" y2="18"></line>
-                </svg>
-              </button>
+            <p className="text-center">Наведите курсор на элемент страницы и кликните, чтобы начать редактирование.</p>
+            <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 w-full">
+              <p className="font-semibold mb-1">Советы:</p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Вы можете редактировать текст, кнопки и блоки сообщений</li>
+                <li>Используйте вкладки для доступа к разным типам настроек</li>
+                <li>Изменения применяются мгновенно</li>
+                <li>Не забудьте сохранить настройки после завершения редактирования</li>
+              </ul>
             </div>
           </div>
           
-          {/* Цвет */}
-          <div className="space-y-2">
-            <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">Цвет текста</div>
-            <div className="flex items-center space-x-2">
-              <div 
-                className="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer shadow-sm transition-transform hover:scale-105"
-                style={{ backgroundColor: activeElement.style.color }}
-                onClick={() => {
-                  const input = document.createElement('input');
-                  input.type = 'color';
-                  input.value = activeElement.style.color;
-                  input.addEventListener('change', (e) => {
-                    updateElementStyle('color', (e.target as HTMLInputElement).value);
-                  });
-                  input.click();
-                }}
-              />
-              <input 
-                type="text" 
-                value={activeElement.style.color}
-                onChange={(e) => updateElementStyle('color', e.target.value)}
-                className="flex-1 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-              />
-            </div>
-          </div>
-          
-          {/* Размер текста */}
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">Размер шрифта</div>
-              <div className="font-medium text-sm bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-md">{activeElement.style.fontSize}px</div>
-            </div>
-            <input 
-              type="range" 
-              min="10" 
-              max="48" 
-              value={activeElement.style.fontSize}
-              onChange={(e) => updateElementStyle('fontSize', parseInt(e.target.value))}
-              className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-            />
-            <div className="flex justify-between text-xs text-gray-400">
-              <span>10px</span>
-              <span>48px</span>
-            </div>
-          </div>
-          
-          {/* Интервал */}
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">Интервал строк</div>
-              <div className="font-medium text-sm bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-md">{activeElement.style.spacing}x</div>
-            </div>
-            <input 
-              type="range" 
-              min="0.8" 
-              max="2.5" 
-              step="0.05"
-              value={activeElement.style.spacing}
-              onChange={(e) => updateElementStyle('spacing', parseFloat(e.target.value))}
-              className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-            />
-          </div>
-          
-          {/* Эффекты */}
-          <div className="space-y-2">
-            <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">Эффект</div>
-            <select
-              value={activeElement.style.effectType}
-              onChange={(e) => updateElementStyle('effectType', e.target.value)}
-              className="w-full border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          {/* Кнопка сохранения настроек */}
+          <div className="save-settings-button mt-6">
+            <button 
+              onClick={handleSaveSettings}
+              className="w-full py-2 px-4 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
             >
-              <option value="none">Без эффекта</option>
-              <option value="shadow">Тень</option>
-              <option value="glow">Свечение</option>
-              <option value="outline">Обводка</option>
-            </select>
-          </div>
-          
-          {/* Устройство (для разных размеров) */}
-          <div className="space-y-2">
-            <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">Устройство</div>
-            <div className="bg-gray-50 dark:bg-gray-800 p-1 rounded-lg flex">
-              <button
-                onClick={() => setIsMobileView(false)}
-                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${!isMobileView 
-                  ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 shadow-sm' 
-                  : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}
-                aria-label="Настройки для десктопа"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="2" y="3" width="20" height="14" rx="2"></rect>
-                  <line x1="8" y1="21" x2="16" y2="21"></line>
-                  <line x1="12" y1="17" x2="12" y2="21"></line>
-                </svg>
-                <span>Десктоп</span>
-              </button>
-              <button
-                onClick={() => setIsMobileView(true)}
-                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${isMobileView 
-                  ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 shadow-sm' 
-                  : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}
-                aria-label="Настройки для мобильных устройств"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="7" y="2" width="10" height="20" rx="2"></rect>
-                  <line x1="12" y1="18" x2="12" y2="18.01"></line>
-                </svg>
-                <span>Мобильный</span>
-              </button>
-            </div>
-          </div>
-          
-          {/* Кнопки действий */}
-          <div className="border-t pt-4 mt-4 space-y-3">
-            <button
-              onClick={resetElementStyles}
-              className="flex items-center justify-center gap-2 w-full px-3 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-sm rounded-lg transition-colors"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
-                <path d="M3 3v5h5"></path>
-              </svg>
-              Сбросить стили
-            </button>
-            
-            <button
-              onClick={() => saveSettings(currentSettings)}
-              className="flex items-center justify-center gap-2 w-full px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg font-medium transition-colors"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                <polyline points="7 3 7 8 15 8"></polyline>
-              </svg>
               Сохранить настройки
             </button>
           </div>
-        </div>
+        </>
       )}
+        
+        {activeElement && (
+          <>
+            <div className="editor-header mb-4">
+              <h3 className="font-medium">
+                Редактирование {
+                  activeElement.type === 'text' ? 'текста' : 
+                  activeElement.type === 'button' ? 'кнопки' : 
+                  activeElement.type === 'message' ? 'сообщения' :
+                  activeElement.type === 'user-message' ? 'сообщения пользователя' :
+                  activeElement.type === 'assistant-message' ? 'сообщения ассистента' :
+                  activeElement.type === 'typing' ? 'анимации набора текста' :
+                  'элемента'
+                }
+              </h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Настройте внешний вид выбранного элемента</p>
+            </div>
+            
+            {/* Вкладки с настройками */}
+            <div className="editor-tabs mb-4">
+              <div className="flex border-b border-gray-200 dark:border-gray-700">
+                <button 
+                  className={`py-2 px-4 text-sm font-medium ${
+                    true ? 'text-blue-500 border-b-2 border-blue-500' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                  }`}
+                >
+                  Основные
+                </button>
+                {/* Дополнительные вкладки можно добавить здесь */}
+              </div>
+            </div>
+            
+            {/* Настройки элемента */}
+            <div className="space-y-4">
+              {/* Размер шрифта */}
+              <div className="space-y-2">
+                <label className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">Размер шрифта</label>
+                <div className="flex items-center">
+                  <input
+                    type="range"
+                    min="8"
+                    max="48"
+                    step="1"
+                    value={activeElement.style.fontSize}
+                    onChange={(e) => {
+                      const newFontSize = parseInt(e.target.value);
+                      const newStyle = { ...activeElement.style, fontSize: newFontSize };
+                      applyStyle(activeElement.element, { fontSize: newFontSize });
+                      setActiveElement({ ...activeElement, style: newStyle });
+                    }}
+                    className="w-full mr-2"
+                  />
+                  <span className="text-sm font-medium w-8 text-center">{activeElement.style.fontSize}px</span>
+                </div>
+              </div>
+              
+              {/* Цвет текста */}
+              <div className="space-y-2">
+                <label className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">Цвет текста</label>
+                <div className="flex items-center space-x-2">
+                  <div 
+                    className="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer shadow-sm transition-transform hover:scale-105"
+                    style={{ backgroundColor: activeElement.style.color }}
+                    onClick={() => {
+                      const input = document.createElement('input');
+                      input.type = 'color';
+                      input.value = activeElement.style.color;
+                      input.addEventListener('change', (e) => {
+                        const newColor = (e.target as HTMLInputElement).value;
+                        const newStyle = { ...activeElement.style, color: newColor };
+                        applyStyle(activeElement.element, { color: newColor });
+                        setActiveElement({ ...activeElement, style: newStyle });
+                      });
+                      input.click();
+                    }}
+                  />
+                  <input 
+                    type="text" 
+                    value={activeElement.style.color}
+                    onChange={(e) => {
+                      const newColor = e.target.value;
+                      const newStyle = { ...activeElement.style, color: newColor };
+                      applyStyle(activeElement.element, { color: newColor });
+                      setActiveElement({ ...activeElement, style: newStyle });
+                    }}
+                    className="flex-1 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  />
+                </div>
+              </div>
+              
+              {/* Выравнивание текста */}
+              <div className="space-y-2">
+                <label className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">Выравнивание</label>
+                <div className="flex items-center space-x-2">
+                  <button 
+                    className={`flex-1 py-2 px-4 ${
+                      activeElement.style.alignment === 'left' 
+                        ? 'bg-blue-500 text-white' 
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700'
+                    } rounded-lg transition-colors focus:outline-none`}
+                    onClick={() => {
+                      const newStyle = { ...activeElement.style, alignment: 'left' as const };
+                      applyStyle(activeElement.element, { alignment: 'left' });
+                      setActiveElement({ ...activeElement, style: newStyle });
+                    }}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mx-auto">
+                      <line x1="17" y1="10" x2="3" y2="10"></line>
+                      <line x1="21" y1="6" x2="3" y2="6"></line>
+                      <line x1="21" y1="14" x2="3" y2="14"></line>
+                      <line x1="17" y1="18" x2="3" y2="18"></line>
+                    </svg>
+                  </button>
+                  <button 
+                    className={`flex-1 py-2 px-4 ${
+                      activeElement.style.alignment === 'center' 
+                        ? 'bg-blue-500 text-white' 
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700'
+                    } rounded-lg transition-colors focus:outline-none`}
+                    onClick={() => {
+                      const newStyle = { ...activeElement.style, alignment: 'center' as const };
+                      applyStyle(activeElement.element, { alignment: 'center' });
+                      setActiveElement({ ...activeElement, style: newStyle });
+                    }}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mx-auto">
+                      <line x1="18" y1="10" x2="6" y2="10"></line>
+                      <line x1="21" y1="6" x2="3" y2="6"></line>
+                      <line x1="21" y1="14" x2="3" y2="14"></line>
+                      <line x1="18" y1="18" x2="6" y2="18"></line>
+                    </svg>
+                  </button>
+                  <button 
+                    className={`flex-1 py-2 px-4 ${
+                      activeElement.style.alignment === 'right' 
+                        ? 'bg-blue-500 text-white' 
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700'
+                    } rounded-lg transition-colors focus:outline-none`}
+                    onClick={() => {
+                      const newStyle = { ...activeElement.style, alignment: 'right' as const };
+                      applyStyle(activeElement.element, { alignment: 'right' });
+                      setActiveElement({ ...activeElement, style: newStyle });
+                    }}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mx-auto">
+                      <line x1="21" y1="10" x2="7" y2="10"></line>
+                      <line x1="21" y1="6" x2="3" y2="6"></line>
+                      <line x1="21" y1="14" x2="3" y2="14"></line>
+                      <line x1="21" y1="18" x2="7" y2="18"></line>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              
+              {/* Междустрочный интервал */}
+              <div className="space-y-2">
+                <label className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">Межстрочный интервал</label>
+                <div className="flex items-center">
+                  <input
+                    type="range"
+                    min="0.8"
+                    max="2.5"
+                    step="0.1"
+                    value={activeElement.style.spacing}
+                    onChange={(e) => {
+                      const newSpacing = parseFloat(e.target.value);
+                      const newStyle = { ...activeElement.style, spacing: newSpacing };
+                      applyStyle(activeElement.element, { spacing: newSpacing });
+                      setActiveElement({ ...activeElement, style: newStyle });
+                    }}
+                    className="w-full mr-2"
+                  />
+                  <span className="text-sm font-medium w-8 text-center">{activeElement.style.spacing.toFixed(1)}</span>
+                </div>
+              </div>
+              
+              {/* Прозрачность */}
+              <div className="space-y-2">
+                <label className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">Прозрачность</label>
+                <div className="flex items-center">
+                  <input
+                    type="range"
+                    min="10"
+                    max="100"
+                    step="1"
+                    value={activeElement.style.opacity}
+                    onChange={(e) => {
+                      const newOpacity = parseFloat(e.target.value);
+                      const newStyle = { ...activeElement.style, opacity: newOpacity };
+                      applyStyle(activeElement.element, { opacity: newOpacity });
+                      setActiveElement({ ...activeElement, style: newStyle });
+                    }}
+                    className="w-full mr-2"
+                  />
+                  <span className="text-sm font-medium w-8 text-center">{activeElement.style.opacity}%</span>
+                </div>
+              </div>
+              
+              {/* Поворот */}
+              <div className="space-y-2">
+                <label className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">Поворот</label>
+                <div className="flex items-center">
+                  <input
+                    type="range"
+                    min="-180"
+                    max="180"
+                    step="1"
+                    value={activeElement.style.rotate}
+                    onChange={(e) => {
+                      const newRotate = parseInt(e.target.value);
+                      const newStyle = { ...activeElement.style, rotate: newRotate };
+                      applyStyle(activeElement.element, { rotate: newRotate });
+                      setActiveElement({ ...activeElement, style: newStyle });
+                    }}
+                    className="w-full mr-2"
+                  />
+                  <span className="text-sm font-medium w-16 text-center">{activeElement.style.rotate}°</span>
+                </div>
+              </div>
+              
+              {/* Размер блока */}
+              <div className="space-y-2">
+                <label className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">Размер блока</label>
+                <div className="flex items-center space-x-2">
+                  <button 
+                    className={`flex-1 py-2 px-4 ${
+                      activeElement.style.fit === 'small' 
+                        ? 'bg-blue-500 text-white' 
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700'
+                    } rounded-lg transition-colors focus:outline-none text-sm`}
+                    onClick={() => {
+                      const newStyle = { ...activeElement.style, fit: 'small' as const };
+                      applyStyle(activeElement.element, { fit: 'small' });
+                      setActiveElement({ ...activeElement, style: newStyle });
+                    }}
+                  >
+                    Узкий
+                  </button>
+                  <button 
+                    className={`flex-1 py-2 px-4 ${
+                      activeElement.style.fit === 'medium' 
+                        ? 'bg-blue-500 text-white' 
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700'
+                    } rounded-lg transition-colors focus:outline-none text-sm`}
+                    onClick={() => {
+                      const newStyle = { ...activeElement.style, fit: 'medium' as const };
+                      applyStyle(activeElement.element, { fit: 'medium' });
+                      setActiveElement({ ...activeElement, style: newStyle });
+                    }}
+                  >
+                    Средний
+                  </button>
+                  <button 
+                    className={`flex-1 py-2 px-4 ${
+                      activeElement.style.fit === 'large' 
+                        ? 'bg-blue-500 text-white' 
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700'
+                    } rounded-lg transition-colors focus:outline-none text-sm`}
+                    onClick={() => {
+                      const newStyle = { ...activeElement.style, fit: 'large' as const };
+                      applyStyle(activeElement.element, { fit: 'large' });
+                      setActiveElement({ ...activeElement, style: newStyle });
+                    }}
+                  >
+                    Широкий
+                  </button>
+                </div>
+              </div>
+              
+              {/* Эффекты */}
+              <div className="space-y-2">
+                <label className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">Эффекты</label>
+                <div className="flex items-center space-x-2 flex-wrap">
+                  <button 
+                    className={`flex-1 py-2 px-4 ${
+                      activeElement.style.effectType === 'none' 
+                        ? 'bg-blue-500 text-white' 
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700'
+                    } rounded-lg transition-colors focus:outline-none text-sm mb-2`}
+                    onClick={() => {
+                      const newStyle = { ...activeElement.style, effectType: 'none' as const };
+                      applyStyle(activeElement.element, { effectType: 'none' });
+                      setActiveElement({ ...activeElement, style: newStyle });
+                    }}
+                  >
+                    Нет
+                  </button>
+                  <button 
+                    className={`flex-1 py-2 px-4 ${
+                      activeElement.style.effectType === 'shadow' 
+                        ? 'bg-blue-500 text-white' 
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700'
+                    } rounded-lg transition-colors focus:outline-none text-sm mb-2`}
+                    onClick={() => {
+                      const newStyle = { ...activeElement.style, effectType: 'shadow' as const };
+                      applyStyle(activeElement.element, { effectType: 'shadow' });
+                      setActiveElement({ ...activeElement, style: newStyle });
+                    }}
+                  >
+                    Тень
+                  </button>
+                  <button 
+                    className={`flex-1 py-2 px-4 ${
+                      activeElement.style.effectType === 'glow' 
+                        ? 'bg-blue-500 text-white' 
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700'
+                    } rounded-lg transition-colors focus:outline-none text-sm mb-2`}
+                    onClick={() => {
+                      const newStyle = { ...activeElement.style, effectType: 'glow' as const };
+                      applyStyle(activeElement.element, { effectType: 'glow' });
+                      setActiveElement({ ...activeElement, style: newStyle });
+                    }}
+                  >
+                    Свечение
+                  </button>
+                  <button 
+                    className={`flex-1 py-2 px-4 ${
+                      activeElement.style.effectType === 'outline' 
+                        ? 'bg-blue-500 text-white' 
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700'
+                    } rounded-lg transition-colors focus:outline-none text-sm mb-2`}
+                    onClick={() => {
+                      const newStyle = { ...activeElement.style, effectType: 'outline' as const };
+                      applyStyle(activeElement.element, { effectType: 'outline' });
+                      setActiveElement({ ...activeElement, style: newStyle });
+                    }}
+                  >
+                    Контур
+                  </button>
+                </div>
+              </div>
+              
+              {/* Сброс настроек элемента */}
+              <div className="mt-6">
+                <button 
+                  className="w-full py-2 px-4 border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50"
+                  onClick={() => {
+                    // Возвращаем оригинальные стили элементу
+                    activeElement.element.style.fontSize = activeElement.originalStyles.fontSize;
+                    activeElement.element.style.color = activeElement.originalStyles.color;
+                    activeElement.element.style.textAlign = activeElement.originalStyles.textAlign;
+                    activeElement.element.style.lineHeight = activeElement.originalStyles.lineHeight;
+                    activeElement.element.style.opacity = activeElement.originalStyles.opacity;
+                    activeElement.element.style.transform = activeElement.originalStyles.transform;
+                    activeElement.element.style.width = activeElement.originalStyles.width;
+                    activeElement.element.style.boxShadow = activeElement.originalStyles.boxShadow;
+                    activeElement.element.style.textShadow = activeElement.originalStyles.textShadow;
+                    activeElement.element.style.outline = activeElement.originalStyles.outline;
+                    
+                    // Убираем классы размеров
+                    activeElement.element.classList.remove('fit-small', 'fit-medium', 'fit-large');
+                    
+                    // Снимаем выделение с элемента
+                    activeElement.element.style.outline = '';
+                    activeElement.element.style.outlineOffset = '';
+                    
+                    // Сбрасываем активный элемент
+                    setActiveElement(null);
+                  }}
+                >
+                  Сбросить настройки
+                </button>
+              </div>
+              
+              {/* Кнопка сохранения настроек */}
+              <div className="save-settings-button mt-4">
+                <button 
+                  onClick={handleSaveSettings}
+                  className="w-full py-2 px-4 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+                >
+                  Сохранить настройки
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 };
