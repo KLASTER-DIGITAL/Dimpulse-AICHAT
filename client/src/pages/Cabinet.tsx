@@ -56,6 +56,7 @@ interface Settings {
   };
   ui: {
     enabled: boolean;
+    colorSchemeEnabled: boolean;
     colors: {
       primary: string;
       secondary: string;
@@ -724,19 +725,6 @@ const Cabinet = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="webhook-url">URL вебхука</Label>
-                  <Input
-                    id="webhook-url"
-                    value={webhookUrl}
-                    onChange={(e) => setWebhookUrl(e.target.value)}
-                    placeholder="https://n8n.example.com/webhook-endpoint"
-                    className="bg-gray-800 border-gray-700 text-white"
-                  />
-                  <p className="text-xs text-gray-400">
-                    Формат: https://n8n.domain.com/webhook-path/uuid
-                  </p>
-                </div>
                 <div className="flex items-center space-x-2">
                   <Switch
                     id="webhook-enabled"
@@ -745,6 +733,22 @@ const Cabinet = () => {
                   />
                   <Label htmlFor="webhook-enabled">Включить вебхук</Label>
                 </div>
+                
+                {webhookEnabled && (
+                  <div className="space-y-2">
+                    <Label htmlFor="webhook-url">URL вебхука</Label>
+                    <Input
+                      id="webhook-url"
+                      value={webhookUrl}
+                      onChange={(e) => setWebhookUrl(e.target.value)}
+                      placeholder="https://n8n.example.com/webhook-endpoint"
+                      className="bg-gray-800 border-gray-700 text-white"
+                    />
+                    <p className="text-xs text-gray-400">
+                      Формат: https://n8n.domain.com/webhook-path/uuid
+                    </p>
+                  </div>
+                )}
               </CardContent>
               <CardFooter>
                 <Button 
@@ -778,23 +782,25 @@ const Cabinet = () => {
                     <Label htmlFor="iframe-enabled">Включить iframe интеграцию</Label>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>Тема оформления</Label>
-                    <RadioGroup value={iframeTheme} onValueChange={(value) => setIframeTheme(value as "light" | "dark" | "transparent")}>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="light" id="iframe-light" />
-                        <Label htmlFor="iframe-light">Светлая</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="dark" id="iframe-dark" />
-                        <Label htmlFor="iframe-dark">Темная</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="transparent" id="iframe-transparent" />
-                        <Label htmlFor="iframe-transparent">Прозрачная</Label>
-                      </div>
-                    </RadioGroup>
-                  </div>
+                  {iframeEnabled && (
+                    <div className="space-y-2">
+                      <Label>Тема оформления</Label>
+                      <RadioGroup value={iframeTheme} onValueChange={(value) => setIframeTheme(value as "light" | "dark" | "transparent")}>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="light" id="iframe-light" />
+                          <Label htmlFor="iframe-light">Светлая</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="dark" id="iframe-dark" />
+                          <Label htmlFor="iframe-dark">Темная</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="transparent" id="iframe-transparent" />
+                          <Label htmlFor="iframe-transparent">Прозрачная</Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+                  )}
 
                   {iframeEnabled && (
                     <div className="mt-4 space-y-2">
@@ -848,84 +854,88 @@ const Cabinet = () => {
                     <Label htmlFor="widget-enabled">Включить виджет</Label>
                   </div>
 
-                  <div className="grid gap-4">
-                    <div className="space-y-4">
-                      <div>
-                        <Label>Текст приветствия</Label>
-                        <Input 
-                          value={widgetText}
-                          onChange={(e) => setWidgetText(e.target.value)}
-                          placeholder="Введите текст приветствия"
-                          className="mt-2"
-                        />
-                      </div>
+                  {widgetEnabled && (
+                    <>
+                      <div className="grid gap-4">
+                        <div className="space-y-4">
+                          <div>
+                            <Label>Текст приветствия</Label>
+                            <Input 
+                              value={widgetText}
+                              onChange={(e) => setWidgetText(e.target.value)}
+                              placeholder="Введите текст приветствия"
+                              className="mt-2"
+                            />
+                          </div>
 
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label>Ширина (px)</Label>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label>Ширина (px)</Label>
+                              <Input
+                                type="number"
+                                value={widgetWidth}
+                                onChange={(e) => setWidgetWidth(Number(e.target.value))}
+                                min={200}
+                                max={600}
+                                className="mt-2"
+                              />
+                            </div>
+                            <div>
+                              <Label>Высота (px)</Label>
+                              <Input
+                                type="number"
+                                value={widgetHeight}
+                                onChange={(e) => setWidgetHeight(Number(e.target.value))}
+                                min={300}
+                                max={800}
+                                className="mt-2"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <Label>Расположение на странице</Label>
+                            <RadioGroup value={widgetPosition} onValueChange={(value) => setWidgetPosition(value as "left" | "right")}>
+                              <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="left" id="position-left" />
+                                <Label htmlFor="position-left">Слева</Label>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="right" id="position-right" />
+                                <Label htmlFor="position-right">Справа</Label>
+                              </div>
+                            </RadioGroup>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Размер шрифта (px)</Label>
                           <Input
                             type="number"
-                            value={widgetWidth}
-                            onChange={(e) => setWidgetWidth(Number(e.target.value))}
-                            min={200}
-                            max={600}
-                            className="mt-2"
-                          />
-                        </div>
-                        <div>
-                          <Label>Высота (px)</Label>
-                          <Input
-                            type="number"
-                            value={widgetHeight}
-                            onChange={(e) => setWidgetHeight(Number(e.target.value))}
-                            min={300}
-                            max={800}
-                            className="mt-2"
+                            value={widgetFontSize}
+                            onChange={(e) => setWidgetFontSize(Number(e.target.value))}
+                            min={10}
+                            max={24}
+                            className="bg-gray-800 border-gray-700 text-white"
                           />
                         </div>
                       </div>
 
-                      <div>
-                        <Label>Расположение на странице</Label>
-                        <RadioGroup value={widgetPosition} onValueChange={(value) => setWidgetPosition(value as "left" | "right")}>
+                      <div className="space-y-2">
+                        <Label>Тема оформления</Label>
+                        <RadioGroup value={widgetTheme} onValueChange={(value) => setWidgetTheme(value as "light" | "dark")}>
                           <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="left" id="position-left" />
-                            <Label htmlFor="position-left">Слева</Label>
+                            <RadioGroupItem value="light" id="theme-light" />
+                            <Label htmlFor="theme-light">Светлая</Label>
                           </div>
                           <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="right" id="position-right" />
-                            <Label htmlFor="position-right">Справа</Label>
+                            <RadioGroupItem value="dark" id="theme-dark" />
+                            <Label htmlFor="theme-dark">Темная</Label>
                           </div>
                         </RadioGroup>
                       </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Размер шрифта (px)</Label>
-                      <Input
-                        type="number"
-                        value={widgetFontSize}
-                        onChange={(e) => setWidgetFontSize(Number(e.target.value))}
-                        min={10}
-                        max={24}
-                        className="bg-gray-800 border-gray-700 text-white"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Тема оформления</Label>
-                    <RadioGroup value={widgetTheme} onValueChange={(value) => setWidgetTheme(value as "light" | "dark")}>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="light" id="theme-light" />
-                        <Label htmlFor="theme-light">Светлая</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="dark" id="theme-dark" />
-                        <Label htmlFor="theme-dark">Темная</Label>
-                      </div>
-                    </RadioGroup>
-                  </div>
+                    </>
+                  )}
 
                   {widgetEnabled && (
                     <div className="mt-4 space-y-4">
@@ -1073,139 +1083,145 @@ const Cabinet = () => {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="primary-color">Основной цвет</Label>
-                          <div className="flex space-x-2">
-                            <Input
-                              id="primary-color"
-                              type="color"
-                              value={primaryColor}
-                              onChange={(e) => setPrimaryColor(e.target.value)}
-                              className="w-12 h-10 p-1 bg-gray-800 border-gray-700"
-                            />
-                            <Input
-                              type="text"
-                              value={primaryColor}
-                              onChange={(e) => setPrimaryColor(e.target.value)}
-                              className="flex-1 bg-gray-800 border-gray-700 text-white"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="secondary-color">Вторичный цвет</Label>
-                          <div className="flex space-x-2">
-                            <Input
-                              id="secondary-color"
-                              type="color"
-                              value={secondaryColor}
-                              onChange={(e) => setSecondaryColor(e.target.value)}
-                              className="w-12 h-10 p-1 bg-gray-800 border-gray-700"
-                            />
-                            <Input
-                              type="text"
-                              value={secondaryColor}
-                              onChange={(e) => setSecondaryColor(e.target.value)}
-                              className="flex-1 bg-gray-800 border-gray-700 text-white"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="accent-color">Акцентный цвет</Label>
-                          <div className="flex space-x-2">
-                            <Input
-                              id="accent-color"
-                              type="color"
-                              value={accentColor}
-                              onChange={(e) => setAccentColor(e.target.value)}
-                              className="w-12 h-10 p-1 bg-gray-800 border-gray-700"
-                            />
-                            <Input
-                              type="text"
-                              value={accentColor}
-                              onChange={(e) => setAccentColor(e.target.value)}
-                              className="flex-1 bg-gray-800 border-gray-700 text-white"
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 p-4 bg-gray-800 rounded-md">
-                        <h4 className="text-md font-medium mb-2">Элементы интерфейса</h4>
-
-                        <div className="space-y-4">
+                      {uiColorSchemeEnabled && (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           <div className="space-y-2">
-                            <Label>Кнопки</Label>
-                            <div className="grid grid-cols-2 gap-2">
+                            <Label htmlFor="primary-color">Основной цвет</Label>
+                            <div className="flex space-x-2">
                               <Input
-                                type="number"
-                                placeholder="Высота (px)"
-                                className="bg-gray-800 border-gray-700 text-white"
-                                onChange={(e) => {
-                                  const styles = document.documentElement.style;
-                                  styles.setProperty('--button-height', `${e.target.value}px`);
-                                }}
+                                id="primary-color"
+                                type="color"
+                                value={primaryColor}
+                                onChange={(e) => setPrimaryColor(e.target.value)}
+                                className="w-12 h-10 p-1 bg-gray-800 border-gray-700"
                               />
                               <Input
-                                type="number"
-                                placeholder="Скругление (px)"
-                                className="bg-gray-800 border-gray-700 text-white"
-                                onChange={(e) => {
-                                  const styles = document.documentElement.style;
-                                  styles.setProperty('--button-radius', `${e.target.value}px`);
-                                }}
+                                type="text"
+                                value={primaryColor}
+                                onChange={(e) => setPrimaryColor(e.target.value)}
+                                className="flex-1 bg-gray-800 border-gray-700 text-white"
                               />
                             </div>
                           </div>
 
                           <div className="space-y-2">
-                            <Label>Поля ввода</Label>
-                            <div className="grid grid-cols-2 gap-2">
+                            <Label htmlFor="secondary-color">Вторичный цвет</Label>
+                            <div className="flex space-x-2">
                               <Input
-                                type="number"
-                                placeholder="Отступы (px)"
-                                className="bg-gray-800 border-gray-700 text-white"
-                                onChange={(e) => {
-                                  const styles = document.documentElement.style;
-                                  styles.setProperty('--input-padding', `${e.target.value}px`);
-                                }}
+                                id="secondary-color"
+                                type="color"
+                                value={secondaryColor}
+                                onChange={(e) => setSecondaryColor(e.target.value)}
+                                className="w-12 h-10 p-1 bg-gray-800 border-gray-700"
                               />
                               <Input
-                                type="number"
-                                placeholder="Размер шрифта (px)"
-                                className="bg-gray-800 border-gray-700 text-white"
-                                onChange={(e) => {
-                                  const styles = document.documentElement.style;
-                                  styles.setProperty('--input-font-size', `${e.target.value}px`);
-                                }}
+                                type="text"
+                                value={secondaryColor}
+                                onChange={(e) => setSecondaryColor(e.target.value)}
+                                className="flex-1 bg-gray-800 border-gray-700 text-white"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor="accent-color">Акцентный цвет</Label>
+                            <div className="flex space-x-2">
+                              <Input
+                                id="accent-color"
+                                type="color"
+                                value={accentColor}
+                                onChange={(e) => setAccentColor(e.target.value)}
+                                className="w-12 h-10 p-1 bg-gray-800 border-gray-700"
+                              />
+                              <Input
+                                type="text"
+                                value={accentColor}
+                                onChange={(e) => setAccentColor(e.target.value)}
+                                className="flex-1 bg-gray-800 border-gray-700 text-white"
                               />
                             </div>
                           </div>
                         </div>
-                      </div>
+                      )}
 
-                      <div className="mt-4 p-4 bg-gray-800 rounded-md">
-                        <h4 className="text-md font-medium mb-2">Предпросмотр цветов</h4>
-                        <div className="flex flex-wrap gap-3">
-                          <div 
-                            className="w-24 h-12 rounded" 
-                            style={{ backgroundColor: primaryColor }}
-                            title="Основной цвет"
-                          ></div>
-                          <div 
-                            className="w-24 h-12 rounded" 
-                            style={{ backgroundColor: secondaryColor }}
-                            title="Вторичный цвет"
-                          ></div>
-                          <div 
-                            className="w-24 h-12 rounded" 
-                            style={{ backgroundColor: accentColor }}
-                            title="Акцентный цвет"
-                          ></div>
+                      {uiColorSchemeEnabled && (
+                        <div className="mt-4 p-4 bg-gray-800 rounded-md">
+                          <h4 className="text-md font-medium mb-2">Элементы интерфейса</h4>
+
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <Label>Кнопки</Label>
+                              <div className="grid grid-cols-2 gap-2">
+                                <Input
+                                  type="number"
+                                  placeholder="Высота (px)"
+                                  className="bg-gray-800 border-gray-700 text-white"
+                                  onChange={(e) => {
+                                    const styles = document.documentElement.style;
+                                    styles.setProperty('--button-height', `${e.target.value}px`);
+                                  }}
+                                />
+                                <Input
+                                  type="number"
+                                  placeholder="Скругление (px)"
+                                  className="bg-gray-800 border-gray-700 text-white"
+                                  onChange={(e) => {
+                                    const styles = document.documentElement.style;
+                                    styles.setProperty('--button-radius', `${e.target.value}px`);
+                                  }}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label>Поля ввода</Label>
+                              <div className="grid grid-cols-2 gap-2">
+                                <Input
+                                  type="number"
+                                  placeholder="Отступы (px)"
+                                  className="bg-gray-800 border-gray-700 text-white"
+                                  onChange={(e) => {
+                                    const styles = document.documentElement.style;
+                                    styles.setProperty('--input-padding', `${e.target.value}px`);
+                                  }}
+                                />
+                                <Input
+                                  type="number"
+                                  placeholder="Размер шрифта (px)"
+                                  className="bg-gray-800 border-gray-700 text-white"
+                                  onChange={(e) => {
+                                    const styles = document.documentElement.style;
+                                    styles.setProperty('--input-font-size', `${e.target.value}px`);
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                      </div>
+                      )}
+
+                      {uiColorSchemeEnabled && (
+                        <div className="mt-4 p-4 bg-gray-800 rounded-md">
+                          <h4 className="text-md font-medium mb-2">Предпросмотр цветов</h4>
+                          <div className="flex flex-wrap gap-3">
+                            <div 
+                              className="w-24 h-12 rounded" 
+                              style={{ backgroundColor: primaryColor }}
+                              title="Основной цвет"
+                            ></div>
+                            <div 
+                              className="w-24 h-12 rounded" 
+                              style={{ backgroundColor: secondaryColor }}
+                              title="Вторичный цвет"
+                            ></div>
+                            <div 
+                              className="w-24 h-12 rounded" 
+                              style={{ backgroundColor: accentColor }}
+                              title="Акцентный цвет"
+                            ></div>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <Separator className="my-4 bg-gray-800" />

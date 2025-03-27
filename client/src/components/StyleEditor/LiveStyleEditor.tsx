@@ -471,15 +471,14 @@ const LiveStyleEditor = ({ initialSettings, isActive, onClose }: LiveStyleEditor
   // Сохранение настроек на сервер
   const saveSettings = async (settings: Settings) => {
     try {
-      const response = await apiRequest({
-        url: '/api/settings',
+      const response = await fetch('/api/settings', {
         method: 'POST',
-        data: settings,
         headers: {
           'Content-Type': 'application/json',
           ...(localStorage.getItem('authToken') ? { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` } : {})
         },
-        includeCredentials: true
+        credentials: 'include',
+        body: JSON.stringify(settings)
       });
       
       // Сохраняем настройки в localStorage и sessionStorage для быстрого доступа в будущем
@@ -495,7 +494,6 @@ const LiveStyleEditor = ({ initialSettings, isActive, onClose }: LiveStyleEditor
         toast({
           title: 'Настройки сохранены',
           description: 'Ваши настройки интерфейса успешно сохранены',
-          variant: 'success',
         });
         
         // Обновляем кэш в React Query
