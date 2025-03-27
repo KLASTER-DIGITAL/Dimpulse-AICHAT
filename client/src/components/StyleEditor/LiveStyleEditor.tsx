@@ -43,8 +43,28 @@ const LiveStyleEditor = ({ initialSettings, isActive, onClose }: LiveStyleEditor
   const [activeElement, setActiveElement] = useState<EditableElement | null>(null);
   const [currentSettings, setCurrentSettings] = useState<Settings>(initialSettings);
   const [editorPosition, setEditorPosition] = useState({ top: 0, left: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStartPosition, setDragStartPosition] = useState({ x: 0, y: 0 });
   const editorRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  
+  // Загрузка настроек из localStorage при инициализации
+  useEffect(() => {
+    try {
+      const localSettings = localStorage.getItem('liveStyleEditorSettings');
+      if (localSettings) {
+        const parsedSettings = JSON.parse(localSettings) as Settings;
+        setCurrentSettings(parsedSettings);
+        
+        // Применяем настройки к UI
+        document.documentElement.style.setProperty('--primary-color', parsedSettings.ui.colors.primary);
+        document.documentElement.style.setProperty('--secondary-color', parsedSettings.ui.colors.secondary);
+        document.documentElement.style.setProperty('--accent-color', parsedSettings.ui.colors.accent);
+      }
+    } catch (e) {
+      console.error('Ошибка при загрузке настроек из localStorage:', e);
+    }
+  }, []);
 
   // Поддержка разных размеров для десктопа и мобильных устройств
   const [isMobileView, setIsMobileView] = useState(false);
@@ -400,6 +420,10 @@ const LiveStyleEditor = ({ initialSettings, isActive, onClose }: LiveStyleEditor
 
   const saveSettings = async (settings: Settings) => {
     try {
+      // Сначала сохраняем в localStorage для резервного копирования
+      localStorage.setItem('liveStyleEditorSettings', JSON.stringify(settings));
+      
+      // Затем пытаемся сохранить через API
       await apiRequest('/api/settings', {
         method: 'POST',
         data: settings,
@@ -408,17 +432,47 @@ const LiveStyleEditor = ({ initialSettings, isActive, onClose }: LiveStyleEditor
       // Обновляем кеш запросов
       queryClient.invalidateQueries({ queryKey: ['/api/settings'] });
       
+      // Обновляем UI настройки локально
+      document.documentElement.style.setProperty('--primary-color', settings.ui.colors.primary);
+      document.documentElement.style.setProperty('--secondary-color', settings.ui.colors.secondary);
+      document.documentElement.style.setProperty('--accent-color', settings.ui.colors.accent);
+      
+      // Отображаем уведомление
       toast({
         title: 'Настройки сохранены',
         description: 'Изменения успешно применены',
       });
     } catch (error) {
       console.error('Ошибка при сохранении настроек:', error);
-      toast({
-        title: 'Ошибка сохранения',
-        description: 'Не удалось сохранить настройки',
-        variant: 'destructive',
-      });
+      
+      // В случае ошибки пытаемся загрузить настройки из localStorage
+      try {
+        const localSettings = localStorage.getItem('liveStyleEditorSettings');
+        if (localSettings) {
+          // Обновляем UI настройки локально из localStorage
+          const parsedSettings = JSON.parse(localSettings) as Settings;
+          document.documentElement.style.setProperty('--primary-color', parsedSettings.ui.colors.primary);
+          document.documentElement.style.setProperty('--secondary-color', parsedSettings.ui.colors.secondary);
+          document.documentElement.style.setProperty('--accent-color', parsedSettings.ui.colors.accent);
+          
+          toast({
+            title: 'Настройки сохранены локально',
+            description: 'Не удалось сохранить настройки на сервере, но изменения применены локально',
+          });
+        } else {
+          toast({
+            title: 'Ошибка сохранения',
+            description: 'Не удалось сохранить настройки',
+            variant: 'destructive',
+          });
+        }
+      } catch (e) {
+        toast({
+          title: 'Ошибка сохранения',
+          description: 'Не удалось сохранить настройки',
+          variant: 'destructive',
+        });
+      }
     }
   };
 
@@ -464,6 +518,61 @@ const LiveStyleEditor = ({ initialSettings, isActive, onClose }: LiveStyleEditor
       originalStyles
     });
   };
+  
+  // Обработчики для перетаскивания редактора
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Проверяем, что нажатие было на заголовке, а не на элементах управления внутри редактора
+    const target = e.target as HTMLElement;
+    const isHeader = target.tagName === 'H3' || 
+                     target.classList.contains('drag-handle') || 
+                     target === e.currentTarget.querySelector('.flex.justify-between');
+                     
+    if (isHeader) {
+      setIsDragging(true);
+      setDragStartPosition({ 
+        x: e.clientX - editorPosition.left, 
+        y: e.clientY - editorPosition.top 
+      });
+    }
+  };
+  
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isDragging) return;
+    
+    const left = e.clientX - dragStartPosition.x;
+    const top = e.clientY - dragStartPosition.y;
+    
+    // Убедимся, что редактор не выходит за пределы экрана
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const editorWidth = editorRef.current?.offsetWidth || 300;
+    const editorHeight = editorRef.current?.offsetHeight || 400;
+    
+    const constrainedLeft = Math.max(0, Math.min(left, viewportWidth - editorWidth));
+    const constrainedTop = Math.max(0, Math.min(top, viewportHeight - editorHeight));
+    
+    setEditorPosition({ top: constrainedTop, left: constrainedLeft });
+  };
+  
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+  
+  // Добавляем глобальные обработчики для перетаскивания
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    } else {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    }
+    
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
 
   if (!isActive) return null;
 
@@ -475,10 +584,14 @@ const LiveStyleEditor = ({ initialSettings, isActive, onClose }: LiveStyleEditor
         top: `${editorPosition.top}px`, 
         left: `${editorPosition.left}px`,
         maxHeight: '80vh',
-        overflowY: 'auto'
+        overflowY: 'auto',
+        cursor: isDragging ? 'grabbing' : 'auto'
       }}
     >
-      <div className="flex justify-between items-center mb-4">
+      <div 
+        className="flex justify-between items-center mb-4 cursor-grab drag-handle" 
+        onMouseDown={handleMouseDown}
+      >
         <h3 className="font-medium text-sm">Редактирование элемента</h3>
         <button 
           onClick={onClose}
