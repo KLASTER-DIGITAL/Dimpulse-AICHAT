@@ -219,10 +219,12 @@ const Cabinet = () => {
   const [widgetEnabled, setWidgetEnabled] = useState<boolean>(defaultSettings.integration.widget.enabled);
   const [widgetPosition, setWidgetPosition] = useState<"left" | "right">(defaultSettings.integration.widget.position);
   const [widgetTheme, setWidgetTheme] = useState<"light" | "dark">(defaultSettings.integration.widget.theme);
-  const [widgetText, setWidgetText] = useState<string>("Чем еще могу помочь?");
-  const [widgetWidth, setWidgetWidth] = useState<number>(400);
-  const [widgetHeight, setWidgetHeight] = useState<number>(500);
+  const [widgetText, setWidgetText] = useState<string>("Есть вопросы? пишите!");
+  const [widgetWidth, setWidgetWidth] = useState<number>(640);
+  const [widgetHeight, setWidgetHeight] = useState<number>(480);
   const [widgetFontSize, setWidgetFontSize] = useState<number>(16);
+  const [widgetButtonColor, setWidgetButtonColor] = useState<string>("#4b6cf7");
+  const [widgetPulsation, setWidgetPulsation] = useState<boolean>(true);
   const [showWidgetPreview, setShowWidgetPreview] = useState(false);
   
   // Состояние проверки соединения с Supabase
@@ -258,6 +260,8 @@ const Cabinet = () => {
         s.setAttribute('data-height', '${widgetHeight}px');
         s.setAttribute('data-font-size', '${widgetFontSize}');
         s.setAttribute('data-greeting', '${widgetText}');
+        s.setAttribute('data-button-color', '${widgetButtonColor}');
+        s.setAttribute('data-pulsation', '${widgetPulsation}');
         d.head.appendChild(s);
       })(document, window);
     `;
@@ -523,7 +527,9 @@ const Cabinet = () => {
         fontSize: widgetFontSize,
         width: widgetWidth,
         height: widgetHeight,
-        text: widgetText
+        text: widgetText,
+        buttonColor: widgetButtonColor,
+        pulsation: widgetPulsation
       },
     };
 
@@ -645,6 +651,8 @@ const Cabinet = () => {
     s.setAttribute('data-height', '${widgetHeight}px');
     s.setAttribute('data-font-size', '${widgetFontSize}');
     s.setAttribute('data-greeting', '${widgetText}');
+    s.setAttribute('data-button-color', '${widgetButtonColor}');
+    s.setAttribute('data-pulsation', '${widgetPulsation}');
     d.head.appendChild(s);
   })(document, window);
 </script>`;
@@ -921,18 +929,48 @@ const Cabinet = () => {
                         </div>
                       </div>
 
-                      <div className="space-y-2">
-                        <Label>Тема оформления</Label>
-                        <RadioGroup value={widgetTheme} onValueChange={(value) => setWidgetTheme(value as "light" | "dark")}>
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label>Тема оформления</Label>
+                          <RadioGroup value={widgetTheme} onValueChange={(value) => setWidgetTheme(value as "light" | "dark")}>
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="light" id="theme-light" />
+                              <Label htmlFor="theme-light">Светлая</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="dark" id="theme-dark" />
+                              <Label htmlFor="theme-dark">Темная</Label>
+                            </div>
+                          </RadioGroup>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label>Цвет кнопки</Label>
                           <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="light" id="theme-light" />
-                            <Label htmlFor="theme-light">Светлая</Label>
+                            <Input
+                              type="color"
+                              value={widgetButtonColor}
+                              onChange={(e) => setWidgetButtonColor(e.target.value)}
+                              className="w-16 h-10 p-1"
+                            />
+                            <Input
+                              type="text"
+                              value={widgetButtonColor}
+                              onChange={(e) => setWidgetButtonColor(e.target.value)}
+                              placeholder="#4b6cf7"
+                              className="flex-1"
+                            />
                           </div>
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="dark" id="theme-dark" />
-                            <Label htmlFor="theme-dark">Темная</Label>
-                          </div>
-                        </RadioGroup>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2">
+                          <Switch
+                            id="widget-pulsation"
+                            checked={widgetPulsation}
+                            onCheckedChange={setWidgetPulsation}
+                          />
+                          <Label htmlFor="widget-pulsation">Анимация пульсации кнопки</Label>
+                        </div>
                       </div>
                     </>
                   )}
