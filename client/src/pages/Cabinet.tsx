@@ -1007,19 +1007,23 @@ const Cabinet = () => {
                   {widgetEnabled && (
                     <div className="mt-4 space-y-4">
                       <div className="flex items-center justify-between">
-                        <Label>Предпросмотр виджета</Label>
                         <Switch
                           checked={showWidgetPreview}
                           onCheckedChange={(checked) => {
                             setShowWidgetPreview(checked);
-                            if (!checked) {
-                              // Удаляем превью при выключении
-                              const existingPreview = document.getElementById('widget-preview-script');
-                              if (existingPreview) {
-                                document.head.removeChild(existingPreview);
+                            const cleanup = () => {
+                              const existingScript = document.getElementById('widget-preview-script');
+                              if (existingScript) {
+                                document.head.removeChild(existingScript);
                               }
                               const widgetButton = document.querySelector('.chat-widget-button');
                               const widgetContainer = document.querySelector('.chat-widget-container');
+                              if (widgetButton) widgetButton.remove();
+                              if (widgetContainer) widgetContainer.remove();
+                            };
+                            
+                            if (!checked) {
+                              cleanup();
                               if (widgetButton) widgetButton.remove();
                               if (widgetContainer) widgetContainer.remove();
                             } else {
