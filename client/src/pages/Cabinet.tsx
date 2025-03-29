@@ -52,6 +52,9 @@ interface Settings {
       width: number;
       height: number;
       text: string;
+      buttonColor: string;
+      pulsation: boolean;
+      icon?: string;
     };
   };
   ui: {
@@ -140,9 +143,12 @@ const defaultSettings: Settings = {
       position: "left",
       theme: "dark",
       fontSize: 16,
-      width: 400,
-      height: 500,
-      text: "Онлайн-чат"
+      width: 640,
+      height: 480,
+      text: "Есть вопросы? пишите!",
+      buttonColor: "#4b6cf7",
+      pulsation: true,
+      icon: ""
     },
   },
   ui: {
@@ -225,6 +231,7 @@ const Cabinet = () => {
   const [widgetFontSize, setWidgetFontSize] = useState<number>(16);
   const [widgetButtonColor, setWidgetButtonColor] = useState<string>("#4b6cf7");
   const [widgetPulsation, setWidgetPulsation] = useState<boolean>(true);
+  const [widgetIcon, setWidgetIcon] = useState<string>("");
   const [showWidgetPreview, setShowWidgetPreview] = useState(false);
   
   // Состояние проверки соединения с Supabase
@@ -262,6 +269,7 @@ const Cabinet = () => {
         s.setAttribute('data-greeting', '${widgetText}');
         s.setAttribute('data-button-color', '${widgetButtonColor}');
         s.setAttribute('data-pulsation', '${widgetPulsation}');
+        ${widgetIcon ? `s.setAttribute('data-icon', '${widgetIcon}');` : ''}
         d.head.appendChild(s);
       })(document, window);
     `;
@@ -400,6 +408,9 @@ const Cabinet = () => {
           setWidgetWidth(settings.integration.widget.width ?? defaultSettings.integration.widget.width);
           setWidgetHeight(settings.integration.widget.height ?? defaultSettings.integration.widget.height);
           setWidgetFontSize(settings.integration.widget.fontSize ?? defaultSettings.integration.widget.fontSize);
+          setWidgetButtonColor(settings.integration.widget.buttonColor ?? defaultSettings.integration.widget.buttonColor);
+          setWidgetPulsation(settings.integration.widget.pulsation ?? defaultSettings.integration.widget.pulsation);
+          setWidgetIcon(settings.integration.widget.icon ?? defaultSettings.integration.widget.icon);
         }
       }
 
@@ -529,7 +540,8 @@ const Cabinet = () => {
         height: widgetHeight,
         text: widgetText,
         buttonColor: widgetButtonColor,
-        pulsation: widgetPulsation
+        pulsation: widgetPulsation,
+        icon: widgetIcon
       },
     };
 
@@ -653,6 +665,7 @@ const Cabinet = () => {
     s.setAttribute('data-greeting', '${widgetText}');
     s.setAttribute('data-button-color', '${widgetButtonColor}');
     s.setAttribute('data-pulsation', '${widgetPulsation}');
+    ${widgetIcon ? `s.setAttribute('data-icon', '${widgetIcon}');` : ''}
     d.head.appendChild(s);
   })(document, window);
 </script>`;
@@ -970,6 +983,22 @@ const Cabinet = () => {
                             onCheckedChange={setWidgetPulsation}
                           />
                           <Label htmlFor="widget-pulsation">Анимация пульсации кнопки</Label>
+                        </div>
+                        
+                        <div className="space-y-2 mt-4">
+                          <Label>Пользовательская иконка</Label>
+                          <div className="flex items-center space-x-2">
+                            <Input
+                              type="text"
+                              value={widgetIcon}
+                              onChange={(e) => setWidgetIcon(e.target.value)}
+                              placeholder="URL иконки (SVG или PNG)"
+                              className="flex-1"
+                            />
+                          </div>
+                          <p className="text-xs text-gray-400">
+                            Укажите URL к вашей иконке в формате SVG или PNG. Если ничего не указано, будет использована стандартная иконка чата.
+                          </p>
                         </div>
                       </div>
                     </>
