@@ -1056,14 +1056,21 @@ const Cabinet = () => {
                         <Button
                           variant="secondary"
                           onClick={() => {
-                            if (showWidgetPreview) {
-                              setShowWidgetPreview(false);
-                              const existingPreview = document.getElementById('widget-preview');
-                              if (existingPreview) {
-                                document.body.removeChild(existingPreview);
+                            const newPreviewState = !showWidgetPreview;
+                            setShowWidgetPreview(newPreviewState);
+                            
+                            if (!newPreviewState) {
+                              // Cleanup when hiding
+                              const existingScript = document.getElementById('widget-preview-script');
+                              if (existingScript) {
+                                document.head.removeChild(existingScript);
                               }
+                              const widgetButton = document.querySelector('.chat-widget-button');
+                              const widgetContainer = document.querySelector('.chat-widget-container');
+                              if (widgetButton) widgetButton.remove();
+                              if (widgetContainer) widgetContainer.remove();
                             } else {
-                              setShowWidgetPreview(true);
+                              // Create preview when showing
                               createWidgetPreview();
                             }
                           }}
