@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
-import { showSuccessToast, showErrorToast } from "@/components/ui/custom-toast";
+import { showSuccessToast, showErrorToast, showInfoToast } from "@/components/ui/custom-toast";
 import { useStyleEditorState } from "@/App";
 
 // UI components
@@ -182,7 +182,7 @@ const defaultSettings: Settings = {
 };
 
 const Cabinet = () => {
-  const { toast } = useToast();
+  // Удалили useToast, используем теперь showSuccessToast и showErrorToast
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
   // Используем глобальное состояние редактора стилей из App.tsx
@@ -481,18 +481,11 @@ const Cabinet = () => {
       return result as Settings;
     },
     onSuccess: () => {
-      toast({
-        title: "Настройки вебхука сохранены",
-        description: "Ваши изменения успешно применены",
-      });
+      showSuccessToast("Настройки вебхука сохранены", "Ваши изменения успешно применены");
       queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
     },
     onError: (error) => {
-      toast({
-        title: "Ошибка сохранения",
-        description: "Не удалось сохранить настройки вебхука. Пожалуйста, попробуйте снова.",
-        variant: "destructive",
-      });
+      showErrorToast("Ошибка сохранения", "Не удалось сохранить настройки вебхука. Пожалуйста, попробуйте снова.");
       console.error("Ошибка при сохранении настроек вебхука:", error);
     },
   });
@@ -500,11 +493,7 @@ const Cabinet = () => {
   // Обработчик сохранения настроек вебхука
   const handleSaveWebhook = () => {
     if (!webhookUrl.trim()) {
-      toast({
-        title: "Ошибка",
-        description: "URL вебхука не может быть пустым",
-        variant: "destructive",
-      });
+      showErrorToast("Ошибка", "URL вебхука не может быть пустым");
       return;
     }
 
@@ -524,18 +513,11 @@ const Cabinet = () => {
       return result as Settings;
     },
     onSuccess: () => {
-      toast({
-        title: "Настройки интеграции сохранены",
-        description: "Ваши изменения успешно применены",
-      });
+      showSuccessToast("Настройки интеграции сохранены", "Ваши изменения успешно применены");
       queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
     },
     onError: (error) => {
-      toast({
-        title: "Ошибка сохранения",
-        description: "Не удалось сохранить настройки интеграции. Пожалуйста, попробуйте снова.",
-        variant: "destructive",
-      });
+      showErrorToast("Ошибка сохранения", "Не удалось сохранить настройки интеграции. Пожалуйста, попробуйте снова.");
       console.error("Ошибка при сохранении настроек интеграции:", error);
     },
   });
@@ -574,18 +556,11 @@ const Cabinet = () => {
       return result as Settings;
     },
     onSuccess: () => {
-      toast({
-        title: "Настройки интерфейса сохранены",
-        description: "Ваши изменения успешно применены",
-      });
+      showSuccessToast("Настройки интерфейса сохранены", "Ваши изменения успешно применены");
       queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
     },
     onError: (error) => {
-      toast({
-        title: "Ошибка сохранения",
-        description: "Не удалось сохранить настройки интерфейса. Пожалуйста, попробуйте снова.",
-        variant: "destructive",
-      });
+      showErrorToast("Ошибка сохранения", "Не удалось сохранить настройки интерфейса. Пожалуйста, попробуйте снова.");
       console.error("Ошибка при сохранении настроек интерфейса:", error);
     },
   });
@@ -600,18 +575,11 @@ const Cabinet = () => {
       return result as Settings;
     },
     onSuccess: () => {
-      toast({
-        title: "Настройки базы данных сохранены",
-        description: "Ваши изменения успешно применены",
-      });
+      showSuccessToast("Настройки базы данных сохранены", "Ваши изменения успешно применены");
       queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
     },
     onError: (error) => {
-      toast({
-        title: "Ошибка сохранения",
-        description: "Не удалось сохранить настройки базы данных. Пожалуйста, попробуйте снова.",
-        variant: "destructive",
-      });
+      showErrorToast("Ошибка сохранения", "Не удалось сохранить настройки базы данных. Пожалуйста, попробуйте снова.");
       console.error("Ошибка при сохранении настроек базы данных:", error);
     },
   });
@@ -697,11 +665,7 @@ const Cabinet = () => {
       setShowChatSidebar(true);
     } catch (error) {
       console.error("Ошибка при получении сообщений чата:", error);
-      toast({
-        title: "Ошибка",
-        description: "Не удалось загрузить сообщения чата.",
-        variant: "destructive",
-      });
+      showErrorToast("Ошибка", "Не удалось загрузить сообщения чата.");
       setSelectedChat(null);
     }
   }
@@ -728,10 +692,7 @@ const Cabinet = () => {
             variant="outline" 
             onClick={() => {
               localStorage.removeItem("isAuthenticated");
-              toast({
-                title: "Выход из системы",
-                description: "Вы успешно вышли из системы",
-              });
+              showInfoToast("Выход из системы", "Вы успешно вышли из системы");
               navigate("/");
             }}
           >
@@ -852,10 +813,7 @@ const Cabinet = () => {
                         className="mt-2"
                         onClick={() => {
                           navigator.clipboard.writeText(getIframeCode());
-                          toast({
-                            title: "Скопировано!",
-                            description: "Код iframe скопирован в буфер обмена",
-                          });
+                          showSuccessToast("Скопировано!", "Код iframe скопирован в буфер обмена");
                         }}
                       >
                         Скопировать код
@@ -1086,10 +1044,7 @@ const Cabinet = () => {
                               // Создаем новое превью
                               createWidgetPreview();
                               
-                              toast({
-                                title: "Предпросмотр обновлен",
-                                description: "Изменения применены к предпросмотру виджета",
-                              });
+                              showInfoToast("Предпросмотр обновлен", "Изменения применены к предпросмотру виджета");
                             }
                           }}
                         >
@@ -1108,10 +1063,7 @@ const Cabinet = () => {
                           variant="outline"
                           onClick={() => {
                             navigator.clipboard.writeText(getWidgetCode());
-                            toast({
-                              title: "Скопировано!",
-                              description: "Код виджета скопирован в буфер обмена",
-                            });
+                            showSuccessToast("Скопировано!", "Код виджета скопирован в буфер обмена");
                           }}
                         >
                           Скопировать код
@@ -1167,10 +1119,7 @@ const Cabinet = () => {
                           setIsStyleEditorActive(true);
                           // Открываем главную страницу для редактирования
                           window.open('/', '_blank');
-                          toast({
-                            title: "Редактирование активировано",
-                            description: "Редактор открыт на главной странице. Наведите курсор на элемент для редактирования.",
-                          });
+                          showInfoToast("Редактирование активировано", "Редактор открыт на главной странице. Наведите курсор на элемент для редактирования.");
                         }}
                         variant="outline"
                         className="bg-gray-800 hover:bg-gray-700"
