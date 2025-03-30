@@ -989,15 +989,37 @@ const Cabinet = () => {
                           <Label>Пользовательская иконка</Label>
                           <div className="flex items-center space-x-2">
                             <Input
-                              type="text"
-                              value={widgetIcon}
-                              onChange={(e) => setWidgetIcon(e.target.value)}
-                              placeholder="URL иконки (SVG или PNG)"
+                              type="file"
+                              accept="image/svg+xml,image/png"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const reader = new FileReader();
+                                  reader.onload = (event) => {
+                                    const result = event.target?.result as string;
+                                    setWidgetIcon(result);
+                                    // Автоматически показываем превью после загрузки
+                                    setShowWidgetPreview(true);
+                                    createWidgetPreview();
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
                               className="flex-1"
                             />
                           </div>
+                          {widgetIcon && (
+                            <div className="mt-2">
+                              <p className="text-sm mb-2">Предпросмотр иконки:</p>
+                              <img 
+                                src={widgetIcon} 
+                                alt="Предпросмотр иконки"
+                                className="w-10 h-10 object-contain bg-gray-800 rounded p-1"
+                              />
+                            </div>
+                          )}
                           <p className="text-xs text-gray-400">
-                            Укажите URL к вашей иконке в формате SVG или PNG. Если ничего не указано, будет использована стандартная иконка чата.
+                            Загрузите иконку в формате SVG или PNG. Если файл не выбран, будет использована стандартная иконка чата.
                           </p>
                         </div>
                       </div>
