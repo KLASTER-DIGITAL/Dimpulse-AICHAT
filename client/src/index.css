@@ -153,13 +153,30 @@
 }
 
 /* Styles for embedded calendar and other interactive content */
-.markdown-content div[id*="cal-inline"] {
+.markdown-content div[id*="cal-inline"],
+.cal-embed,
+#my-cal-inline {
   min-height: 600px;
   width: 100%;
   background-color: rgba(255, 255, 255, 0.03);
   border-radius: 8px;
   margin: 1rem 0;
   padding: 0.5rem;
+}
+
+/* Calendly embed styles */
+.cal-embed * {
+  box-sizing: border-box;
+}
+
+/* Custom styles for Cal.com */
+.cal-embed iframe,
+#my-cal-inline iframe {
+  width: 100% !important;
+  border: none !important;
+  min-height: 600px !important;
+  height: 100% !important;
+  background-color: transparent !important;
 }
 
 /* Ensure scripts execute properly */
