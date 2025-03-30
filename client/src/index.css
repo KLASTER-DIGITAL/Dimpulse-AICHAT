@@ -45,6 +45,24 @@
   }
 }
 
+/* Анимация мигающего курсора ввода */
+@keyframes blink-cursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.text-cursor {
+  animation: blink-cursor 1s infinite;
+}
+
+/* Стили для активного поля ввода */
+input:focus {
+  outline: none;
+  box-shadow: 0 0 0 1px rgba(74, 222, 128, 0.2);
+  border-color: rgba(74, 222, 128, 0.5);
+  transition: all 0.3s ease;
+}
+
 .scrollbar-thin::-webkit-scrollbar {
   width: 4px;
 }
