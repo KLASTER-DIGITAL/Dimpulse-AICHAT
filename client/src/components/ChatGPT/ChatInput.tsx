@@ -16,47 +16,23 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
   const [message, setMessage] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [hasFocus, setHasFocus] = useState(false);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Auto-resize textarea based on content
-  const autoResize = () => {
-    const textarea = textareaRef.current;
-    if (textarea) {
-      textarea.style.height = "auto";
-      textarea.style.height = textarea.scrollHeight + "px";
-    }
-  };
-  
   // Автоматически фокусируем поле ввода при загрузке компонента
+  // Используем тот же подход, что и на главной странице
   useEffect(() => {
+    // Функция для фокусировки с таймаутом
     const focusInput = () => {
-      if (textareaRef.current) {
-        console.log("Focusing textarea element");
-        textareaRef.current.focus();
+      if (inputRef.current) {
+        console.log("Focusing input element");
+        inputRef.current.focus();
       }
     };
     
-    // Фокусируем несколько раз с разными задержками для надежности
-    focusInput(); // Мгновенный фокус
-    
-    // Подготавливаем несколько таймеров с разными задержками
-    const timers = [
-      setTimeout(focusInput, 50),
-      setTimeout(focusInput, 200),
-      setTimeout(focusInput, 500),
-      setTimeout(focusInput, 1000)
-    ];
-    
-    // Очистка таймеров
-    return () => {
-      timers.forEach(timerId => clearTimeout(timerId));
-    };
+    // Вызываем фокусировку с задержкой
+    setTimeout(focusInput, 200);
   }, []);
-  
-  useEffect(() => {
-    autoResize();
-  }, [message]);
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,9 +70,9 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
       setUploadedFiles([]);
       setPendingFiles(false);
       
-      // Reset height
-      if (textareaRef.current) {
-        textareaRef.current.style.height = "auto";
+      // Reset input
+      if (inputRef.current) {
+        inputRef.current.value = '';
       }
     } else if (uploadedFiles.length > 0 && !message.trim()) {
       // Если есть файлы, но нет сообщения - показываем предупреждение
@@ -433,27 +409,19 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
             </button>
             
             {/* Поле ввода */}
-            <div className="relative flex-1">
-              <textarea 
-                ref={textareaRef}
-                // Используем useEffect для фокусировки вместо инлайн-колбэка
-                autoFocus={true}
-                id="message-input" 
-                rows={1} 
-                className={`chat-input flex-1 w-full bg-transparent text-white border-none px-3 py-3 focus:outline-none resize-none ${hasFocus ? 'active-input' : ''}`}
-                placeholder="Чем еще могу помочь?"
-                style={{ maxHeight: "200px", minHeight: "24px" }}
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                onFocus={() => setHasFocus(true)}
-                onBlur={() => setHasFocus(false)}
-                onKeyDown={handleKeyDown}
-                disabled={isLoading || isRecording}
-              />
-              {hasFocus && message.length === 0 && (
-                <div className="text-cursor absolute left-[14px] top-[14px] h-4 w-0.5 bg-gray-400 animate-pulse" />
-              )}
-            </div>
+            <input 
+              type="text" 
+              name="message"
+              placeholder="Чем еще могу помочь..."
+              className="flex-1 bg-transparent text-white border-none px-4 py-3 focus:outline-none rounded-full"
+              disabled={isLoading || isRecording}
+              ref={inputRef}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onFocus={() => setHasFocus(true)}
+              onBlur={() => setHasFocus(false)}
+            />
             
             {/* Кнопка отправки голосового сообщения */}
             <button 
