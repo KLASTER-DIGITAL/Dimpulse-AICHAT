@@ -90,6 +90,8 @@
       animation: intercom-pop-in 0.3s ease forwards;
       pointer-events: none;
       display: block; /* Всегда отображается */
+      opacity: 1 !important; /* Принудительная видимость */
+      visibility: visible !important; /* Принудительная видимость */
     }
     
     .intercom-widget-greeting::after {
@@ -353,8 +355,14 @@
   // Обработчики событий
   launcherButton.addEventListener('click', function() {
     // Устанавливаем размеры чата согласно настройкам сразу при открытии
-    chatbox.style.width = `${defaultWidthPx}px`;
-    chatbox.style.height = `${defaultHeightPx}px`;
+    // Сначала удаляем любые инлайн-стили, чтобы применились стандартные из CSS
+    chatbox.style.removeProperty('width');
+    chatbox.style.removeProperty('height');
+    // Затем устанавливаем точные размеры из настроек
+    setTimeout(() => {
+      chatbox.style.width = `${defaultWidthPx}px`;
+      chatbox.style.height = `${defaultHeightPx}px`;
+    }, 10);
     
     chatbox.classList.add('active');
     launcherButton.style.display = 'none';

@@ -238,21 +238,33 @@ const Cabinet = () => {
   const [isCheckingConnection, setIsCheckingConnection] = useState<boolean>(false);
   const [supabaseConnectionStatus, setSupabaseConnectionStatus] = useState<{success: boolean; message: string} | null>(null);
 
+  // Функция для удаления превью виджета
+  const removeWidgetPreview = () => {
+    // Удаляем скрипт виджета
+    const existingScript = document.getElementById('widget-preview-script');
+    if (existingScript) {
+      document.head.removeChild(existingScript);
+    }
+    
+    // Удаляем все элементы виджета (поиск по всем возможным классам)
+    const selectors = [
+      '.chat-widget-button', 
+      '.chat-widget-container', 
+      '.intercom-widget-container',
+      '.intercom-widget-launcher',
+      '.intercom-widget-chatbox'
+    ];
+    
+    selectors.forEach(selector => {
+      const elements = document.querySelectorAll(selector);
+      elements.forEach(element => element.remove());
+    });
+  };
+
   // Функция для создания превью виджета
   const createWidgetPreview = () => {
-    const cleanup = () => {
-      const existingScript = document.getElementById('widget-preview-script');
-      if (existingScript) {
-        document.head.removeChild(existingScript);
-      }
-      const widgetButton = document.querySelector('.chat-widget-button');
-      const widgetContainer = document.querySelector('.chat-widget-container');
-      if (widgetButton) widgetButton.remove();
-      if (widgetContainer) widgetContainer.remove();
-    };
-
     // Очищаем предыдущий виджет если есть
-    cleanup();
+    removeWidgetPreview();
 
     // Создаем и добавляем новый скрипт
     const script = document.createElement('script');
@@ -291,7 +303,7 @@ const Cabinet = () => {
     `;
 
     document.head.appendChild(script);
-    return cleanup;
+    return removeWidgetPreview;
   };
 
   // UI настройки
@@ -463,10 +475,8 @@ const Cabinet = () => {
   // Cleanup widget preview on unmount
   React.useEffect(() => {
     return () => {
-      const existingPreview = document.getElementById('widget-preview');
-      if (existingPreview) {
-        document.body.removeChild(existingPreview);
-      }
+      // Используем нашу функцию удаления виджета при размонтировании компонента
+      removeWidgetPreview();
     };
   }, []);
 
@@ -1056,14 +1066,7 @@ const Cabinet = () => {
                               createWidgetPreview();
                             } else {
                               // Удаляем превью при выключении
-                              const existingPreview = document.getElementById('widget-preview-script');
-                              if (existingPreview) {
-                                existingPreview.remove();
-                              }
-                              const widgetContainer = document.querySelector('.intercom-widget-container');
-                              if (widgetContainer) {
-                                widgetContainer.remove();
-                              }
+                              removeWidgetPreview();
                             }
                           }}
                         />
@@ -1076,14 +1079,7 @@ const Cabinet = () => {
                           onClick={() => {
                             if (showWidgetPreview) {
                               // Удаляем старое превью
-                              const existingPreview = document.getElementById('widget-preview-script');
-                              if (existingPreview) {
-                                existingPreview.remove();
-                              }
-                              const widgetContainer = document.querySelector('.intercom-widget-container');
-                              if (widgetContainer) {
-                                widgetContainer.remove();
-                              }
+                              removeWidgetPreview();
                               
                               // Создаем новое превью
                               createWidgetPreview();
