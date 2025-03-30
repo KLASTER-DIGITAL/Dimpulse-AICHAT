@@ -89,7 +89,7 @@
       transform-origin: bottom right;
       animation: intercom-pop-in 0.3s ease forwards;
       pointer-events: none;
-      display: none; /* По умолчанию скрыт */
+      display: block; /* Всегда отображается */
     }
     
     .intercom-widget-greeting::after {
@@ -109,10 +109,6 @@
       color: #111827;
       font-size: 14px;
       line-height: 1.4;
-    }
-    
-    .intercom-widget-launcher:hover .intercom-widget-greeting {
-      display: block;
     }
     
     /* Анимация пульсации */
@@ -356,6 +352,10 @@
   
   // Обработчики событий
   launcherButton.addEventListener('click', function() {
+    // Устанавливаем размеры чата согласно настройкам сразу при открытии
+    chatbox.style.width = `${defaultWidthPx}px`;
+    chatbox.style.height = `${defaultHeightPx}px`;
+    
     chatbox.classList.add('active');
     launcherButton.style.display = 'none';
   });

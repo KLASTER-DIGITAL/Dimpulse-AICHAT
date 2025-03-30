@@ -426,7 +426,7 @@ const Cabinet = () => {
           setWidgetFontSize(settings.integration.widget.fontSize ?? defaultSettings.integration.widget.fontSize);
           setWidgetButtonColor(settings.integration.widget.buttonColor ?? defaultSettings.integration.widget.buttonColor);
           setWidgetPulsation(settings.integration.widget.pulsation ?? defaultSettings.integration.widget.pulsation);
-          setWidgetIcon(settings.integration.widget.icon ?? defaultSettings.integration.widget.icon);
+          setWidgetIcon(settings.integration.widget.icon ?? "");
         }
       }
 
@@ -1045,6 +1045,7 @@ const Cabinet = () => {
                   {widgetEnabled && (
                     <div className="mt-4 space-y-4">
                       <div className="flex items-center justify-between">
+                        <Label>Предпросмотр виджета</Label>
                         <Switch
                           checked={showWidgetPreview}
                           onCheckedChange={(checked) => {
@@ -1064,9 +1065,36 @@ const Cabinet = () => {
                             }
                           }}
                         />
-                        <Label htmlFor="show-preview">
-                          {showWidgetPreview ? 'Скрыть превью' : 'Показать превью'}
-                        </Label>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2 pt-2">
+                        <Button 
+                          variant="secondary" 
+                          size="sm"
+                          onClick={() => {
+                            if (showWidgetPreview) {
+                              // Удаляем старое превью
+                              const existingPreview = document.getElementById('widget-preview-script');
+                              if (existingPreview) {
+                                existingPreview.remove();
+                              }
+                              const widgetContainer = document.querySelector('.intercom-widget-container');
+                              if (widgetContainer) {
+                                widgetContainer.remove();
+                              }
+                              
+                              // Создаем новое превью
+                              createWidgetPreview();
+                              
+                              toast({
+                                title: "Предпросмотр обновлен",
+                                description: "Изменения применены к предпросмотру виджета",
+                              });
+                            }
+                          }}
+                        >
+                          Обновить предпросмотр
+                        </Button>
                       </div>
 
                       <Label>Код для вставки</Label>
@@ -1714,7 +1742,7 @@ const Cabinet = () => {
                             />
                             <YAxis stroke="#888" />
                             <RechartsTooltip 
-                              contentStyle={{ backgroundColor: '#333, border: 'none' }}
+                              contentStyle={{ backgroundColor: '#333', border: 'none' }}
                               labelFormatter={(value: string) => new Date(value).toLocaleDateString()}
                             />
                             <Line 
