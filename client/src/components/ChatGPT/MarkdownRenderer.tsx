@@ -13,87 +13,80 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
   const executeScripts = () => {
     if (!containerRef.current) return;
     
-    // Special case for Cal.com JavaScript code
-    if (content.includes('Cal(') && content.includes('function')) {
-      try {
-        console.log("Cal.com script detected, handling manually");
-        
-        // Create a container for Cal.com if it doesn't exist
-        let calContainer = document.getElementById('my-cal-inline');
-        
-        if (!calContainer) {
-          // Clear the container first
-          while (containerRef.current.firstChild) {
-            containerRef.current.removeChild(containerRef.current.firstChild);
-          }
-          
-          // Create a container for Cal
-          calContainer = document.createElement('div');
-          calContainer.id = 'my-cal-inline';
-          calContainer.className = 'cal-embed';
-          containerRef.current.appendChild(calContainer);
-          
-          // Create script element for Cal's embed script
-          const embedScript = document.createElement('script');
-          embedScript.src = "https://app.cal.com/embed/embed.js";
-          embedScript.async = true;
-          embedScript.onload = () => {
-            // Create a custom script for Cal initialization
-            const calScript = document.createElement('script');
-            calScript.type = 'text/javascript';
-            calScript.text = `
-              // Initialize Cal
-              window.Cal && window.Cal("init", "30min", {origin:"https://cal.com"});
-              window.Cal && window.Cal.ns["30min"] && window.Cal.ns["30min"]("inline", {
-                elementOrSelector:"#my-cal-inline",
-                config: {"layout":"month_view","theme":"dark"},
-                calLink: "dimpulse/30min"
-              });
-              window.Cal && window.Cal.ns["30min"] && window.Cal.ns["30min"]("ui", {
-                "theme":"dark",
-                "hideEventTypeDetails":false,
-                "layout":"month_view"
-              });
-            `;
-            document.body.appendChild(calScript);
-          };
-          document.head.appendChild(embedScript);
-        }
-        return;
-      } catch (error) {
-        console.error("Error executing Cal.com script:", error);
-      }
-    }
-    
     // Find all script tags in the container
     const scripts = containerRef.current.querySelectorAll('script');
     
-    // Handle standard script tags
-    scripts.forEach(oldScript => {
-      // Create a new script element
-      const newScript = document.createElement('script');
+    if (scripts.length === 0) {
+      // If no scripts were found but we're expecting one (for Cal), add it manually
+      if (content.includes('Cal(') && content.includes('function')) {
+        console.log("No script tags found but Cal detected - script will be injected via HTML");
+      }
+    } else {
+      console.log(`Found ${scripts.length} script tags to execute`);
       
-      // Copy all attributes from the old script to the new one
-      Array.from(oldScript.attributes).forEach(attr => {
-        newScript.setAttribute(attr.name, attr.value);
+      // Handle standard script tags
+      scripts.forEach((oldScript, index) => {
+        try {
+          // Create a new script element
+          const newScript = document.createElement('script');
+          
+          // Copy all attributes from the old script to the new one
+          Array.from(oldScript.attributes).forEach(attr => {
+            newScript.setAttribute(attr.name, attr.value);
+          });
+          
+          // Copy the content of the script
+          newScript.textContent = oldScript.textContent;
+          
+          // If this is an external script (with src), handle loading
+          if (oldScript.src) {
+            console.log(`Processing external script ${index + 1}: ${oldScript.src}`);
+          } else {
+            console.log(`Processing inline script ${index +.1}, length: ${oldScript.textContent?.length || 0} chars`);
+          }
+          
+          // Replace the old script with the new one to execute it
+          if (oldScript.parentNode) {
+            oldScript.parentNode.replaceChild(newScript, oldScript);
+          } else {
+            console.warn("Script has no parent node, appending to document body");
+            document.body.appendChild(newScript);
+          }
+        } catch (error) {
+          console.error(`Error executing script ${index}:`, error);
+        }
       });
-      
-      // Copy the content of the script
-      newScript.textContent = oldScript.textContent;
-      
-      // Replace the old script with the new one to execute it
-      oldScript.parentNode?.replaceChild(newScript, oldScript);
-    });
+    }
   };
 
   useEffect(() => {
     // Function to convert markdown to HTML or preserve existing HTML
     const processContent = (content: string) => {
+      // Special case for HTML with Cal.com embed code
+      if (content.includes('<!-- Cal inline embed code begins -->')) {
+        console.log("Cal.com embed with HTML comment detected, preserving as is");
+        return content;
+      }
+      
       // Special case for Cal.com calendar code which doesn't have HTML tags but should be handled as code
       if (content.includes('Cal(') && content.includes('function')) {
-        // For Cal.com integration, create an empty div that will be filled by executeScripts
-        console.log("Cal.com integration detected, special handling applied");
-        return '<div id="my-cal-inline" style="width:100%;height:600px;overflow:scroll;"></div>';
+        // For Cal.com integration, use the complete code directly
+        console.log("Cal.com integration detected, using complete HTML");
+        return `
+          <div style="width:100%;height:600px;overflow:scroll" id="my-cal-inline"></div>
+          <script type="text/javascript">
+            (function (C, A, L) { let p = function (a, ar) { a.q.push(ar); }; let d = C.document; C.Cal = C.Cal || function () { let cal = C.Cal; let ar = arguments; if (!cal.loaded) { cal.ns = {}; cal.q = cal.q || []; d.head.appendChild(d.createElement("script")).src = A; cal.loaded = true; } if (ar[0] === L) { const api = function () { p(api, arguments); }; const namespace = ar[1]; api.q = api.q || []; if(typeof namespace === "string"){cal.ns[namespace] = cal.ns[namespace] || api;p(cal.ns[namespace], ar);p(cal, ["initNamespace", namespace]);} else p(cal, ar); return;} p(cal, ar); }; })(window, "https://app.cal.com/embed/embed.js", "init");
+            Cal("init", "30min", {origin:"https://cal.com"});
+
+            Cal.ns["30min"]("inline", {
+              elementOrSelector:"#my-cal-inline",
+              config: {"layout":"month_view","theme":"dark"},
+              calLink: "dimpulse/30min",
+            });
+
+            Cal.ns["30min"]("ui", {"theme":"dark","hideEventTypeDetails":false,"layout":"month_view"});
+          </script>
+        `;
       }
     
       // Check if the content contains HTML with iframes or scripts
@@ -160,7 +153,13 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
 
   // Execute scripts when the content changes or after rendering
   useEffect(() => {
-    executeScripts();
+    // Add a timeout to ensure DOM has fully updated before executing scripts
+    const timer = setTimeout(() => {
+      console.log("Executing scripts with delay");
+      executeScripts();
+    }, 500);
+    
+    return () => clearTimeout(timer);
   }, [formattedText]);
 
   return (
