@@ -15,6 +15,34 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
     
     // Find all script tags in the container
     const scripts = containerRef.current.querySelectorAll('script');
+    
+    // If there are no script tags but there's JavaScript code directly in the content
+    if (scripts.length === 0 && content.includes('Cal(') && content.includes('function')) {
+      try {
+        // Create a wrapper for the calendar
+        const calContainer = document.createElement('div');
+        calContainer.id = 'my-cal-inline';
+        calContainer.style.width = '100%';
+        calContainer.style.height = '600px';
+        calContainer.style.overflow = 'scroll';
+        
+        // First clear existing content and append the container
+        if (containerRef.current.childNodes.length === 0) {
+          containerRef.current.appendChild(calContainer);
+          
+          // Create and execute the script
+          const scriptElement = document.createElement('script');
+          scriptElement.type = 'text/javascript';
+          scriptElement.textContent = content;
+          document.head.appendChild(scriptElement);
+        }
+        return;
+      } catch (error) {
+        console.error("Error executing Cal.com script:", error);
+      }
+    }
+    
+    // Handle standard script tags
     scripts.forEach(oldScript => {
       // Create a new script element
       const newScript = document.createElement('script');
@@ -35,6 +63,13 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
   useEffect(() => {
     // Function to convert markdown to HTML or preserve existing HTML
     const processContent = (content: string) => {
+      // Special case for Cal.com calendar code which doesn't have HTML tags but should be handled as code
+      if (content.includes('Cal(') && content.includes('function')) {
+        // For Cal.com integration, create an empty div that will be filled by executeScripts
+        console.log("Cal.com integration detected, special handling applied");
+        return '<div id="my-cal-inline" style="width:100%;height:600px;overflow:scroll;"></div>';
+      }
+    
       // Check if the content contains HTML with iframes or scripts
       const containsComplexHTML = /<\/?(?:iframe|script|div)[\s\S]*?>/i.test(content);
       

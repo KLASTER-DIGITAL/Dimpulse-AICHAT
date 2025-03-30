@@ -11,12 +11,20 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
   const isUser = message.role === "user";
   const isTyping = message.typing === true || message.content === "typing";
   
-  // Check if the message content contains HTML/iframe
+  // Check if the message content contains HTML/iframe or special script content
   const containsHtml = useMemo(() => {
     if (!message.content) return false;
+    
+    // Check for Cal.com JavaScript code
+    if (message.content.includes('Cal(') && message.content.includes('function')) {
+      return true;
+    }
+    
+    // Check for regular HTML tags
     return /<\/?[a-z][\s\S]*>/i.test(message.content) && 
            (/<iframe[\s\S]*?<\/iframe>/i.test(message.content) || 
             /<div[\s\S]*?<\/div>/i.test(message.content) ||
+            /<script[\s\S]*?<\/script>/i.test(message.content) ||
             /<embed[\s\S]*?>/i.test(message.content));
   }, [message.content]);
   
