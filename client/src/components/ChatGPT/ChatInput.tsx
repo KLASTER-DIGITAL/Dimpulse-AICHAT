@@ -16,6 +16,7 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
   const [message, setMessage] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
+  const [initialized, setInitialized] = useState(false); // Флаг первой инициализации
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -30,16 +31,24 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
   
   // Автоматически фокусируем поле ввода при загрузке компонента
   useEffect(() => {
-    // Используем небольшую задержку для фокусировки, чтобы компонент успел отрендериться
-    const timer = setTimeout(() => {
-      if (textareaRef.current) {
-        textareaRef.current.focus();
-        setIsFocused(true);
-      }
-    }, 200);
-    
-    return () => clearTimeout(timer);
-  }, []);
+    // Сначала устанавливаем флаг инициализации
+    if (!initialized) {
+      setInitialized(true);
+
+      // Используем несколько попыток фокусировки с разными задержками
+      const attempts = [100, 300, 500, 800];
+      
+      attempts.forEach(delay => {
+        setTimeout(() => {
+          if (textareaRef.current) {
+            console.log(`Attempting to focus textarea (delay: ${delay}ms)`);
+            textareaRef.current.focus();
+            setIsFocused(true);
+          }
+        }, delay);
+      });
+    }
+  }, [initialized]);
   
   useEffect(() => {
     autoResize();
@@ -422,7 +431,14 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
             {/* Поле ввода */}
             <div className="relative flex-1">
               <textarea 
-                ref={textareaRef}
+                ref={(el) => {
+                  textareaRef.current = el; 
+                  // Мгновенная фокусировка при монтировании элемента
+                  if (el && !isFocused) {
+                    el.focus();
+                    setIsFocused(true);
+                  }
+                }}
                 id="message-input" 
                 rows={1} 
                 className={`chat-input flex-1 w-full bg-transparent text-white border-none px-3 py-3 focus:outline-none resize-none ${isFocused ? 'active-input' : ''}`}
