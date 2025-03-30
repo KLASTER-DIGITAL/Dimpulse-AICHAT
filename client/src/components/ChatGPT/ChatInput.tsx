@@ -15,6 +15,7 @@ interface ChatInputProps {
 const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: ChatInputProps) => {
   const [message, setMessage] = useState("");
   const [isRecording, setIsRecording] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -26,6 +27,17 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
       textarea.style.height = textarea.scrollHeight + "px";
     }
   };
+  
+  // Автоматически фокусируем поле ввода при загрузке компонента
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+      // Добавляем небольшую задержку для имитации начала ввода текста
+      setTimeout(() => {
+        setIsFocused(true);
+      }, 500);
+    }
+  }, []);
   
   useEffect(() => {
     autoResize();
@@ -384,7 +396,7 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
         )}
         
         <form id="chat-form" className="relative bg-black" onSubmit={handleSubmit}>
-          <div className="chat-input-container rounded-full border border-gray-600 bg-[#101010] flex items-center pr-2">
+          <div className={`chat-input-container rounded-full border ${isFocused ? 'border-green-500 border-opacity-50 shadow-sm shadow-green-500/20' : 'border-gray-600'} bg-[#101010] flex items-center pr-2 transition-all duration-300`}>
             {/* Кнопка прикрепления файла */}
             <button
               type="button"
@@ -406,18 +418,25 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
             </button>
             
             {/* Поле ввода */}
-            <textarea 
-              ref={textareaRef}
-              id="message-input" 
-              rows={1} 
-              className="chat-input flex-1 bg-transparent text-white border-none px-3 py-3 focus:outline-none resize-none"
-              placeholder="Чем еще могу помочь?"
-              style={{ maxHeight: "200px", minHeight: "24px" }}
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyDown={handleKeyDown}
-              disabled={isLoading || isRecording}
-            />
+            <div className="relative flex-1">
+              <textarea 
+                ref={textareaRef}
+                id="message-input" 
+                rows={1} 
+                className={`chat-input flex-1 w-full bg-transparent text-white border-none px-3 py-3 focus:outline-none resize-none ${isFocused ? 'active-input' : ''}`}
+                placeholder="Чем еще могу помочь?"
+                style={{ maxHeight: "200px", minHeight: "24px" }}
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => setIsFocused(false)}
+                onKeyDown={handleKeyDown}
+                disabled={isLoading || isRecording}
+              />
+              {isFocused && message.length === 0 && (
+                <div className="text-cursor absolute left-[14px] top-[14px] h-4 w-0.5 bg-gray-400 animate-pulse" />
+              )}
+            </div>
             
             {/* Кнопка отправки голосового сообщения */}
             <button 

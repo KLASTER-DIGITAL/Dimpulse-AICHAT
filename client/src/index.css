@@ -205,6 +205,22 @@
   color: white !important;
 }
 
+/* Анимация курсора ввода */
+@keyframes blink {
+  0% { opacity: 1; }
+  50% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+.text-cursor {
+  animation: blink 1s infinite;
+}
+
+.active-input {
+  caret-color: #19c37d;
+  border-color: rgba(25, 195, 125, 0.3) !important;
+}
+
 /* Ensure scripts execute properly */
 .markdown-content script {
   display: block;
