@@ -191,13 +191,13 @@ const Cabinet = () => {
   // Состояние для пагинации диалогов
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10; // Размер страницы для пагинации
-  
+
   // Интерфейс для выбранного чата и его сообщений
   interface SelectedChat {
     chat: Chat | null;
     messages: Message[];
   }
-  
+
   // Состояние для просмотра диалога в боковой панели
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [showChatSidebar, setShowChatSidebar] = useState(false);
@@ -233,7 +233,7 @@ const Cabinet = () => {
   const [widgetPulsation, setWidgetPulsation] = useState<boolean>(true);
   const [widgetIcon, setWidgetIcon] = useState<string>("");
   const [showWidgetPreview, setShowWidgetPreview] = useState(false);
-  
+
   // Состояние проверки соединения с Supabase
   const [isCheckingConnection, setIsCheckingConnection] = useState<boolean>(false);
   const [supabaseConnectionStatus, setSupabaseConnectionStatus] = useState<{success: boolean; message: string} | null>(null);
@@ -329,12 +329,12 @@ const Cabinet = () => {
   const [autoMigrate, setAutoMigrate] = useState<boolean>(
     settings?.database?.supabase?.autoMigrate || defaultSettings.database.supabase.autoMigrate
   );
-  
+
   // Функция для проверки соединения с Supabase
   const checkSupabaseConnection = async () => {
     setIsCheckingConnection(true);
     setSupabaseConnectionStatus(null);
-    
+
     try {
       const result = await apiRequest("/api/test-supabase-connection");
       setSupabaseConnectionStatus({
@@ -573,7 +573,7 @@ const Cabinet = () => {
       console.error("Ошибка при сохранении настроек интерфейса:", error);
     },
   });
-  
+
   // Мутация для сохранения настроек базы данных
   const saveDatabaseMutation = useMutation({
     mutationFn: async (database: Settings['database']) => {
@@ -619,7 +619,7 @@ const Cabinet = () => {
 
     saveUiMutation.mutate(ui);
   };
-  
+
   // Обработчик сохранения настроек базы данных
   const handleSaveDatabase = () => {
     const database = {
@@ -754,7 +754,7 @@ const Cabinet = () => {
                   />
                   <Label htmlFor="webhook-enabled">Включить вебхук</Label>
                 </div>
-                
+
                 {webhookEnabled && (
                   <div className="space-y-2">
                     <Label htmlFor="webhook-url">URL вебхука</Label>
@@ -956,7 +956,7 @@ const Cabinet = () => {
                             </div>
                           </RadioGroup>
                         </div>
-                        
+
                         <div className="space-y-2">
                           <Label>Цвет кнопки</Label>
                           <div className="flex items-center space-x-2">
@@ -975,7 +975,7 @@ const Cabinet = () => {
                             />
                           </div>
                         </div>
-                        
+
                         <div className="flex items-center space-x-2">
                           <Switch
                             id="widget-pulsation"
@@ -984,7 +984,7 @@ const Cabinet = () => {
                           />
                           <Label htmlFor="widget-pulsation">Анимация пульсации кнопки</Label>
                         </div>
-                        
+
                         <div className="space-y-2 mt-4">
                           <Label>Пользовательская иконка</Label>
                           <div className="flex items-center space-x-2">
@@ -1021,7 +1021,7 @@ const Cabinet = () => {
                               if (widgetButton) widgetButton.remove();
                               if (widgetContainer) widgetContainer.remove();
                             };
-                            
+
                             if (!checked) {
                               cleanup();
                               if (widgetButton) widgetButton.remove();
@@ -1058,19 +1058,19 @@ const Cabinet = () => {
                           onClick={() => {
                             const newPreviewState = !showWidgetPreview;
                             setShowWidgetPreview(newPreviewState);
-                            
-                            if (!newPreviewState) {
-                              // Cleanup when hiding
-                              const existingScript = document.getElementById('widget-preview-script');
-                              if (existingScript) {
-                                document.head.removeChild(existingScript);
-                              }
-                              const widgetButton = document.querySelector('.chat-widget-button');
-                              const widgetContainer = document.querySelector('.chat-widget-container');
-                              if (widgetButton) widgetButton.remove();
-                              if (widgetContainer) widgetContainer.remove();
-                            } else {
-                              // Create preview when showing
+
+                            // Remove existing preview elements
+                            const existingScript = document.getElementById('widget-preview-script');
+                            if (existingScript) {
+                              document.head.removeChild(existingScript);
+                            }
+                            const widgetButton = document.querySelector('.chat-widget-button');
+                            const widgetContainer = document.querySelector('.chat-widget-container');
+                            if (widgetButton) widgetButton.remove();
+                            if (widgetContainer) widgetContainer.remove();
+
+                            // Only create new preview if showing
+                            if (newPreviewState) {
                               createWidgetPreview();
                             }
                           }}
@@ -1487,7 +1487,7 @@ const Cabinet = () => {
                             <li>SUPABASE_URL - URL проекта Supabase</li>
                             <li>SUPABASE_KEY - ключ API проекта Supabase</li>
                           </ul>
-                          
+
                           <div className="mt-4">
                             <Button
                               variant="secondary"
@@ -1497,7 +1497,7 @@ const Cabinet = () => {
                             >
                               {isCheckingConnection ? "Проверка..." : "Проверить подключение"}
                             </Button>
-                            
+
                             {supabaseConnectionStatus && (
                               <div className={`mt-2 p-2 rounded-md ${supabaseConnectionStatus.success ? 'bg-green-900' : 'bg-red-900'}`}>
                                 <p className="text-sm">{supabaseConnectionStatus.message}</p>
@@ -1762,7 +1762,7 @@ const Cabinet = () => {
                 Просмотр истории сообщений выбранного диалога
               </SheetDescription>
             </SheetHeader>
-            
+
             <div className="mt-4 py-2 space-y-4 overflow-y-auto max-h-[80vh]">
               {!selectedChat ? (
                 <div className="flex justify-center items-center h-40">
@@ -1788,7 +1788,7 @@ const Cabinet = () => {
                 ))
               )}
             </div>
-            
+
             <SheetFooter className="mt-auto pt-4 border-t border-gray-800">
               <Button variant="outline" onClick={() => setShowChatSidebar(false)}>
                 Закрыть
