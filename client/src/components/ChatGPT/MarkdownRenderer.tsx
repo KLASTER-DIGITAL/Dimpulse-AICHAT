@@ -11,6 +11,16 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
   useEffect(() => {
     // Function to convert markdown to HTML
     const convertMarkdownToHtml = (markdown: string) => {
+      // First check if the content already contains HTML with iframes or other embed code
+      const containsHTML = /<\/?[a-z][\s\S]*>/i.test(markdown);
+      const containsIframe = /<iframe[\s\S]*?<\/iframe>/i.test(markdown);
+      
+      // If content already contains HTML/iframe elements, preserve it as is
+      if (containsHTML && containsIframe) {
+        console.log("Content contains HTML with iframes, preserving as is");
+        return markdown;
+      }
+      
       let html = markdown;
 
       // Headers
@@ -46,13 +56,13 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
 
       // Paragraphs
       html = html.replace(/^\s*(\n)?(.+)/gim, function(m) {
-        if (m.match(/^<\/?(ul|ol|li|h|p|bl|code)/)) return m;
+        if (m.match(/^<\/?(ul|ol|li|h|p|bl|code|iframe)/)) return m;
         return '<p>' + m + '</p>';
       });
 
       // Remove extra paragraphs around list items and headers
-      html = html.replace(/<p><(ul|ol|li|h1|h2|h3|pre)/gim, '<$1');
-      html = html.replace(/<\/(ul|ol|li|h1|h2|h3|pre)><\/p>/gim, '</$1>');
+      html = html.replace(/<p><(ul|ol|li|h1|h2|h3|pre|iframe)/gim, '<$1');
+      html = html.replace(/<\/(ul|ol|li|h1|h2|h3|pre|iframe)><\/p>/gim, '</$1>');
 
       // Fix newlines
       html = html.replace(/\n$/gim, '<br/>');
@@ -65,7 +75,7 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
 
   return (
     <div 
-      className="text-base whitespace-pre-wrap"
+      className="text-base whitespace-pre-wrap markdown-content"
       dangerouslySetInnerHTML={{ __html: formattedText }}
     />
   );

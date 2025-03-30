@@ -1,3 +1,4 @@
+import React, { useMemo } from "react";
 import { Message } from "@shared/schema";
 import MarkdownRenderer from "./MarkdownRenderer";
 import TypingAnimation from "./TypingAnimation";
@@ -10,6 +11,15 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
   const isUser = message.role === "user";
   const isTyping = message.typing === true || message.content === "typing";
   
+  // Check if the message content contains HTML/iframe
+  const containsHtml = useMemo(() => {
+    if (!message.content) return false;
+    return /<\/?[a-z][\s\S]*>/i.test(message.content) && 
+           (/<iframe[\s\S]*?<\/iframe>/i.test(message.content) || 
+            /<div[\s\S]*?<\/div>/i.test(message.content) ||
+            /<embed[\s\S]*?>/i.test(message.content));
+  }, [message.content]);
+  
   return (
     <div className={`message ${isUser ? "user-message" : "assistant-message"} chat-message mb-6`}>
       {isUser ? (
@@ -19,14 +29,14 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
           </div>
         </div>
       ) : (
-        <div className="flex items-start">
-          <div className="assistant-message flex-1 text-white p-3 rounded-lg">
+        <div className="flex items-start w-full">
+          <div className={`assistant-message flex-1 text-white p-3 rounded-lg ${containsHtml ? 'w-full' : ''}`}>
             {isTyping ? (
               <div className="flex items-center">
                 <TypingAnimation />
               </div>
             ) : (
-              <div className="markdown">
+              <div className={`markdown ${containsHtml ? 'w-full max-w-full' : ''}`}>
                 <MarkdownRenderer content={message.content} />
               </div>
             )}
