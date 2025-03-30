@@ -30,9 +30,15 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
   
   // Автоматически фокусируем поле ввода при загрузке компонента
   useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.focus();
-    }
+    // Используем небольшую задержку для фокусировки, чтобы компонент успел отрендериться
+    const timer = setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        setIsFocused(true);
+      }
+    }, 200);
+    
+    return () => clearTimeout(timer);
   }, []);
   
   useEffect(() => {
@@ -428,7 +434,6 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
                 onBlur={() => setIsFocused(false)}
                 onKeyDown={handleKeyDown}
                 disabled={isLoading || isRecording}
-                autoFocus
               />
               {isFocused && message.length === 0 && (
                 <div className="text-cursor absolute left-[14px] top-[14px] h-4 w-0.5 bg-gray-400 animate-pulse" />

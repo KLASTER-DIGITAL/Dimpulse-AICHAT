@@ -473,7 +473,14 @@ const Home = () => {
                       placeholder="Опишите вашу задачу..."
                       className="flex-1 bg-transparent text-white border-none px-4 py-3 focus:outline-none rounded-full"
                       disabled={sendMessageMutation.isPending}
-                      autoFocus
+                      ref={(input) => {
+                        // Автофокусировка с таймаутом для надежности
+                        if (input) {
+                          setTimeout(() => {
+                            input.focus();
+                          }, 200);
+                        }
+                      }}
                     />
 
                     {/* Кнопка голосового ввода */}
