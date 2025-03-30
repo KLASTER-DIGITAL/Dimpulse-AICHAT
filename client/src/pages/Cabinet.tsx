@@ -1059,15 +1059,17 @@ const Cabinet = () => {
                             checked={showWidgetPreview}
                             onCheckedChange={(checked) => {
                               setShowWidgetPreview(checked);
+                              // Always clean up existing elements
                               const existingScript = document.getElementById('widget-preview-script');
                               if (existingScript) {
-                                document.head.removeChild(existingScript);
+                                existingScript.remove();
                               }
                               const widgetButton = document.querySelector('.chat-widget-button');
                               const widgetContainer = document.querySelector('.chat-widget-container');
                               if (widgetButton) widgetButton.remove();
                               if (widgetContainer) widgetContainer.remove();
 
+                              // Only create new preview if showing
                               if (checked) {
                                 createWidgetPreview();
                               }
