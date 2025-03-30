@@ -728,11 +728,13 @@ const Cabinet = () => {
             variant="outline" 
             onClick={() => {
               localStorage.removeItem("isAuthenticated");
+              localStorage.removeItem("authToken");
+              localStorage.removeItem("user");
               toast({
                 title: "Выход из системы",
                 description: "Вы успешно вышли из системы",
               });
-              navigate("/");
+              navigate("/login");
             }}
           >
             Выйти
