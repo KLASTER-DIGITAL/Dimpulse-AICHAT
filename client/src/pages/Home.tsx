@@ -545,9 +545,11 @@ const Home = () => {
         )}
 
         {/* Chat Input - всегда отображается в абсолютном позиционировании внизу экрана для чата */}
-        {chatData && chatData.messages && chatData.messages.length > 0 && (
-          <div className="absolute bottom-0 left-0 right-0 mb-4">
-            <div className="max-w-3xl mx-auto px-4">
+        <div className="absolute bottom-0 left-0 right-0 mb-4">
+          <div className="max-w-3xl mx-auto px-4">
+            {/* Компонент ChatInput теперь всегда существует (но может быть скрыт), 
+                что предотвращает его полное размонтирование при обновлении сообщений */}
+            <div className={chatData && chatData.messages && chatData.messages.length > 0 ? 'block' : 'hidden'}>
               <ChatInput 
                 onSendMessage={handleSendMessage}
                 onVoiceInput={handleVoiceInput}
@@ -556,7 +558,7 @@ const Home = () => {
               />
             </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

@@ -29,26 +29,32 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
     }
   };
   
-  // Автоматически фокусируем поле ввода при загрузке компонента
+  // Автоматически фокусируем поле ввода при загрузке компонента и при обновлениях
   useEffect(() => {
-    // Сначала устанавливаем флаг инициализации
-    if (!initialized) {
-      setInitialized(true);
-
-      // Используем несколько попыток фокусировки с разными задержками
-      const attempts = [100, 300, 500, 800];
-      
-      attempts.forEach(delay => {
-        setTimeout(() => {
-          if (textareaRef.current) {
-            console.log(`Attempting to focus textarea (delay: ${delay}ms)`);
-            textareaRef.current.focus();
-            setIsFocused(true);
-          }
-        }, delay);
-      });
-    }
-  }, [initialized]);
+    const focusInput = () => {
+      if (textareaRef.current) {
+        console.log("Focusing textarea element");
+        textareaRef.current.focus();
+        setIsFocused(true);
+      }
+    };
+    
+    // Фокусируем несколько раз с разными задержками для надежности
+    focusInput(); // Мгновенный фокус
+    
+    // Подготавливаем несколько таймеров с разными задержками
+    const timers = [
+      setTimeout(focusInput, 50),
+      setTimeout(focusInput, 200),
+      setTimeout(focusInput, 500),
+      setTimeout(focusInput, 1000)
+    ];
+    
+    // Очистка таймеров
+    return () => {
+      timers.forEach(timerId => clearTimeout(timerId));
+    };
+  }, []);
   
   useEffect(() => {
     autoResize();
@@ -431,14 +437,9 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
             {/* Поле ввода */}
             <div className="relative flex-1">
               <textarea 
-                ref={(el) => {
-                  textareaRef.current = el; 
-                  // Мгновенная фокусировка при монтировании элемента
-                  if (el && !isFocused) {
-                    el.focus();
-                    setIsFocused(true);
-                  }
-                }}
+                ref={textareaRef}
+                // Используем useEffect для фокусировки вместо инлайн-колбэка
+                autoFocus={true}
                 id="message-input" 
                 rows={1} 
                 className={`chat-input flex-1 w-full bg-transparent text-white border-none px-3 py-3 focus:outline-none resize-none ${isFocused ? 'active-input' : ''}`}
