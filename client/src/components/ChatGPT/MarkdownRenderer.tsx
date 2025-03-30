@@ -1,27 +1,51 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 interface MarkdownRendererProps {
   content: string;
 }
 
-// This is a simple markdown renderer without external dependencies
+// This is a markdown renderer with support for embedded HTML and scripts
 const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
   const [formattedText, setFormattedText] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Function to safely execute scripts in the content
+  const executeScripts = () => {
+    if (!containerRef.current) return;
+    
+    // Find all script tags in the container
+    const scripts = containerRef.current.querySelectorAll('script');
+    scripts.forEach(oldScript => {
+      // Create a new script element
+      const newScript = document.createElement('script');
+      
+      // Copy all attributes from the old script to the new one
+      Array.from(oldScript.attributes).forEach(attr => {
+        newScript.setAttribute(attr.name, attr.value);
+      });
+      
+      // Copy the content of the script
+      newScript.textContent = oldScript.textContent;
+      
+      // Replace the old script with the new one to execute it
+      oldScript.parentNode?.replaceChild(newScript, oldScript);
+    });
+  };
 
   useEffect(() => {
-    // Function to convert markdown to HTML
-    const convertMarkdownToHtml = (markdown: string) => {
-      // First check if the content already contains HTML with iframes or other embed code
-      const containsHTML = /<\/?[a-z][\s\S]*>/i.test(markdown);
-      const containsIframe = /<iframe[\s\S]*?<\/iframe>/i.test(markdown);
+    // Function to convert markdown to HTML or preserve existing HTML
+    const processContent = (content: string) => {
+      // Check if the content contains HTML with iframes or scripts
+      const containsComplexHTML = /<\/?(?:iframe|script|div)[\s\S]*?>/i.test(content);
       
-      // If content already contains HTML/iframe elements, preserve it as is
-      if (containsHTML && containsIframe) {
-        console.log("Content contains HTML with iframes, preserving as is");
-        return markdown;
+      // If content already contains complex HTML elements, preserve it entirely
+      if (containsComplexHTML) {
+        console.log("Content contains complex HTML, preserving as is");
+        return content;
       }
       
-      let html = markdown;
+      // Otherwise process as markdown
+      let html = content;
 
       // Headers
       html = html.replace(/^### (.*$)/gim, '<h3 class="text-lg font-medium mt-4 mb-2">$1</h3>');
@@ -56,13 +80,13 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
 
       // Paragraphs
       html = html.replace(/^\s*(\n)?(.+)/gim, function(m) {
-        if (m.match(/^<\/?(ul|ol|li|h|p|bl|code|iframe)/)) return m;
+        if (m.match(/^<\/?(ul|ol|li|h|p|bl|code|iframe|script|div)/)) return m;
         return '<p>' + m + '</p>';
       });
 
-      // Remove extra paragraphs around list items and headers
-      html = html.replace(/<p><(ul|ol|li|h1|h2|h3|pre|iframe)/gim, '<$1');
-      html = html.replace(/<\/(ul|ol|li|h1|h2|h3|pre|iframe)><\/p>/gim, '</$1>');
+      // Remove extra paragraphs around HTML elements
+      html = html.replace(/<p><(ul|ol|li|h1|h2|h3|pre|iframe|script|div)/gim, '<$1');
+      html = html.replace(/<\/(ul|ol|li|h1|h2|h3|pre|iframe|script|div)><\/p>/gim, '</$1>');
 
       // Fix newlines
       html = html.replace(/\n$/gim, '<br/>');
@@ -70,11 +94,17 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
       return html;
     };
 
-    setFormattedText(convertMarkdownToHtml(content));
+    setFormattedText(processContent(content));
   }, [content]);
+
+  // Execute scripts when the content changes or after rendering
+  useEffect(() => {
+    executeScripts();
+  }, [formattedText]);
 
   return (
     <div 
+      ref={containerRef}
       className="text-base whitespace-pre-wrap markdown-content"
       dangerouslySetInnerHTML={{ __html: formattedText }}
     />
