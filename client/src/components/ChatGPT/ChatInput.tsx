@@ -32,10 +32,6 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.focus();
-      // Добавляем небольшую задержку для имитации начала ввода текста
-      setTimeout(() => {
-        setIsFocused(true);
-      }, 500);
     }
   }, []);
   
@@ -396,7 +392,7 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
         )}
         
         <form id="chat-form" className="relative bg-black" onSubmit={handleSubmit}>
-          <div className={`chat-input-container rounded-full border ${isFocused ? 'border-green-500 border-opacity-50 shadow-sm shadow-green-500/20' : 'border-gray-600'} bg-[#101010] flex items-center pr-2 transition-all duration-300`}>
+          <div className={`chat-input-container rounded-full border ${isFocused ? 'border-[#19c37d] border-opacity-20 shadow-sm shadow-[#19c37d]/10' : 'border-gray-600'} bg-[#101010] flex items-center pr-2 transition-all duration-300`}>
             {/* Кнопка прикрепления файла */}
             <button
               type="button"

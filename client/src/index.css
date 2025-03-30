@@ -55,11 +55,11 @@
   animation: blink-cursor 1s infinite;
 }
 
-/* Стили для активного поля ввода */
+/* Стили для активного поля ввода - более тонкая и менее яркая обводка */
 input:focus {
   outline: none;
-  box-shadow: 0 0 0 1px rgba(74, 222, 128, 0.2);
-  border-color: rgba(74, 222, 128, 0.5);
+  box-shadow: 0 0 0 1px rgba(25, 195, 125, 0.05);
+  border-color: rgba(25, 195, 125, 0.2);
   transition: all 0.3s ease;
 }
 
