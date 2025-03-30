@@ -428,6 +428,7 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
                 onBlur={() => setIsFocused(false)}
                 onKeyDown={handleKeyDown}
                 disabled={isLoading || isRecording}
+                autoFocus
               />
               {isFocused && message.length === 0 && (
                 <div className="text-cursor absolute left-[14px] top-[14px] h-4 w-0.5 bg-gray-400 animate-pulse" />
