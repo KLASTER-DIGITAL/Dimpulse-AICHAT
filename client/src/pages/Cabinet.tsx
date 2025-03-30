@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
-import { showSuccessToast, showErrorToast } from "@/components/ui/custom-toast";
+import { useToast } from "@/hooks/use-toast";
 import { useStyleEditorState } from "@/App";
 
 // UI components
