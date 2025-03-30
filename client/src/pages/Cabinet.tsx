@@ -257,7 +257,7 @@ const Cabinet = () => {
     // Создаем и добавляем новый скрипт
     const script = document.createElement('script');
     script.id = 'widget-preview-script';
-    
+
     // Добавляем обработку иконки
     const iconAttribute = widgetIcon ? 
       `s.setAttribute('data-icon', '${widgetIcon}');
@@ -1049,27 +1049,24 @@ const Cabinet = () => {
                           checked={showWidgetPreview}
                           onCheckedChange={(checked) => {
                             setShowWidgetPreview(checked);
-                            const cleanup = () => {
-                              const existingScript = document.getElementById('widget-preview-script');
-                              if (existingScript) {
-                                document.head.removeChild(existingScript);
-                              }
-                              const widgetButton = document.querySelector('.chat-widget-button');
-                              const widgetContainer = document.querySelector('.chat-widget-container');
-                              if (widgetButton) widgetButton.remove();
-                              if (widgetContainer) widgetContainer.remove();
-                            };
-
-                            if (!checked) {
-                              cleanup();
-                              if (widgetButton) widgetButton.remove();
-                              if (widgetContainer) widgetContainer.remove();
-                            } else {
-                              // Показываем превью при включении
+                            if (checked) {
                               createWidgetPreview();
+                            } else {
+                              // Удаляем превью при выключении
+                              const existingPreview = document.getElementById('widget-preview-script');
+                              if (existingPreview) {
+                                existingPreview.remove();
+                              }
+                              const widgetContainer = document.querySelector('.intercom-widget-container');
+                              if (widgetContainer) {
+                                widgetContainer.remove();
+                              }
                             }
                           }}
                         />
+                        <Label htmlFor="show-preview">
+                          {showWidgetPreview ? 'Скрыть превью' : 'Показать превью'}
+                        </Label>
                       </div>
 
                       <Label>Код для вставки</Label>
@@ -1091,32 +1088,6 @@ const Cabinet = () => {
                         >
                           Скопировать код
                         </Button>
-                        <div className="flex items-center space-x-2">
-                          <Switch
-                            id="show-preview"
-                            checked={showWidgetPreview}
-                            onCheckedChange={(checked) => {
-                              setShowWidgetPreview(checked);
-                              // Always clean up existing elements
-                              const existingScript = document.getElementById('widget-preview-script');
-                              if (existingScript) {
-                                existingScript.remove();
-                              }
-                              const widgetButton = document.querySelector('.chat-widget-button');
-                              const widgetContainer = document.querySelector('.chat-widget-container');
-                              if (widgetButton) widgetButton.remove();
-                              if (widgetContainer) widgetContainer.remove();
-
-                              // Only create new preview if showing
-                              if (checked) {
-                                createWidgetPreview();
-                              }
-                            }}
-                          />
-                          <Label htmlFor="show-preview">
-                            {showWidgetPreview ? 'Скрыть превью' : 'Показать превью'}
-                          </Label>
-                        </div>
                       </div>
                     </div>
                   )}
@@ -1743,7 +1714,7 @@ const Cabinet = () => {
                             />
                             <YAxis stroke="#888" />
                             <RechartsTooltip 
-                              contentStyle={{ backgroundColor: '#333', border: 'none' }}
+                              contentStyle={{ backgroundColor: '#333, border: 'none' }}
                               labelFormatter={(value: string) => new Date(value).toLocaleDateString()}
                             />
                             <Line 

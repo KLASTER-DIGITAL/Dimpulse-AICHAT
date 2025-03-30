@@ -276,7 +276,7 @@
   
   // Добавляем пузырек с приветственным сообщением
   const greetingBubble = document.createElement('div');
-  greetingBubble.className = 'intercom-widget-greeting';
+  greetingBubble.className = 'intercom-widget-greeting active';
   greetingBubble.innerHTML = `<p>${greetingText}</p>`;
   
   // Иконка для кнопки чата
