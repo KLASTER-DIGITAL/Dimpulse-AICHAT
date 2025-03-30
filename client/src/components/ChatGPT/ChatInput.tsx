@@ -15,8 +15,7 @@ interface ChatInputProps {
 const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: ChatInputProps) => {
   const [message, setMessage] = useState("");
   const [isRecording, setIsRecording] = useState(false);
-  const [isFocused, setIsFocused] = useState(false);
-  const [initialized, setInitialized] = useState(false); // Флаг первой инициализации
+  const [hasFocus, setHasFocus] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -29,13 +28,12 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
     }
   };
   
-  // Автоматически фокусируем поле ввода при загрузке компонента и при обновлениях
+  // Автоматически фокусируем поле ввода при загрузке компонента
   useEffect(() => {
     const focusInput = () => {
       if (textareaRef.current) {
         console.log("Focusing textarea element");
         textareaRef.current.focus();
-        setIsFocused(true);
       }
     };
     
@@ -413,7 +411,7 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
         )}
         
         <form id="chat-form" className="relative bg-black" onSubmit={handleSubmit}>
-          <div className={`chat-input-container rounded-full border ${isFocused ? 'border-[#19c37d] border-opacity-20 shadow-sm shadow-[#19c37d]/10' : 'border-gray-600'} bg-[#101010] flex items-center pr-2 transition-all duration-300`}>
+          <div className={`chat-input-container rounded-full border ${hasFocus ? 'border-[#19c37d] border-opacity-20 shadow-sm shadow-[#19c37d]/10' : 'border-gray-600'} bg-[#101010] flex items-center pr-2 transition-all duration-300`}>
             {/* Кнопка прикрепления файла */}
             <button
               type="button"
@@ -442,17 +440,17 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
                 autoFocus={true}
                 id="message-input" 
                 rows={1} 
-                className={`chat-input flex-1 w-full bg-transparent text-white border-none px-3 py-3 focus:outline-none resize-none ${isFocused ? 'active-input' : ''}`}
+                className={`chat-input flex-1 w-full bg-transparent text-white border-none px-3 py-3 focus:outline-none resize-none ${hasFocus ? 'active-input' : ''}`}
                 placeholder="Чем еще могу помочь?"
                 style={{ maxHeight: "200px", minHeight: "24px" }}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                onFocus={() => setIsFocused(true)}
-                onBlur={() => setIsFocused(false)}
+                onFocus={() => setHasFocus(true)}
+                onBlur={() => setHasFocus(false)}
                 onKeyDown={handleKeyDown}
                 disabled={isLoading || isRecording}
               />
-              {isFocused && message.length === 0 && (
+              {hasFocus && message.length === 0 && (
                 <div className="text-cursor absolute left-[14px] top-[14px] h-4 w-0.5 bg-gray-400 animate-pulse" />
               )}
             </div>
