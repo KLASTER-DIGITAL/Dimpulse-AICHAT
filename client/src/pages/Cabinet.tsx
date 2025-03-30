@@ -257,6 +257,22 @@ const Cabinet = () => {
     // Создаем и добавляем новый скрипт
     const script = document.createElement('script');
     script.id = 'widget-preview-script';
+    
+    // Добавляем обработку иконки
+    const iconAttribute = widgetIcon ? 
+      `s.setAttribute('data-icon', '${widgetIcon}');
+       // Добавляем стили для иконки в виджете
+       const style = document.createElement('style');
+       style.textContent = \`
+         .chat-widget-button img {
+           width: 24px;
+           height: 24px;
+           object-fit: contain;
+         }
+       \`;
+       document.head.appendChild(style);` 
+      : '';
+
     script.textContent = `
       (function(d, w) {
         var s = d.createElement('script');
@@ -269,7 +285,7 @@ const Cabinet = () => {
         s.setAttribute('data-greeting', '${widgetText}');
         s.setAttribute('data-button-color', '${widgetButtonColor}');
         s.setAttribute('data-pulsation', '${widgetPulsation}');
-        ${widgetIcon ? `s.setAttribute('data-icon', '${widgetIcon}');` : ''}
+        ${iconAttribute}
         d.head.appendChild(s);
       })(document, window);
     `;
