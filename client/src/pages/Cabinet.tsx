@@ -1053,30 +1053,30 @@ const Cabinet = () => {
                         >
                           Скопировать код
                         </Button>
-                        <Button
-                          variant="secondary"
-                          onClick={() => {
-                            const newPreviewState = !showWidgetPreview;
-                            setShowWidgetPreview(newPreviewState);
+                        <div className="flex items-center space-x-2">
+                          <Switch
+                            id="show-preview"
+                            checked={showWidgetPreview}
+                            onCheckedChange={(checked) => {
+                              setShowWidgetPreview(checked);
+                              const existingScript = document.getElementById('widget-preview-script');
+                              if (existingScript) {
+                                document.head.removeChild(existingScript);
+                              }
+                              const widgetButton = document.querySelector('.chat-widget-button');
+                              const widgetContainer = document.querySelector('.chat-widget-container');
+                              if (widgetButton) widgetButton.remove();
+                              if (widgetContainer) widgetContainer.remove();
 
-                            // Remove existing preview elements
-                            const existingScript = document.getElementById('widget-preview-script');
-                            if (existingScript) {
-                              document.head.removeChild(existingScript);
-                            }
-                            const widgetButton = document.querySelector('.chat-widget-button');
-                            const widgetContainer = document.querySelector('.chat-widget-container');
-                            if (widgetButton) widgetButton.remove();
-                            if (widgetContainer) widgetContainer.remove();
-
-                            // Only create new preview if showing
-                            if (newPreviewState) {
-                              createWidgetPreview();
-                            }
-                          }}
-                        >
-                          {showWidgetPreview ? 'Скрыть превью' : 'Показать превью'}
-                        </Button>
+                              if (checked) {
+                                createWidgetPreview();
+                              }
+                            }}
+                          />
+                          <Label htmlFor="show-preview">
+                            {showWidgetPreview ? 'Скрыть превью' : 'Показать превью'}
+                          </Label>
+                        </div>
                       </div>
                     </div>
                   )}
