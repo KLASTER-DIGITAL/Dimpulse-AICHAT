@@ -426,19 +426,7 @@ const Login = () => {
             )}
           </div>
           
-          {/* Кнопка быстрого входа для админа */}
-          <div className="w-full pt-2 border-t border-gray-800">
-            <Button 
-              variant="outline" 
-              size="sm"
-              className="w-full text-xs bg-gray-800 border-gray-700 text-gray-400 hover:text-white"
-              onClick={handleAdminLogin}
-              disabled={isAdminLoginLoading}
-            >
-              {isAdminLoginLoading ? "Вход..." : "Быстрый вход администратора"}
-            </Button>
-            <p className="text-xs text-center mt-2 text-gray-600">Используйте эту кнопку для прямого входа с правами администратора</p>
-          </div>
+          
         </CardFooter>
       </Card>
     </div>
