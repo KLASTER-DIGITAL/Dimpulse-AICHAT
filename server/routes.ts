@@ -424,25 +424,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
             } 
             // Вариант 2: Объект в формате OpenAI API
-            else if (data.choices && data.choices[0]) {
-              if (data.choices[0].message && data.choices[0].message.content) {
-                aiResponse = data.choices[0].message.content;
-              } else if (data.choices[0].text) {
-                aiResponse = data.choices[0].text;
+            else if (typeof data === 'object' && data && 'choices' in data && Array.isArray(data.choices) && data.choices[0]) {
+              const choice: any = data.choices[0];
+              if (choice.message && choice.message.content) {
+                aiResponse = choice.message.content;
+              } else if (choice.text) {
+                aiResponse = choice.text;
               }
             }
             // Вариант 3: Простой объект с ответом
-            else if (data.response) {
-              aiResponse = data.response;
+            else if (typeof data === 'object' && data && 'response' in data) {
+              aiResponse = data.response as string;
             }
             // Вариант 4: Объект с полем text или content
-            else if (data.text) {
-              aiResponse = data.text;
-            } else if (data.content) {
-              aiResponse = data.content;
+            else if (typeof data === 'object' && data && 'text' in data) {
+              aiResponse = data.text as string;
+            } else if (typeof data === 'object' && data && 'content' in data) {
+              aiResponse = data.content as string;
             }
             // Вариант 5: Объект с полем message (если это не сообщение об ошибке webhook)
-            else if (data.message && !data.message.includes("webhook") && !data.message.includes("not registered")) {
+            else if (typeof data === 'object' && data && 'message' in data && 
+                    typeof data.message === 'string' && 
+                    !data.message.includes("webhook") && 
+                    !data.message.includes("not registered")) {
               aiResponse = data.message;
             }
             // Вариант 6: Необработанный текст JSON
@@ -757,12 +761,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Создаем WebSocket сервер с улучшенной обработкой ошибок
   // Оптимизированная конфигурация WebSocketServer для деплоя на Replit
   const wss = new WebSocketServer({ 
-    server: httpServer, 
-    path: '/ws',
-    // Отключаем сложные настройки, которые могут конфликтовать с прокси Replit
+    noServer: true, // Изменяем на noServer для ручной обработки upgrade
     perMessageDeflate: false,
-    // Устанавливаем разумные лимиты для сообщений
     maxPayload: 10 * 1024 * 1024 // 10MB max payload
+  });
+  
+  // Добавляем обработку только для /ws пути и предотвращаем дублирование
+  // Используем Map для отслеживания обработанных сокетов
+  const processedSockets = new Map();
+  
+  httpServer.on('upgrade', (request, socket, head) => {
+    // Генерируем уникальный ID для сокета на основе адреса и порта
+    const socketId = `${socket.remoteAddress}:${socket.remotePort}`;
+    
+    // Проверяем, был ли сокет уже обработан
+    if (processedSockets.has(socketId)) {
+      console.log(`Socket ${socketId} already processed, ignoring duplicate upgrade request`);
+      return;
+    }
+    
+    const pathname = new URL(request.url || '', `http://${request.headers.host}`).pathname;
+    
+    if (pathname === '/ws') {
+      // Отмечаем сокет как обработанный
+      processedSockets.set(socketId, true);
+      
+      // Устанавливаем таймер для очистки отслеживания сокета
+      setTimeout(() => {
+        processedSockets.delete(socketId);
+      }, 5000); // Удаляем через 5 секунд
+      
+      wss.handleUpgrade(request, socket, head, (ws) => {
+        wss.emit('connection', ws, request);
+      });
+    } else {
+      // Для других путей просто игнорируем запрос
+      // НЕ закрываем сокет, так как это может быть другой запрос upgrade
+    }
   });
   
   // Хранилище для клиентов, организованное по чатам

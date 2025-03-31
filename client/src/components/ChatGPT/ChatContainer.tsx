@@ -2,9 +2,10 @@ import { useRef, useEffect } from "react";
 import { Message, ExtendedMessage } from "@shared/schema";
 import ChatMessage from "./ChatMessage";
 import TypingAnimation from "./TypingAnimation";
+import GPTLogo from "./GPTLogo";
 
 interface ChatContainerProps {
-  messages: Message[];
+  messages: ExtendedMessage[];
   isLoading: boolean;
   isEmpty: boolean;
   tempTypingMessage?: ExtendedMessage | null;
@@ -13,7 +14,6 @@ interface ChatContainerProps {
 const ChatContainer = ({ messages, isLoading, isEmpty, tempTypingMessage }: ChatContainerProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const htmlContentRef = useRef<HTMLDivElement>(null);
-
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -31,38 +31,6 @@ const ChatContainer = ({ messages, isLoading, isEmpty, tempTypingMessage }: Chat
     });
   }, [messages, isLoading, isEmpty]);
 
-  useEffect(() => {
-    if (!message.content || !htmlContentRef.current) return;
-
-    if (message.content.includes('<!-- Cal inline embed code begins -->')) {
-      const uniqueId = `cal-${Date.now()}`;
-      const containerDiv = htmlContentRef.current.querySelector('div');
-      if (containerDiv) {
-        containerDiv.id = uniqueId;
-      }
-
-      // Create and inject Cal.com script
-      const script = document.createElement('script');
-      script.src = 'https://app.cal.com/embed/embed.js';
-      script.onload = () => {
-        const initScript = document.createElement('script');
-        initScript.textContent = `
-          (function (C, A, L) { let p = function (a, ar) { a.q.push(ar); }; let d = C.document; C.Cal = C.Cal || function () { let cal = C.Cal; let ar = arguments; if (!cal.loaded) { cal.ns = {}; cal.q = cal.q || []; d.head.appendChild(d.createElement("script")).src = A; cal.loaded = true; } if (ar[0] === L) { const api = function () { p(api, arguments); }; const namespace = ar[1]; api.q = api.q || []; if(typeof namespace === "string"){cal.ns[namespace] = cal.ns[namespace] || api;p(cal.ns[namespace], ar);p(cal, ["initNamespace", namespace]);} else p(cal, ar); return;} p(cal, ar); }; })(window, "https://app.cal.com/embed/embed.js", "init");
-
-          Cal("init", "${uniqueId}", {origin:"https://cal.com"});
-          Cal.ns["${uniqueId}"]("inline", {
-            elementOrSelector:"#${uniqueId}",
-            config: {"layout":"month_view","theme":"dark"},
-            calLink: "dimpulse/30min"
-          });
-          Cal.ns["${uniqueId}"]("ui", {"theme":"dark","hideEventTypeDetails":false,"layout":"month_view"});
-        `;
-        document.body.appendChild(initScript);
-      };
-      document.head.appendChild(script);
-    }
-  }, [messages]);
-
   return (
     <div 
       id="chat-container" 
@@ -76,22 +44,22 @@ const ChatContainer = ({ messages, isLoading, isEmpty, tempTypingMessage }: Chat
       ) : (
         <div id="messages-container" ref={htmlContentRef} className="max-w-3xl mx-auto">
           {messages && messages.length > 0 && messages.map((message, index) => {
-            const hasFiles = message.files && message.files.length > 0;
+            const hasFiles = message.files && Array.isArray(message.files) && message.files.length > 0;
 
             return (
               <div key={`msg-${message.id || index}`} className="mb-4">
-                <ChatMessage message={message as ExtendedMessage} />
+                <ChatMessage message={message} />
 
                 {hasFiles && (
                   <div className="flex flex-wrap gap-2 mt-2 ml-12">
-                    {message.files.map((file, fileIndex) => (
+                    {message.files && message.files.map((file, fileIndex: number) => (
                       <div 
                         key={fileIndex}
                         className="relative w-32 h-32 rounded-xl overflow-hidden border border-gray-600 flex items-center justify-center bg-gray-800"
                       >
                         {file.type?.startsWith('image/') ? (
                           <img 
-                            src={file.content || file.url} 
+                            src={file.content} 
                             alt={file.name} 
                             className="w-full h-full object-cover"
                           />
@@ -174,8 +142,5 @@ const ChatContainer = ({ messages, isLoading, isEmpty, tempTypingMessage }: Chat
     </div>
   );
 };
-
-// Import GPTLogo component for ChatContainer
-import GPTLogo from "./GPTLogo";
 
 export default ChatContainer;
