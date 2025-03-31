@@ -174,7 +174,8 @@ input:focus {
 .markdown-content div[id*="cal-inline"],
 .cal-embed,
 .html-content div[id*="cal-inline"],
-#my-cal-inline {
+#my-cal-inline,
+[id^="cal-container-"] {
   min-height: 600px;
   width: 100%;
   background-color: rgba(255, 255, 255, 0.03);
@@ -192,7 +193,8 @@ input:focus {
 /* Custom styles for Cal.com */
 .cal-embed iframe,
 .html-content iframe,
-#my-cal-inline iframe {
+#my-cal-inline iframe,
+[id^="cal-container-"] iframe {
   width: 100% !important;
   border: none !important;
   min-height: 600px !important;
@@ -209,7 +211,8 @@ input:focus {
 
 /* Make sure Cal.com popups are visible */
 .cal-embed button,
-.html-content button {
+.html-content button,
+[id^="cal-container-"] button {
   color: black !important;
 }
 
@@ -219,7 +222,10 @@ input:focus {
 .cal-embed div,
 .html-content p, 
 .html-content span, 
-.html-content div {
+.html-content div,
+[id^="cal-container-"] p,
+[id^="cal-container-"] span,
+[id^="cal-container-"] div {
   color: white !important;
 }
 

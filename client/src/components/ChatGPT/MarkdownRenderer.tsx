@@ -19,7 +19,68 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
     if (scripts.length === 0) {
       // If no scripts were found but we're expecting one (for Cal), add it manually
       if (content.includes('Cal(') && content.includes('function')) {
-        console.log("No script tags found but Cal detected - script will be injected via HTML");
+        console.log("No script tags found but Cal detected - creating and injecting Cal.com script");
+        
+        // Create Cal.com embed script
+        const calScript = document.createElement('script');
+        calScript.type = 'text/javascript';
+        calScript.src = 'https://app.cal.com/embed/embed.js';
+        document.head.appendChild(calScript);
+        
+        // Create initialization script
+        const initScript = document.createElement('script');
+        initScript.type = 'text/javascript';
+        initScript.textContent = `
+          (function (C, A, L) { 
+            let p = function (a, ar) { a.q.push(ar); }; 
+            let d = C.document; 
+            C.Cal = C.Cal || function () { 
+              let cal = C.Cal; 
+              let ar = arguments; 
+              if (!cal.loaded) { 
+                cal.ns = {}; 
+                cal.q = cal.q || []; 
+                d.head.appendChild(d.createElement("script")).src = A; 
+                cal.loaded = true; 
+              } 
+              if (ar[0] === L) { 
+                const api = function () { p(api, arguments); }; 
+                const namespace = ar[1]; 
+                api.q = api.q || []; 
+                if(typeof namespace === "string"){
+                  cal.ns[namespace] = cal.ns[namespace] || api;
+                  p(cal.ns[namespace], ar);
+                  p(cal, ["initNamespace", namespace]);
+                } else p(cal, ar); 
+                return;
+              } 
+              p(cal, ar); 
+            }; 
+          })(window, "https://app.cal.com/embed/embed.js", "init");
+          
+          Cal("init", "30min", {origin:"https://cal.com"});
+          
+          Cal.ns["30min"]("inline", {
+            elementOrSelector:"#my-cal-inline",
+            config: {"layout":"month_view","theme":"dark"},
+            calLink: "dimpulse/30min",
+          });
+          
+          Cal.ns["30min"]("ui", {"theme":"dark","hideEventTypeDetails":false,"layout":"month_view"});
+        `;
+        
+        // Create the target container if needed
+        if (!document.getElementById('my-cal-inline')) {
+          const calContainer = document.createElement('div');
+          calContainer.id = 'my-cal-inline';
+          calContainer.style.width = '100%';
+          calContainer.style.height = '600px';
+          calContainer.style.overflow = 'auto';
+          containerRef.current.appendChild(calContainer);
+        }
+        
+        // Append initialization script after container is ready
+        document.body.appendChild(initScript);
       }
     } else {
       console.log(`Found ${scripts.length} script tags to execute`);
@@ -42,7 +103,7 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
           if (oldScript.src) {
             console.log(`Processing external script ${index + 1}: ${oldScript.src}`);
           } else {
-            console.log(`Processing inline script ${index +.1}, length: ${oldScript.textContent?.length || 0} chars`);
+            console.log(`Processing inline script ${index + 1}, length: ${oldScript.textContent?.length || 0} chars`);
           }
           
           // Replace the old script with the new one to execute it
