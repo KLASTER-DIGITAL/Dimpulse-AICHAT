@@ -82,12 +82,50 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
     // Special case for Cal.com embed with HTML comments
     if (message.content.includes('<!-- Cal inline embed code begins -->') || 
         (message.content.includes('Cal(') && message.content.includes('function'))) {
+      
       // Generate a unique ID for this Cal.com instance
       const calContainerId = `cal-container-${message.id}`;
       
-      // If it's a Cal.com message, we'll create a special implementation
-      if (message.content.includes('Cal(') && message.content.includes('function') && 
-          !message.content.includes('<!-- Cal inline embed code begins -->')) {
+      // Directly use HTML with comments format, but update container ID to be unique
+      // This preserves the entire Cal.com script exactly as provided
+      if (message.content.includes('<!-- Cal inline embed code begins -->')) {
+        // Replace only the container ID to make it unique
+        const modifiedContent = message.content.replace('id="my-cal-inline"', `id="${calContainerId}"`);
+        
+        // After the browser renders this, we need to ensure the Cal.com script is loaded
+        useEffect(() => {
+          if (htmlContentRef.current) {
+            // Ensure Cal.com embed script is loaded
+            const calScript = document.createElement('script');
+            calScript.src = 'https://app.cal.com/embed/embed.js';
+            document.head.appendChild(calScript);
+            
+            // Find all scripts in the content and execute them
+            const scripts = htmlContentRef.current.querySelectorAll('script');
+            scripts.forEach((oldScript) => {
+              const newScript = document.createElement('script');
+              Array.from(oldScript.attributes).forEach(attr => {
+                newScript.setAttribute(attr.name, attr.value);
+              });
+              newScript.textContent = oldScript.textContent;
+              if (oldScript.parentNode) {
+                oldScript.parentNode.replaceChild(newScript, oldScript);
+              }
+            });
+          }
+        }, [message.id]);
+        
+        return (
+          <div 
+            ref={htmlContentRef}
+            className="html-content w-full" 
+            dangerouslySetInnerHTML={{ __html: modifiedContent }}
+          />
+        );
+      }
+      
+      // If it's a Cal.com message without HTML comments, we'll create a special implementation
+      if (message.content.includes('Cal(') && message.content.includes('function')) {
         // Create custom HTML with unique container ID
         const customHtml = `
           <div style="width:100%;height:600px;overflow:auto" id="${calContainerId}"></div>
@@ -140,12 +178,12 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
         );
       }
       
-      // For HTML comments style embed, use the content as is but with a unique container ID
+      // Fallback for Cal.com content
       return (
         <div 
           ref={htmlContentRef}
           className="html-content w-full" 
-          dangerouslySetInnerHTML={{ __html: message.content.replace('id="my-cal-inline"', `id="${calContainerId}"`) }}
+          dangerouslySetInnerHTML={{ __html: message.content }}
         />
       );
     }
