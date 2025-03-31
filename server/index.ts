@@ -101,23 +101,77 @@ app.use((req, res, next) => {
   
   const server = await registerRoutes(app);
 
-  // WebSocket server setup should be added here.  This requires significant additional code
-  // to handle connections, reconnections, error handling, and message passing.  Example below:
+  const wss = new WebSocketServer({ 
+    server, 
+    clientTracking: true, 
+    path: '/ws',
+    perMessageDeflate: false // Disable compression to reduce overhead
+  });
 
-  // const wss = new WebSocketServer({ server, clientTracking: true, path: '/ws' });
-  // wss.on('connection', ws => {
-  //   ws.on('message', message => {
-  //     // Handle incoming messages
-  //   });
-  //   ws.on('close', () => {
-  //     // Handle connection closure
-  //   });
-  //   ws.on('error', error => {
-  //     console.error('WebSocket error:', error);
-  //     // Implement reconnection logic here
-  //   });
-  //   ws.send('Welcome to WebSocket!'); // Send initial message
-  // });
+  const clients = new Set();
+
+  wss.on('connection', (ws, req) => {
+    clients.add(ws);
+    console.log('WebSocket connected', {
+      headers: {
+        host: req.headers.host,
+        origin: req.headers.origin
+      }
+    });
+
+    // Send welcome message
+    ws.send(JSON.stringify({
+      type: 'connection_established',
+      timestamp: new Date().toISOString()
+    }));
+
+    // Setup ping-pong
+    ws.isAlive = true;
+    ws.on('pong', () => {
+      ws.isAlive = true;
+    });
+
+    ws.on('message', (message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        // Handle messages based on type
+        if (data.type === 'join') {
+          ws.send(JSON.stringify({
+            type: 'joined',
+            chatId: data.chatId,
+            timestamp: new Date().toISOString()
+          }));
+        }
+      } catch (err) {
+        console.error('Failed to process message:', err);
+      }
+    });
+
+    ws.on('close', () => {
+      clients.delete(ws);
+    });
+
+    ws.on('error', (error) => {
+      console.error('WebSocket error:', error);
+      clients.delete(ws);
+    });
+  });
+
+  // Cleanup dead connections
+  const interval = setInterval(() => {
+    wss.clients.forEach((ws) => {
+      if (ws.isAlive === false) {
+        clients.delete(ws);
+        return ws.terminate();
+      }
+      ws.isAlive = false;
+      ws.ping();
+    });
+  }, 30000);
+
+  wss.on('close', () => {
+    clearInterval(interval);
+  });
 
 
 
