@@ -228,6 +228,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const chatId = req.params.chatId;
       const { content, audioData } = req.body;
+      const reqFileData = req.body.fileData;
+      const reqFilesData = req.body.filesData;
       
       if (!content || typeof content !== 'string') {
         return res.status(400).json({ message: "Message content is required" });
@@ -240,7 +242,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         content,
       });
       
-      await storage.createMessage(userMessageData);
+      // Создаем сообщение в хранилище
+      const userMessage = await storage.createMessage(userMessageData);
+      
+      // Если есть прикрепленные файлы, сохраняем информацию об этом
+      // После создания сообщения, мы можем хранить эти файлы связанными с сообщением
+      // В локальном хранилище или в памяти на стороне клиента
+      if (reqFilesData && reqFilesData.length > 0) {
+        // Добавляем файлы к сообщению
+        console.log(`Сообщение содержит ${reqFilesData.length} прикрепленных файлов`);
+        
+        // Здесь можно обновить сообщение с идентификаторами файлов
+        // Или сохранить файлы в отдельном месте
+        // В этой версии реализации мы передаем файлы на клиентской стороне
+      }
       
       // Это значение будет использоваться, только если обнаружена ошибка 404 с сообщением о неактивном webhook
       // В других случаях будем ждать ответа от webhook
@@ -296,37 +311,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Если есть файл, добавляем его как отдельную переменную верхнего уровня (не вложенный объект)
-      const fileData = req.body.fileData;
-      if (fileData) {
+      if (reqFileData) {
         // Добавляем файл как отдельный параметр верхнего уровня для n8n
-        requestBody.file = fileData.content;
-        requestBody.file_name = fileData.name;
-        requestBody.file_type = fileData.type;
+        requestBody.file = reqFileData.content;
+        requestBody.file_name = reqFileData.name;
+        requestBody.file_type = reqFileData.type;
         // Также добавим адрес сообщения с указанием, что к нему прикреплен файл
-        requestBody.message = `${content} [с приложенным файлом: ${fileData.name}]`;
-        console.log(`Including file data in webhook request (${fileData.name}, type: ${fileData.type})`);
+        requestBody.message = `${content} [с приложенным файлом: ${reqFileData.name}]`;
+        console.log(`Including file data in webhook request (${reqFileData.name}, type: ${reqFileData.type})`);
       }
       
       // Если есть массив файлов, обрабатываем его
-      const filesData = req.body.filesData;
-      if (filesData && filesData.length > 0) {
+      if (reqFilesData && reqFilesData.length > 0) {
         // Если файл еще не установлен (из fileData), используем первый файл как основной
-        if (!fileData) {
-          requestBody.file = filesData[0].content;
-          requestBody.file_name = filesData[0].name;
-          requestBody.file_type = filesData[0].type;
+        if (!reqFileData) {
+          requestBody.file = reqFilesData[0].content;
+          requestBody.file_name = reqFilesData[0].name;
+          requestBody.file_type = reqFilesData[0].type;
           // Также добавим адрес сообщения с указанием количества файлов
-          requestBody.message = `${content} [с приложенными файлами (${filesData.length})]`;
+          requestBody.message = `${content} [с приложенными файлами (${reqFilesData.length})]`;
         }
         
         // Также добавляем все файлы как массив для возможной обработки
-        requestBody.files = filesData.map((f: { content: string, name: string, type: string, size?: number }) => ({
+        requestBody.files = reqFilesData.map((f: { content: string, name: string, type: string, size?: number }) => ({
           content: f.content,
           name: f.name,
           type: f.type
         }));
         
-        console.log(`Including multiple files (${filesData.length}) in webhook request`);
+        console.log(`Including multiple files (${reqFilesData.length}) in webhook request`);
       }
       
       console.log("Sending webhook request:", {

@@ -50,6 +50,20 @@ export type User = typeof users.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
 export type Message = typeof messages.$inferSelect;
 
+// Схема для файлов, прикрепленных к сообщениям
+export const fileSchema = z.object({
+  content: z.string(),
+  name: z.string(),
+  type: z.string(),
+  size: z.number()
+});
+
+// Расширенный тип сообщения с файлами и статусом набора
+export interface ExtendedMessage extends Message {
+  typing?: boolean;
+  files?: z.infer<typeof fileSchema>[];
+}
+
 export type InsertChat = z.infer<typeof insertChatSchema>;
 export type Chat = typeof chats.$inferSelect;
 

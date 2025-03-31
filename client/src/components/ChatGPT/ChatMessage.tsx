@@ -1,13 +1,10 @@
 import React, { useMemo, useEffect, useRef } from "react";
-import { Message } from "@shared/schema";
+import { ExtendedMessage } from "@shared/schema";
 import MarkdownRenderer from "./MarkdownRenderer";
 import TypingAnimation from "./TypingAnimation";
 
 interface ChatMessageProps {
-  message: Message & { 
-    typing?: boolean;
-    files?: Array<{ content: string, name: string, type: string, size: number }>;
-  };
+  message: ExtendedMessage;
 }
 
 const ChatMessage = ({ message }: ChatMessageProps) => {

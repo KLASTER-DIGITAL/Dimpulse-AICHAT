@@ -1,18 +1,7 @@
 import { useRef, useEffect } from "react";
-import { Message } from "@shared/schema";
+import { Message, ExtendedMessage } from "@shared/schema";
 import ChatMessage from "./ChatMessage";
 import TypingAnimation from "./TypingAnimation";
-
-// Расширенный тип сообщения с файлами и анимацией набора текста
-interface ExtendedMessage extends Message {
-  typing?: boolean;
-  files?: Array<{ 
-    content: string;
-    name: string; 
-    type: string;
-    size: number;
-  }>;
-}
 
 interface ChatContainerProps {
   messages: Message[];
