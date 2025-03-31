@@ -12,6 +12,8 @@ interface ChatContainerProps {
 
 const ChatContainer = ({ messages, isLoading, isEmpty, tempTypingMessage }: ChatContainerProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const htmlContentRef = useRef<HTMLDivElement>(null);
+
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -19,7 +21,7 @@ const ChatContainer = ({ messages, isLoading, isEmpty, tempTypingMessage }: Chat
       containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
   }, [messages, tempTypingMessage]);
-  
+
   // Диагностический лог для отслеживания сообщений
   useEffect(() => {
     console.log("ChatContainer: сообщения и состояние", {
@@ -28,6 +30,38 @@ const ChatContainer = ({ messages, isLoading, isEmpty, tempTypingMessage }: Chat
       isEmpty
     });
   }, [messages, isLoading, isEmpty]);
+
+  useEffect(() => {
+    if (!message.content || !htmlContentRef.current) return;
+
+    if (message.content.includes('<!-- Cal inline embed code begins -->')) {
+      const uniqueId = `cal-${Date.now()}`;
+      const containerDiv = htmlContentRef.current.querySelector('div');
+      if (containerDiv) {
+        containerDiv.id = uniqueId;
+      }
+
+      // Create and inject Cal.com script
+      const script = document.createElement('script');
+      script.src = 'https://app.cal.com/embed/embed.js';
+      script.onload = () => {
+        const initScript = document.createElement('script');
+        initScript.textContent = `
+          (function (C, A, L) { let p = function (a, ar) { a.q.push(ar); }; let d = C.document; C.Cal = C.Cal || function () { let cal = C.Cal; let ar = arguments; if (!cal.loaded) { cal.ns = {}; cal.q = cal.q || []; d.head.appendChild(d.createElement("script")).src = A; cal.loaded = true; } if (ar[0] === L) { const api = function () { p(api, arguments); }; const namespace = ar[1]; api.q = api.q || []; if(typeof namespace === "string"){cal.ns[namespace] = cal.ns[namespace] || api;p(cal.ns[namespace], ar);p(cal, ["initNamespace", namespace]);} else p(cal, ar); return;} p(cal, ar); }; })(window, "https://app.cal.com/embed/embed.js", "init");
+
+          Cal("init", "${uniqueId}", {origin:"https://cal.com"});
+          Cal.ns["${uniqueId}"]("inline", {
+            elementOrSelector:"#${uniqueId}",
+            config: {"layout":"month_view","theme":"dark"},
+            calLink: "dimpulse/30min"
+          });
+          Cal.ns["${uniqueId}"]("ui", {"theme":"dark","hideEventTypeDetails":false,"layout":"month_view"});
+        `;
+        document.body.appendChild(initScript);
+      };
+      document.head.appendChild(script);
+    }
+  }, [messages]);
 
   return (
     <div 
@@ -40,14 +74,14 @@ const ChatContainer = ({ messages, isLoading, isEmpty, tempTypingMessage }: Chat
           <h1 className="text-2xl font-semibold text-white mb-24">Чем я могу помочь?</h1>
         </div>
       ) : (
-        <div id="messages-container" className="max-w-3xl mx-auto">
+        <div id="messages-container" ref={htmlContentRef} className="max-w-3xl mx-auto">
           {messages && messages.length > 0 && messages.map((message, index) => {
             const hasFiles = message.files && message.files.length > 0;
-            
+
             return (
               <div key={`msg-${message.id || index}`} className="mb-4">
                 <ChatMessage message={message as ExtendedMessage} />
-                
+
                 {hasFiles && (
                   <div className="flex flex-wrap gap-2 mt-2 ml-12">
                     {message.files.map((file, fileIndex) => (
@@ -79,11 +113,11 @@ const ChatContainer = ({ messages, isLoading, isEmpty, tempTypingMessage }: Chat
               </div>
             );
           })}
-          
+
           {tempTypingMessage && (
             <ChatMessage key="typing" message={tempTypingMessage} />
           )}
-          
+
           {isLoading && !tempTypingMessage && (
             <div className="message ai-message mb-6">
               <div className="flex items-start">
@@ -95,7 +129,7 @@ const ChatContainer = ({ messages, isLoading, isEmpty, tempTypingMessage }: Chat
           )}
         </div>
       )}
-      
+
       {/* Дополнительные действия под сообщениями */}
       {messages.length > 0 && !isLoading && (
         <div className="flex items-center justify-start mt-2 max-w-3xl mx-auto">
