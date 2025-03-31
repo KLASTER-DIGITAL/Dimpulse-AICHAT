@@ -41,12 +41,44 @@ const ChatContainer = ({ messages, isLoading, isEmpty, tempTypingMessage }: Chat
         </div>
       ) : (
         <div id="messages-container" className="max-w-3xl mx-auto">
-          {messages && messages.length > 0 && messages.map((message, index) => (
-            <ChatMessage 
-              key={`msg-${message.id || index}`} 
-              message={message as ExtendedMessage} 
-            />
-          ))}
+          {messages && messages.length > 0 && messages.map((message, index) => {
+            const hasFiles = message.files && message.files.length > 0;
+            
+            return (
+              <div key={`msg-${message.id || index}`} className="mb-4">
+                <ChatMessage message={message as ExtendedMessage} />
+                
+                {hasFiles && (
+                  <div className="flex flex-wrap gap-2 mt-2 ml-12">
+                    {message.files.map((file, fileIndex) => (
+                      <div 
+                        key={fileIndex}
+                        className="relative w-32 h-32 rounded-xl overflow-hidden border border-gray-600 flex items-center justify-center bg-gray-800"
+                      >
+                        {file.type?.startsWith('image/') ? (
+                          <img 
+                            src={file.content || file.url} 
+                            alt={file.name} 
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex flex-col items-center p-2">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                              <polyline points="14 2 14 8 20 8"></polyline>
+                            </svg>
+                            <span className="text-xs text-gray-300 mt-2 text-center line-clamp-2">
+                              {file.name}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
           
           {tempTypingMessage && (
             <ChatMessage key="typing" message={tempTypingMessage} />
