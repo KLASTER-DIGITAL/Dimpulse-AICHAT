@@ -3,11 +3,22 @@ import { Message } from "@shared/schema";
 import ChatMessage from "./ChatMessage";
 import TypingAnimation from "./TypingAnimation";
 
+// Расширенный тип сообщения с файлами и анимацией набора текста
+interface ExtendedMessage extends Message {
+  typing?: boolean;
+  files?: Array<{ 
+    content: string;
+    name: string; 
+    type: string;
+    size: number;
+  }>;
+}
+
 interface ChatContainerProps {
   messages: Message[];
   isLoading: boolean;
   isEmpty: boolean;
-  tempTypingMessage?: (Message & { typing?: boolean }) | null;
+  tempTypingMessage?: ExtendedMessage | null;
 }
 
 const ChatContainer = ({ messages, isLoading, isEmpty, tempTypingMessage }: ChatContainerProps) => {
@@ -42,7 +53,10 @@ const ChatContainer = ({ messages, isLoading, isEmpty, tempTypingMessage }: Chat
       ) : (
         <div id="messages-container" className="max-w-3xl mx-auto">
           {messages && messages.length > 0 && messages.map((message, index) => (
-            <ChatMessage key={`msg-${message.id || index}`} message={message} />
+            <ChatMessage 
+              key={`msg-${message.id || index}`} 
+              message={message as ExtendedMessage} 
+            />
           ))}
           
           {tempTypingMessage && (
