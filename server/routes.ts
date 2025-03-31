@@ -758,173 +758,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   const httpServer = createServer(app);
   
-  // Создаем WebSocket сервер с улучшенной обработкой ошибок
-  // Оптимизированная конфигурация WebSocketServer для деплоя на Replit
-  const wss = new WebSocketServer({ 
-    noServer: true, // Изменяем на noServer для ручной обработки upgrade
-    perMessageDeflate: false,
-    maxPayload: 10 * 1024 * 1024 // 10MB max payload
-  });
+  // Временно отключаем WebSocket для стабильной работы при деплое
+  console.log('WebSocket server disabled for deployment stability');
   
-  // Добавляем обработку только для /ws пути и предотвращаем дублирование
-  // Используем Map для отслеживания обработанных сокетов
-  const processedSockets = new Map();
+  // Заглушка для WebSocket-сервера
+  const wss = {
+    on: (event: string, handler: Function) => {
+      console.log(`WebSocket ${event} handler registered (disabled)`);
+    }
+  };
   
-  httpServer.on('upgrade', (request, socket, head) => {
-    // Генерируем уникальный ID для сокета на основе адреса и порта
-    const socketId = `${socket.remoteAddress}:${socket.remotePort}`;
-    
-    // Проверяем, был ли сокет уже обработан
-    if (processedSockets.has(socketId)) {
-      console.log(`Socket ${socketId} already processed, ignoring duplicate upgrade request`);
-      return;
-    }
-    
-    const pathname = new URL(request.url || '', `http://${request.headers.host}`).pathname;
-    
-    if (pathname === '/ws') {
-      // Отмечаем сокет как обработанный
-      processedSockets.set(socketId, true);
-      
-      // Устанавливаем таймер для очистки отслеживания сокета
-      setTimeout(() => {
-        processedSockets.delete(socketId);
-      }, 5000); // Удаляем через 5 секунд
-      
-      wss.handleUpgrade(request, socket, head, (ws) => {
-        wss.emit('connection', ws, request);
-      });
-    } else {
-      // Для других путей просто игнорируем запрос
-      // НЕ закрываем сокет, так как это может быть другой запрос upgrade
-    }
-  });
+  // Отключаем обработку upgrade событий
+  console.log('WebSocket upgrade handling disabled');
   
   // Хранилище для клиентов, организованное по чатам
   const clients = new Map<string, Set<WebSocket>>();
   
-  // Обработка событий WebSocket с улучшенной поддержкой для Replit
-  wss.on('connection', (ws, req) => {
-    console.log('WebSocket connected', { 
-      headers: { 
-        host: req.headers.host,
-        origin: req.headers.origin 
-      } 
-    });
-    
-    // Добавляем проверку жизни соединения через ping/pong для предотвращения обрыва соединения
-    const pingInterval = setInterval(() => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.ping();
-      } else {
-        clearInterval(pingInterval);
-      }
-    }, 30000); // проверка каждые 30 секунд
-    
-    // Отправляем сразу же статус соединения клиенту
-    try {
-      ws.send(JSON.stringify({ 
-        type: 'connection_established', 
-        timestamp: new Date().toISOString() 
-      }));
-    } catch (err) {
-      console.error('Error sending init message:', err);
-    }
-    
-    let currentChatId: string | null = null;
-    
-    // Обработка сообщений от клиента с более надежной обработкой ошибок
-    ws.on('message', (message) => {
-      try {
-        // Преобразовываем сообщение в строку и проверяем, не пустое ли оно
-        const messageStr = message.toString().trim();
-        if (!messageStr) {
-          console.warn('Received empty WebSocket message');
-          return;
-        }
-        
-        const data = JSON.parse(messageStr);
-        console.log('Received WebSocket message:', data);
-        
-        // Обработка событий подключения к чату
-        if (data.type === 'join' && data.chatId) {
-          // Запоминаем текущий чат для данного соединения
-          currentChatId = data.chatId;
-          
-          // Добавляем клиента в список для этого чата
-          if (!clients.has(data.chatId)) {
-            clients.set(data.chatId, new Set());
-          }
-          clients.get(data.chatId)?.add(ws);
-          
-          // Отправляем подтверждение
-          ws.send(JSON.stringify({ 
-            type: 'joined', 
-            chatId: data.chatId,
-            timestamp: new Date().toISOString()
-          }));
-          console.log(`Client joined chat: ${data.chatId}`);
-        } else if (data.type === 'ping') {
-          // Простой ответ на ping для проверки соединения
-          ws.send(JSON.stringify({ 
-            type: 'pong', 
-            timestamp: new Date().toISOString() 
-          }));
-        }
-        
-        // Обработка других типов сообщений можно добавить здесь
-      } catch (error) {
-        console.error('Error processing WebSocket message:', error);
-        
-        // Отправляем сообщение об ошибке клиенту, чтобы он знал, что что-то пошло не так
-        try {
-          ws.send(JSON.stringify({ 
-            type: 'error', 
-            message: 'Failed to process message',
-            timestamp: new Date().toISOString()
-          }));
-        } catch (sendError) {
-          console.error('Error sending error message:', sendError);
-        }
-      }
-    });
-    
-    // Обработка ошибок WebSocket соединения
-    ws.on('error', (error) => {
-      console.error('WebSocket error:', error);
-      clearInterval(pingInterval);
-    });
-    
-    // Обработка закрытия соединения
-    ws.on('close', (code, reason) => {
-      console.log(`WebSocket closed with code ${code}`, reason.toString());
-      clearInterval(pingInterval);
-      
-      // Удаляем клиента из всех чатов, где он был подписан
-      if (currentChatId && clients.has(currentChatId)) {
-        clients.get(currentChatId)?.delete(ws);
-        
-        // Если чат остался без клиентов, удаляем его из Map
-        if (clients.get(currentChatId)?.size === 0) {
-          clients.delete(currentChatId);
-        }
-      }
-    });
+  // WebSocket обработчик отключен для стабильной работы при деплое
+  wss.on('connection', (ws: any, req: any) => {
+    console.log('WebSocket handler disabled');
   });
   
-  // Функция для отправки события всем клиентам в чате
+  // Функция-заглушка для сохранения API
   const notifyClientsInChat = (chatId: string, data: any) => {
-    const chatClients = clients.get(chatId);
-    if (chatClients) {
-      console.log(`Notifying ${chatClients.size} clients in chat ${chatId}`);
-      
-      chatClients.forEach((client) => {
-        // Проверяем, что соединение открыто
-        if (client.readyState === WebSocket.OPEN) {
-          client.send(JSON.stringify(data));
-        }
-      });
-    }
+    console.log(`WebSocket notification disabled for deployment, would notify chat ${chatId}:`, data);
   };
   
   // Экспортируем функцию для использования в других маршрутах
