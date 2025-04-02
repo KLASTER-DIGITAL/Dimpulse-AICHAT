@@ -96,7 +96,7 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
         // Create completely new content with updated IDs
         const modifiedContent = `
           <!-- Cal inline embed code begins -->
-          <div style="width:100%;height:600px;overflow:auto" id="${calContainerId}"></div>
+          <div style="width:100%;height:600px;overflow:hidden" id="${calContainerId}"></div>
           <script type="text/javascript">
             (function (C, A, L) { 
               let p = function (a, ar) { a.q.push(ar); }; 
@@ -212,7 +212,7 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
       if (message.content.includes('Cal(') && message.content.includes('function')) {
         // Create custom HTML with unique container ID
         const customHtml = `
-          <div style="width:100%;height:600px;overflow:auto" id="${calContainerId}"></div>
+          <div style="width:100%;height:600px;overflow:hidden" id="${calContainerId}"></div>
           <script type="text/javascript">
             (function (C, A, L) { 
               let p = function (a, ar) { a.q.push(ar); }; 
