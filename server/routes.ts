@@ -187,19 +187,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/chats", async (req, res) => {
     try {
       const chatId = randomUUID();
+      
+      // Получаем данные из запроса или используем значения по умолчанию
+      const requestData = req.body || {};
+      
       const chatData = insertChatSchema.parse({
         id: chatId,
-        title: "New Chat",
-        userId: null,
+        title: requestData.title || "New Chat",
+        userId: requestData.userId !== undefined ? requestData.userId : null,
       });
 
+      console.log("Creating new chat with data:", chatData);
+      
       const chat = await storage.createChat(chatData);
+      console.log("Chat created successfully:", chat);
       
       // Больше не создаем автоматическое первое сообщение
       // Вместо этого, приветствие будет показываться на фронтенде
       
       res.status(201).json(chat);
     } catch (error) {
+      console.error("Failed to create chat:", error);
       res.status(400).json({ message: "Failed to create chat" });
     }
   });

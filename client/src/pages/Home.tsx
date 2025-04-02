@@ -47,14 +47,18 @@ const Home = () => {
     mutationFn: async () => {
       return await apiRequest('/api/chats', {
         method: 'POST',
-        data: {}
+        data: {
+          title: "New Chat",
+          userId: null
+        }
       });
     },
     onSuccess: (newChat: Chat) => {
       queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
       setCurrentChatId(newChat.id);
     },
-    onError: () => {
+    onError: (error) => {
+      console.error("Ошибка создания чата:", error);
       toast({
         title: "Ошибка",
         description: "Не удалось создать новый чат",
@@ -209,9 +213,20 @@ const Home = () => {
     if (!currentChatId) {
       // Если нет текущего чата, создаем новый
       try {
+        console.log("Создаем новый чат перед отправкой сообщения:", message);
+        // Создаем чат с заголовком, основанным на сообщении
+        // Используем первые 30 символов сообщения как заголовок чата
+        const chatTitle = message.length > 30 ? message.substring(0, 30) + "..." : message;
+        
         const newChat = await createChatMutation.mutateAsync();
+        
+        if (!newChat || !newChat.id) {
+          throw new Error("Не удалось создать чат: сервер вернул некорректные данные");
+        }
+        
         console.log("Создан новый чат:", newChat);
-        // После создания чата сразу отправляем сообщение
+        
+        // После успешного создания чата отправляем сообщение
         sendMessageMutation.mutate({ 
           chatId: newChat.id, 
           message, 
@@ -229,13 +244,23 @@ const Home = () => {
       }
     } else {
       // Если чат уже существует, просто отправляем сообщение
-      sendMessageMutation.mutate({ 
-        chatId: currentChatId, 
-        message, 
-        audioData, 
-        fileData,
-        filesData
-      });
+      try {
+        console.log("Отправляем сообщение в существующий чат:", currentChatId);
+        sendMessageMutation.mutate({ 
+          chatId: currentChatId, 
+          message, 
+          audioData, 
+          fileData,
+          filesData
+        });
+      } catch (error) {
+        console.error("Ошибка при отправке сообщения:", error);
+        toast({
+          title: "Ошибка",
+          description: "Не удалось отправить сообщение",
+          variant: "destructive",
+        });
+      }
     }
   };
 
