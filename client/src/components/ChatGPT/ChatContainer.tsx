@@ -1,19 +1,17 @@
 import { useRef, useEffect } from "react";
-import { Message, ExtendedMessage } from "@shared/schema";
+import { Message } from "@shared/schema";
 import ChatMessage from "./ChatMessage";
 import TypingAnimation from "./TypingAnimation";
-import GPTLogo from "./GPTLogo";
 
 interface ChatContainerProps {
-  messages: ExtendedMessage[];
+  messages: Message[];
   isLoading: boolean;
   isEmpty: boolean;
-  tempTypingMessage?: ExtendedMessage | null;
+  tempTypingMessage?: (Message & { typing?: boolean }) | null;
 }
 
 const ChatContainer = ({ messages, isLoading, isEmpty, tempTypingMessage }: ChatContainerProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const htmlContentRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -21,7 +19,7 @@ const ChatContainer = ({ messages, isLoading, isEmpty, tempTypingMessage }: Chat
       containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
   }, [messages, tempTypingMessage]);
-
+  
   // Диагностический лог для отслеживания сообщений
   useEffect(() => {
     console.log("ChatContainer: сообщения и состояние", {
@@ -42,50 +40,15 @@ const ChatContainer = ({ messages, isLoading, isEmpty, tempTypingMessage }: Chat
           <h1 className="text-2xl font-semibold text-white mb-24">Чем я могу помочь?</h1>
         </div>
       ) : (
-        <div id="messages-container" ref={htmlContentRef} className="max-w-3xl mx-auto">
-          {messages && messages.length > 0 && messages.map((message, index) => {
-            const hasFiles = message.files && Array.isArray(message.files) && message.files.length > 0;
-
-            return (
-              <div key={`msg-${message.id || index}`} className="mb-4">
-                <ChatMessage message={message} />
-
-                {hasFiles && (
-                  <div className="flex flex-wrap gap-2 mt-2 ml-12">
-                    {message.files && message.files.map((file, fileIndex: number) => (
-                      <div 
-                        key={fileIndex}
-                        className="relative w-32 h-32 rounded-xl overflow-hidden border border-gray-600 flex items-center justify-center bg-gray-800"
-                      >
-                        {file.type?.startsWith('image/') ? (
-                          <img 
-                            src={file.content} 
-                            alt={file.name} 
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex flex-col items-center p-2">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                              <polyline points="14 2 14 8 20 8"></polyline>
-                            </svg>
-                            <span className="text-xs text-gray-300 mt-2 text-center line-clamp-2">
-                              {file.name}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-
+        <div id="messages-container" className="max-w-3xl mx-auto">
+          {messages && messages.length > 0 && messages.map((message, index) => (
+            <ChatMessage key={`msg-${message.id || index}`} message={message} />
+          ))}
+          
           {tempTypingMessage && (
             <ChatMessage key="typing" message={tempTypingMessage} />
           )}
-
+          
           {isLoading && !tempTypingMessage && (
             <div className="message ai-message mb-6">
               <div className="flex items-start">
@@ -97,7 +60,7 @@ const ChatContainer = ({ messages, isLoading, isEmpty, tempTypingMessage }: Chat
           )}
         </div>
       )}
-
+      
       {/* Дополнительные действия под сообщениями */}
       {messages.length > 0 && !isLoading && (
         <div className="flex items-center justify-start mt-2 max-w-3xl mx-auto">
@@ -142,5 +105,8 @@ const ChatContainer = ({ messages, isLoading, isEmpty, tempTypingMessage }: Chat
     </div>
   );
 };
+
+// Import GPTLogo component for ChatContainer
+import GPTLogo from "./GPTLogo";
 
 export default ChatContainer;

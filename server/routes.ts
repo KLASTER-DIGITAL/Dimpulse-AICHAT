@@ -187,27 +187,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/chats", async (req, res) => {
     try {
       const chatId = randomUUID();
-      
-      // Получаем данные из запроса или используем значения по умолчанию
-      const requestData = req.body || {};
-      
       const chatData = insertChatSchema.parse({
         id: chatId,
-        title: requestData.title || "New Chat",
-        userId: requestData.userId !== undefined ? requestData.userId : null,
+        title: "New Chat",
+        userId: null,
       });
 
-      console.log("Creating new chat with data:", chatData);
-      
       const chat = await storage.createChat(chatData);
-      console.log("Chat created successfully:", chat);
       
       // Больше не создаем автоматическое первое сообщение
       // Вместо этого, приветствие будет показываться на фронтенде
       
       res.status(201).json(chat);
     } catch (error) {
-      console.error("Failed to create chat:", error);
       res.status(400).json({ message: "Failed to create chat" });
     }
   });
@@ -236,8 +228,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const chatId = req.params.chatId;
       const { content, audioData } = req.body;
-      const reqFileData = req.body.fileData;
-      const reqFilesData = req.body.filesData;
       
       if (!content || typeof content !== 'string') {
         return res.status(400).json({ message: "Message content is required" });
@@ -250,20 +240,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         content,
       });
       
-      // Создаем сообщение в хранилище
-      const userMessage = await storage.createMessage(userMessageData);
-      
-      // Если есть прикрепленные файлы, сохраняем информацию об этом
-      // После создания сообщения, мы можем хранить эти файлы связанными с сообщением
-      // В локальном хранилище или в памяти на стороне клиента
-      if (reqFilesData && reqFilesData.length > 0) {
-        // Добавляем файлы к сообщению
-        console.log(`Сообщение содержит ${reqFilesData.length} прикрепленных файлов`);
-        
-        // Здесь можно обновить сообщение с идентификаторами файлов
-        // Или сохранить файлы в отдельном месте
-        // В этой версии реализации мы передаем файлы на клиентской стороне
-      }
+      await storage.createMessage(userMessageData);
       
       // Это значение будет использоваться, только если обнаружена ошибка 404 с сообщением о неактивном webhook
       // В других случаях будем ждать ответа от webhook
@@ -319,35 +296,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Если есть файл, добавляем его как отдельную переменную верхнего уровня (не вложенный объект)
-      if (reqFileData) {
+      const fileData = req.body.fileData;
+      if (fileData) {
         // Добавляем файл как отдельный параметр верхнего уровня для n8n
-        requestBody.file = reqFileData.content;
-        requestBody.file_name = reqFileData.name;
-        requestBody.file_type = reqFileData.type;
+        requestBody.file = fileData.content;
+        requestBody.file_name = fileData.name;
+        requestBody.file_type = fileData.type;
         // Также добавим адрес сообщения с указанием, что к нему прикреплен файл
-        requestBody.message = `${content} [с приложенным файлом: ${reqFileData.name}]`;
-        console.log(`Including file data in webhook request (${reqFileData.name}, type: ${reqFileData.type})`);
+        requestBody.message = `${content} [с приложенным файлом: ${fileData.name}]`;
+        console.log(`Including file data in webhook request (${fileData.name}, type: ${fileData.type})`);
       }
       
       // Если есть массив файлов, обрабатываем его
-      if (reqFilesData && reqFilesData.length > 0) {
+      const filesData = req.body.filesData;
+      if (filesData && filesData.length > 0) {
         // Если файл еще не установлен (из fileData), используем первый файл как основной
-        if (!reqFileData) {
-          requestBody.file = reqFilesData[0].content;
-          requestBody.file_name = reqFilesData[0].name;
-          requestBody.file_type = reqFilesData[0].type;
+        if (!fileData) {
+          requestBody.file = filesData[0].content;
+          requestBody.file_name = filesData[0].name;
+          requestBody.file_type = filesData[0].type;
           // Также добавим адрес сообщения с указанием количества файлов
-          requestBody.message = `${content} [с приложенными файлами (${reqFilesData.length})]`;
+          requestBody.message = `${content} [с приложенными файлами (${filesData.length})]`;
         }
         
         // Также добавляем все файлы как массив для возможной обработки
-        requestBody.files = reqFilesData.map((f: { content: string, name: string, type: string, size?: number }) => ({
+        requestBody.files = filesData.map((f: { content: string, name: string, type: string, size?: number }) => ({
           content: f.content,
           name: f.name,
           type: f.type
         }));
         
-        console.log(`Including multiple files (${reqFilesData.length}) in webhook request`);
+        console.log(`Including multiple files (${filesData.length}) in webhook request`);
       }
       
       console.log("Sending webhook request:", {
@@ -432,29 +411,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
             } 
             // Вариант 2: Объект в формате OpenAI API
-            else if (typeof data === 'object' && data && 'choices' in data && Array.isArray(data.choices) && data.choices[0]) {
-              const choice: any = data.choices[0];
-              if (choice.message && choice.message.content) {
-                aiResponse = choice.message.content;
-              } else if (choice.text) {
-                aiResponse = choice.text;
+            else if (data.choices && data.choices[0]) {
+              if (data.choices[0].message && data.choices[0].message.content) {
+                aiResponse = data.choices[0].message.content;
+              } else if (data.choices[0].text) {
+                aiResponse = data.choices[0].text;
               }
             }
             // Вариант 3: Простой объект с ответом
-            else if (typeof data === 'object' && data && 'response' in data) {
-              aiResponse = data.response as string;
+            else if (data.response) {
+              aiResponse = data.response;
             }
             // Вариант 4: Объект с полем text или content
-            else if (typeof data === 'object' && data && 'text' in data) {
-              aiResponse = data.text as string;
-            } else if (typeof data === 'object' && data && 'content' in data) {
-              aiResponse = data.content as string;
+            else if (data.text) {
+              aiResponse = data.text;
+            } else if (data.content) {
+              aiResponse = data.content;
             }
             // Вариант 5: Объект с полем message (если это не сообщение об ошибке webhook)
-            else if (typeof data === 'object' && data && 'message' in data && 
-                    typeof data.message === 'string' && 
-                    !data.message.includes("webhook") && 
-                    !data.message.includes("not registered")) {
+            else if (data.message && !data.message.includes("webhook") && !data.message.includes("not registered")) {
               aiResponse = data.message;
             }
             // Вариант 6: Необработанный текст JSON
@@ -766,30 +741,142 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   const httpServer = createServer(app);
   
-  // Временно отключаем WebSocket для стабильной работы при деплое
-  console.log('WebSocket server disabled for deployment stability');
-  
-  // Заглушка для WebSocket-сервера
-  const wss = {
-    on: (event: string, handler: Function) => {
-      console.log(`WebSocket ${event} handler registered (disabled)`);
-    }
-  };
-  
-  // Отключаем обработку upgrade событий
-  console.log('WebSocket upgrade handling disabled');
+  // Создаем WebSocket сервер с улучшенной обработкой ошибок
+  // Оптимизированная конфигурация WebSocketServer для деплоя на Replit
+  const wss = new WebSocketServer({ 
+    server: httpServer, 
+    path: '/ws',
+    // Отключаем сложные настройки, которые могут конфликтовать с прокси Replit
+    perMessageDeflate: false,
+    // Устанавливаем разумные лимиты для сообщений
+    maxPayload: 10 * 1024 * 1024 // 10MB max payload
+  });
   
   // Хранилище для клиентов, организованное по чатам
   const clients = new Map<string, Set<WebSocket>>();
   
-  // WebSocket обработчик отключен для стабильной работы при деплое
-  wss.on('connection', (ws: any, req: any) => {
-    console.log('WebSocket handler disabled');
+  // Обработка событий WebSocket с улучшенной поддержкой для Replit
+  wss.on('connection', (ws, req) => {
+    console.log('WebSocket connected', { 
+      headers: { 
+        host: req.headers.host,
+        origin: req.headers.origin 
+      } 
+    });
+    
+    // Добавляем проверку жизни соединения через ping/pong для предотвращения обрыва соединения
+    const pingInterval = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.ping();
+      } else {
+        clearInterval(pingInterval);
+      }
+    }, 30000); // проверка каждые 30 секунд
+    
+    // Отправляем сразу же статус соединения клиенту
+    try {
+      ws.send(JSON.stringify({ 
+        type: 'connection_established', 
+        timestamp: new Date().toISOString() 
+      }));
+    } catch (err) {
+      console.error('Error sending init message:', err);
+    }
+    
+    let currentChatId: string | null = null;
+    
+    // Обработка сообщений от клиента с более надежной обработкой ошибок
+    ws.on('message', (message) => {
+      try {
+        // Преобразовываем сообщение в строку и проверяем, не пустое ли оно
+        const messageStr = message.toString().trim();
+        if (!messageStr) {
+          console.warn('Received empty WebSocket message');
+          return;
+        }
+        
+        const data = JSON.parse(messageStr);
+        console.log('Received WebSocket message:', data);
+        
+        // Обработка событий подключения к чату
+        if (data.type === 'join' && data.chatId) {
+          // Запоминаем текущий чат для данного соединения
+          currentChatId = data.chatId;
+          
+          // Добавляем клиента в список для этого чата
+          if (!clients.has(data.chatId)) {
+            clients.set(data.chatId, new Set());
+          }
+          clients.get(data.chatId)?.add(ws);
+          
+          // Отправляем подтверждение
+          ws.send(JSON.stringify({ 
+            type: 'joined', 
+            chatId: data.chatId,
+            timestamp: new Date().toISOString()
+          }));
+          console.log(`Client joined chat: ${data.chatId}`);
+        } else if (data.type === 'ping') {
+          // Простой ответ на ping для проверки соединения
+          ws.send(JSON.stringify({ 
+            type: 'pong', 
+            timestamp: new Date().toISOString() 
+          }));
+        }
+        
+        // Обработка других типов сообщений можно добавить здесь
+      } catch (error) {
+        console.error('Error processing WebSocket message:', error);
+        
+        // Отправляем сообщение об ошибке клиенту, чтобы он знал, что что-то пошло не так
+        try {
+          ws.send(JSON.stringify({ 
+            type: 'error', 
+            message: 'Failed to process message',
+            timestamp: new Date().toISOString()
+          }));
+        } catch (sendError) {
+          console.error('Error sending error message:', sendError);
+        }
+      }
+    });
+    
+    // Обработка ошибок WebSocket соединения
+    ws.on('error', (error) => {
+      console.error('WebSocket error:', error);
+      clearInterval(pingInterval);
+    });
+    
+    // Обработка закрытия соединения
+    ws.on('close', (code, reason) => {
+      console.log(`WebSocket closed with code ${code}`, reason.toString());
+      clearInterval(pingInterval);
+      
+      // Удаляем клиента из всех чатов, где он был подписан
+      if (currentChatId && clients.has(currentChatId)) {
+        clients.get(currentChatId)?.delete(ws);
+        
+        // Если чат остался без клиентов, удаляем его из Map
+        if (clients.get(currentChatId)?.size === 0) {
+          clients.delete(currentChatId);
+        }
+      }
+    });
   });
   
-  // Функция-заглушка для сохранения API
+  // Функция для отправки события всем клиентам в чате
   const notifyClientsInChat = (chatId: string, data: any) => {
-    console.log(`WebSocket notification disabled for deployment, would notify chat ${chatId}:`, data);
+    const chatClients = clients.get(chatId);
+    if (chatClients) {
+      console.log(`Notifying ${chatClients.size} clients in chat ${chatId}`);
+      
+      chatClients.forEach((client) => {
+        // Проверяем, что соединение открыто
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify(data));
+        }
+      });
+    }
   };
   
   // Экспортируем функцию для использования в других маршрутах

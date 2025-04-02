@@ -187,52 +187,139 @@ export const useWebSocket = (
     }
   }, [onMessage]);
   
-  // Функция отключена для деплоя - использует только режим polling
+  // Создание нового WebSocket соединения с улучшенной обработкой ошибок
   const createWebSocket = useCallback(() => {
-    console.log('WebSocket connections disabled for deployment, using polling mode');
+    // Если уже есть соединение, закрываем его
+    if (wsRef.current && wsRef.current.readyState !== WebSocket.CLOSED) {
+      wsRef.current.close();
+    }
     
-    // Всегда используем polling для стабильной работы при деплое
-    modeRef.current = 'polling';
-    
-    // Имитируем подключение установкой статуса
-    setStatus('open');
-    onStatusChange?.('open');
-    
-    // Отправляем начальное сообщение, имитирующее соединение
-    onMessage?.({
-      type: 'connection_established',
-      timestamp: new Date().toISOString()
-    });
-    
-    // Запускаем интервальный опрос
-    if (!pollIntervalRef.current) {
+    try {
+      console.log(`Connecting to WebSocket at ${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`);
+      setStatus('connecting');
+      onStatusChange?.('connecting');
+      
+      // Создаем WebSocket соединение
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}/ws`;
+      const ws = new WebSocket(wsUrl);
+      
+      ws.onopen = () => {
+        console.log('WebSocket status changed: open');
+        setStatus('open');
+        onStatusChange?.('open');
+        
+        // Сбрасываем счетчик попыток переподключения при успешном соединении
+        reconnectCountRef.current = 0;
+        
+        // Если есть активный чат, присоединяемся к нему
+        if (activeChatIdRef.current) {
+          ws.send(JSON.stringify({
+            type: 'join',
+            chatId: activeChatIdRef.current
+          }));
+        }
+      };
+      
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log('WebSocket message received:', data);
+          onMessage?.(data);
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
+        }
+      };
+      
+      ws.onerror = (event) => {
+        console.error('WebSocket error:', event);
+        setStatus('error');
+        onStatusChange?.('error');
+      };
+      
+      ws.onclose = (event) => {
+        console.log('WebSocket status changed: closed', event.code, event.reason);
+        setStatus('closed');
+        onStatusChange?.('closed');
+        
+        // Увеличиваем счетчик попыток переподключения
+        reconnectCountRef.current += 1;
+        
+        // Пробуем переподключиться, если не превысили лимит попыток
+        if (reconnectCountRef.current <= maxReconnectAttempts) {
+          console.log(`Attempting to reconnect (${reconnectCountRef.current}/${maxReconnectAttempts})`);
+          setTimeout(createWebSocket, reconnectInterval);
+        } else {
+          console.log(`Max reconnect attempts (${maxReconnectAttempts}) reached, switching to polling mode`);
+          modeRef.current = 'polling';
+          
+          // Запускаем polling как fallback
+          if (!pollIntervalRef.current) {
+            console.log('Starting polling as fallback');
+            // Небольшая задержка перед началом polling
+            setTimeout(() => {
+              setStatus('open');
+              onStatusChange?.('open');
+              
+              // Отправляем сообщение о соединении для сохранения совместимости 
+              onMessage?.({
+                type: 'connection_established',
+                timestamp: new Date().toISOString()
+              });
+              
+              // Запускаем интервальный опрос
+              pollIntervalRef.current = setInterval(pollForUpdates, reconnectInterval);
+            }, 500);
+          }
+        }
+      };
+      
+      wsRef.current = ws;
+    } catch (error) {
+      console.error('Error creating WebSocket:', error);
+      // Переключаемся в режим polling при ошибке создания WebSocket
+      modeRef.current = 'polling';
+      
+      // Запускаем polling как основной метод
+      if (!pollIntervalRef.current) {
+        // Имитируем подключение установкой статуса
+        setStatus('open');
+        onStatusChange?.('open');
+        
+        // Отправляем начальное сообщение, имитирующее соединение
+        onMessage?.({
+          type: 'connection_established',
+          timestamp: new Date().toISOString()
+        });
+        
+        // Запускаем интервальный опрос
+        pollIntervalRef.current = setInterval(pollForUpdates, reconnectInterval);
+      }
+    }
+  }, [maxReconnectAttempts, onMessage, onStatusChange, pollForUpdates, reconnectInterval]);
+  
+  // Запуск WebSocket или polling при монтировании компонента
+  useEffect(() => {
+    // В режиме WebSocket пытаемся установить соединение
+    if (modeRef.current === 'websocket') {
+      createWebSocket();
+    } else {
+      // В режиме polling запускаем опрос
+      console.log('Starting in polling mode');
+      
+      // Имитируем "подключение" установкой статуса
+      setStatus('open');
+      onStatusChange?.('open');
+      
+      // Отправляем начальное сообщение, имитирующее соединение
+      onMessage?.({
+        type: 'connection_established',
+        timestamp: new Date().toISOString()
+      });
+      
+      // Запускаем интервальный опрос
       pollIntervalRef.current = setInterval(pollForUpdates, reconnectInterval);
     }
-    
-    // Если есть активный чат, присоединяемся к нему
-    if (activeChatIdRef.current) {
-      joinChat(activeChatIdRef.current);
-    }
-  }, [joinChat, onMessage, onStatusChange, pollForUpdates, reconnectInterval]);
-  
-  // Запуск только в режиме polling при монтировании компонента для деплоя
-  useEffect(() => {
-    // Всегда запускаемся в режиме polling для деплоя
-    modeRef.current = 'polling';
-    console.log('WebSocket disabled for deployment, using polling mode');
-    
-    // Имитируем "подключение" установкой статуса
-    setStatus('open');
-    onStatusChange?.('open');
-    
-    // Отправляем начальное сообщение, имитирующее соединение
-    onMessage?.({
-      type: 'connection_established',
-      timestamp: new Date().toISOString()
-    });
-    
-    // Запускаем интервальный опрос для обновления данных
-    pollIntervalRef.current = setInterval(pollForUpdates, reconnectInterval);
     
     // Если есть chatId, присоединяемся к нему
     if (chatId) {
