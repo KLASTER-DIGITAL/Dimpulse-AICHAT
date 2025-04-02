@@ -374,14 +374,11 @@ function generateAssistantResponse(userMessage: string): string {
   }
   
   if (userMessage.toLowerCase().includes('консультац')) {
-    return `Для записи на консультацию, пожалуйста, выберите удобное время в календаре:
-    
-<iframe 
-  src="https://cal.com/dimpulse/30min" 
-  style="width:100%;height:700px;border:none;overflow:hidden;" 
-  frameborder="0"
-  allow="camera; microphone; autoplay; fullscreen;">
-</iframe>
+    return `Для записи на консультацию, пожалуйста, перейдите по ссылке ниже и выберите удобное время:
+
+**[Выбрать время для консультации](https://cal.com/dimpulse/30min)**
+
+Календарь откроется в новом окне. После выбора времени вы получите подтверждение на вашу электронную почту.
 
 Если у вас есть предпочтения по времени или дате, дайте знать!`;
   }
