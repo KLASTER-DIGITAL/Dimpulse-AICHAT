@@ -1,7 +1,8 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect, useRef } from "react";
 import { ExtendedMessage } from "@shared/schema";
 import MarkdownRenderer from "./MarkdownRenderer";
 import TypingAnimation from "./TypingAnimation";
+import CalRenderer from "./CalRenderer";
 
 interface ChatMessageProps {
   message: ExtendedMessage;
@@ -10,10 +11,21 @@ interface ChatMessageProps {
 const ChatMessage = ({ message }: ChatMessageProps) => {
   const isUser = message.role === "user";
   const isTyping = message.typing === true || message.content === "typing";
+  const htmlContentRef = useRef<HTMLDivElement>(null);
   
   // Check if the message content contains HTML/iframe or special script content
   const containsHtml = useMemo(() => {
     if (!message.content) return false;
+    
+    // Check for Cal.com embed code with HTML comments
+    if (message.content.includes('<!-- Cal inline embed code begins -->')) {
+      return true;
+    }
+    
+    // Check for Cal.com JavaScript code
+    if (message.content.includes('Cal(') && message.content.includes('function')) {
+      return true;
+    }
     
     // Check for regular HTML tags
     return /<\/?[a-z][\s\S]*>/i.test(message.content) && 
@@ -22,6 +34,41 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
             /<script[\s\S]*?<\/script>/i.test(message.content) ||
             /<embed[\s\S]*?>/i.test(message.content));
   }, [message.content]);
+  
+  // Execute scripts after component mounts or updates
+  useEffect(() => {
+    if (!containsHtml || !htmlContentRef.current) return;
+    
+    // For messages with Cal.com script
+    if (message.content.includes('<!-- Cal inline embed code begins -->') || 
+       (message.content.includes('Cal(') && message.content.includes('function'))) {
+      
+      // Allow time for DOM to update
+      setTimeout(() => {
+        const scripts = htmlContentRef.current?.querySelectorAll('script');
+        
+        if (scripts && scripts.length > 0) {
+          console.log(`Found ${scripts.length} scripts to execute in message`);
+          
+          // Execute each script
+          scripts.forEach((oldScript) => {
+            const newScript = document.createElement('script');
+            
+            // Copy attributes
+            Array.from(oldScript.attributes).forEach(attr => {
+              newScript.setAttribute(attr.name, attr.value);
+            });
+            
+            // Copy content
+            newScript.textContent = oldScript.textContent;
+            
+            // Replace old script with new to trigger execution
+            oldScript.parentNode?.replaceChild(newScript, oldScript);
+          });
+        }
+      }, 500);
+    }
+  }, [containsHtml, message.content]);
   
   // Render different content based on message type
   const renderContent = () => {
@@ -33,7 +80,26 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
       );
     }
     
-    // Use our improved Markdown renderer for all content
+    // Special case for Cal.com embed with HTML comments
+    if (message.content.includes('<!-- Cal inline embed code begins -->') || 
+        (message.content.includes('Cal(') && message.content.includes('function'))) {
+      
+      // Use our new specialized Cal renderer component instead of inline implementation
+      return <CalRenderer message={message} />;
+    }
+    
+    // For other HTML content
+    if (containsHtml) {
+      return (
+        <div 
+          ref={htmlContentRef}
+          className="html-content w-full"
+          dangerouslySetInnerHTML={{ __html: message.content }}
+        />
+      );
+    }
+    
+    // Default for markdown content
     return (
       <div className="markdown">
         <MarkdownRenderer content={message.content} />
