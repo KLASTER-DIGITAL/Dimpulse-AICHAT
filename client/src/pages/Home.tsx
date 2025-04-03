@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Chat, Message } from "@shared/schema";
 import { useWebSocket } from "@/hooks/use-websocket";
+import useLongPolling from "@/hooks/use-long-polling";
 
 import ChatContainer from "@/components/ChatGPT/ChatContainer";
 import ChatInput from "@/components/ChatGPT/ChatInput";
@@ -36,28 +37,41 @@ const Home = () => {
     enabled: !!currentChatId,
   });
 
-  // В проде не обновляем автоматически, т.к. используем WebSocket
+  // В проде не обновляем автоматически, т.к. используем WebSocket или Long Polling
   // для обновления сообщений в реальном времени
   useEffect(() => {
-    // Пустой эффект - websocket обновляет UI через invalidateQueries
+    // Пустой эффект - websocket или long polling обновляет UI через invalidateQueries
   }, []);
 
   // Create a new chat
   const createChatMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest('/api/chats', {
-        method: 'POST',
-        data: {}
-      });
+      try {
+        console.log('Создание нового чата...');
+        const result = await apiRequest('/api/chats', {
+          method: 'POST',
+          data: {}
+        });
+        console.log('Чат успешно создан:', result);
+        return result;
+      } catch (error) {
+        console.error('Ошибка при создании чата:', error);
+        throw error;
+      }
     },
     onSuccess: (newChat: Chat) => {
+      console.log('Успешно создан чат с ID:', newChat.id);
       queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
       setCurrentChatId(newChat.id);
+      
+      // Перенаправляем на страницу чата
+      navigate(`/chat/${newChat.id}`);
     },
-    onError: () => {
+    onError: (error) => {
+      console.error('Ошибка мутации при создании чата:', error);
       toast({
         title: "Ошибка",
-        description: "Не удалось создать новый чат",
+        description: "Не удалось создать новый чат. Пожалуйста, попробуйте еще раз.",
         variant: "destructive",
       });
     }
@@ -66,8 +80,13 @@ const Home = () => {
   // Временное сообщение для анимации печати
   const [tempTypingMessage, setTempTypingMessage] = useState<Message & { typing?: boolean } | null>(null);
 
-  // Подключаем WebSocket для текущего чата
-  const { status: wsStatus } = useWebSocket(currentChatId, {
+  // Определяем, какой режим коммуникации использовать (WebSocket или Long Polling)
+  // Для Vercel используем Long Polling, для локальной разработки - WebSocket
+  const isVercel = window.location.hostname.includes('vercel.app') || 
+                  import.meta.env.VITE_USE_POLLING === 'true';
+  
+  // Подключаем WebSocket для текущего чата (если не на Vercel)
+  const { status: wsStatus } = useWebSocket(isVercel ? null : currentChatId, {
     onMessage: (data) => {
       console.log("WebSocket message received:", data);
 
@@ -100,6 +119,27 @@ const Home = () => {
     }
   });
 
+  // Используем Long Polling для Vercel
+  const { status: pollingStatus, sendMessage: sendMessagePolling } = useLongPolling(isVercel ? currentChatId : null, {
+    onMessage: (data) => {
+      console.log("Long polling message received:", data);
+      
+      // Обновляем список сообщений при получении нового сообщения
+      if (data && currentChatId) {
+        queryClient.invalidateQueries({ queryKey: [`/api/chats/${currentChatId}`] });
+        
+        // Если это было сообщение с анимацией набора текста, убираем его
+        if (tempTypingMessage) {
+          setTempTypingMessage(null);
+        }
+      }
+    },
+    onStatusChange: (status) => {
+      console.log("Long polling status changed:", status);
+    },
+    enabled: isVercel
+  });
+
   // Send a message
   const sendMessageMutation = useMutation({
     mutationFn: async ({ 
@@ -115,6 +155,30 @@ const Home = () => {
       fileData?: { content: string, name: string, type: string },
       filesData?: Array<{ content: string, name: string, type: string, size: number }> 
     }) => {
+      console.log(`Отправка сообщения в чат ${chatId}. Режим: ${isVercel ? 'Long Polling' : 'WebSocket'}`);
+      
+      // Если используем Long Polling (Vercel), отправляем через него
+      if (isVercel && sendMessagePolling) {
+        try {
+          await sendMessagePolling({
+            content: message,
+            role: 'user',
+            chatId,
+            createdAt: new Date(),
+            audioData,
+            fileData,
+            filesData
+          });
+          
+          // Возвращаем успешный результат
+          return { success: true };
+        } catch (error) {
+          console.error('Ошибка при отправке сообщения через Long Polling:', error);
+          throw error;
+        }
+      }
+      
+      // Иначе используем обычный API запрос
       console.log("Отправка сообщения:", { 
         chatId, 
         message, 
@@ -192,6 +256,36 @@ const Home = () => {
     if (params?.id) {
       // Используем id из URL
       setCurrentChatId(params.id);
+      
+      // Проверяем, есть ли отложенное сообщение для отправки
+      const pendingMessageJson = localStorage.getItem('pendingMessage');
+      if (pendingMessageJson) {
+        try {
+          const pendingMessage = JSON.parse(pendingMessageJson);
+          const timestamp = pendingMessage.timestamp || 0;
+          const now = Date.now();
+          
+          // Отправляем сообщение только если оно не старше 30 секунд
+          if (now - timestamp < 30000) {
+            // Небольшая задержка для уверенности, что чат уже загружен
+            setTimeout(() => {
+              sendMessageMutation.mutate({ 
+                chatId: params.id, 
+                message: pendingMessage.message, 
+                audioData: pendingMessage.audioData, 
+                fileData: pendingMessage.fileData,
+                filesData: pendingMessage.filesData
+              });
+            }, 500);
+          }
+          
+          // Удаляем отложенное сообщение
+          localStorage.removeItem('pendingMessage');
+        } catch (error) {
+          console.error('Ошибка при обработке отложенного сообщения:', error);
+          localStorage.removeItem('pendingMessage');
+        }
+      }
     } else {
       // Убрано автоматическое создание чата при загрузке
       // Чат будет создан только после отправки первого сообщения
@@ -207,20 +301,26 @@ const Home = () => {
     filesData?: Array<{ content: string, name: string, type: string, size: number }>
   ) => {
     if (!currentChatId) {
+      console.log('Нет текущего чата, создаем новый...');
       // Если нет текущего чата, создаем новый
       try {
+        // Сохраняем сообщение для отправки после создания чата
+        localStorage.setItem('pendingMessage', JSON.stringify({
+          message,
+          audioData,
+          fileData,
+          filesData,
+          timestamp: Date.now()
+        }));
+        
         const newChat = await createChatMutation.mutateAsync();
         console.log("Создан новый чат:", newChat);
+        
         // После создания чата сразу отправляем сообщение
-        sendMessageMutation.mutate({ 
-          chatId: newChat.id, 
-          message, 
-          audioData, 
-          fileData,
-          filesData
-        });
+        // Это произойдет автоматически через эффект при изменении currentChatId
       } catch (error) {
         console.error("Ошибка при создании чата:", error);
+        localStorage.removeItem('pendingMessage'); // Удаляем сохраненное сообщение при ошибке
         toast({
           title: "Ошибка",
           description: "Не удалось создать чат и отправить сообщение",
