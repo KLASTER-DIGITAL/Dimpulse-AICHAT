@@ -1,12 +1,13 @@
-import { Request, Response } from 'express';
+import { VercelRequest, VercelResponse } from '@vercel/node';
 
-// Хранилище сообщений для каждого чата
-const messageQueues: Record<string, Array<any>> = {};
-// Хранилище ожидающих клиентов
-const waitingClients: Record<string, Array<{ res: Response, timestamp: number }>> = {};
+// Глобальные хранилища для Vercel Serverless Functions
+// Обратите внимание, что эти данные будут сбрасываться при каждом холодном старте функции
+// В продакшене лучше использовать внешнее хранилище данных
+let messageQueues: Record<string, Array<any>> = {};
+let waitingResponses: Record<string, Array<{ resolve: (value: any) => void, timestamp: number }>> = {};
 
-// Максимальное время ожидания для long polling (30 секунд)
-const MAX_WAIT_TIME = 30000;
+// Максимальное время ожидания для long polling (9 секунд - меньше чем таймаут Vercel)
+const MAX_WAIT_TIME = 9000;
 
 // Добавление сообщения в очередь для конкретного чата
 export const addMessageToQueue = (chatId: string, message: any) => {
@@ -17,12 +18,12 @@ export const addMessageToQueue = (chatId: string, message: any) => {
   messageQueues[chatId].push(message);
   
   // Отправляем сообщение всем ожидающим клиентам для этого чата
-  if (waitingClients[chatId] && waitingClients[chatId].length > 0) {
-    const clients = [...waitingClients[chatId]];
-    waitingClients[chatId] = [];
+  if (waitingResponses[chatId] && waitingResponses[chatId].length > 0) {
+    const responses = [...waitingResponses[chatId]];
+    waitingResponses[chatId] = [];
     
-    clients.forEach(client => {
-      client.res.json({
+    responses.forEach(({ resolve }) => {
+      resolve({
         messages: [message],
         status: 'success'
       });
@@ -31,91 +32,80 @@ export const addMessageToQueue = (chatId: string, message: any) => {
 };
 
 // Обработчик для long polling
-export const handleLongPolling = async (req: Request, res: Response) => {
-  const chatId = req.params.chatId;
-  
+export const handleLongPolling = async (req: VercelRequest, res: VercelResponse, chatId: string) => {
   // Проверяем, есть ли сообщения в очереди
   if (messageQueues[chatId] && messageQueues[chatId].length > 0) {
     // Если есть сообщения, отправляем их клиенту
     const messages = [...messageQueues[chatId]];
     messageQueues[chatId] = [];
     
-    return res.json({
+    return res.status(200).json({
       messages,
       status: 'success'
     });
   }
   
-  // Если сообщений нет, добавляем клиента в список ожидающих
-  if (!waitingClients[chatId]) {
-    waitingClients[chatId] = [];
-  }
-  
-  // Устанавливаем таймаут для ответа
-  const timestamp = Date.now();
-  waitingClients[chatId].push({ res, timestamp });
-  
-  // Устанавливаем таймер для проверки истечения времени ожидания
-  const timeoutId = setTimeout(() => {
-    // Находим клиента в списке ожидающих
-    if (waitingClients[chatId]) {
-      const index = waitingClients[chatId].findIndex(client => client.res === res);
-      if (index !== -1) {
-        // Удаляем клиента из списка ожидающих
-        waitingClients[chatId].splice(index, 1);
+  // Если сообщений нет, используем Promise для ожидания
+  try {
+    const result = await new Promise((resolve, reject) => {
+      // Создаем массив для ожидающих клиентов, если его еще нет
+      if (!waitingResponses[chatId]) {
+        waitingResponses[chatId] = [];
+      }
+      
+      // Добавляем функцию resolve в массив ожидающих
+      const timestamp = Date.now();
+      waitingResponses[chatId].push({ resolve, timestamp });
+      
+      // Устанавливаем таймаут для предотвращения вечного ожидания
+      setTimeout(() => {
+        // Находим и удаляем этот объект из массива ожидающих
+        if (waitingResponses[chatId]) {
+          const index = waitingResponses[chatId].findIndex(item => item.timestamp === timestamp);
+          if (index !== -1) {
+            waitingResponses[chatId].splice(index, 1);
+          }
+        }
         
-        // Отправляем пустой ответ
-        res.json({
+        // Возвращаем пустой ответ по таймауту
+        resolve({
           messages: [],
           status: 'timeout'
         });
-      }
-    }
-  }, MAX_WAIT_TIME);
-  
-  // Обрабатываем закрытие соединения
-  req.on('close', () => {
-    clearTimeout(timeoutId);
+      }, MAX_WAIT_TIME);
+    });
     
-    if (waitingClients[chatId]) {
-      const index = waitingClients[chatId].findIndex(client => client.res === res);
-      if (index !== -1) {
-        waitingClients[chatId].splice(index, 1);
-      }
-    }
-  });
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('Long polling error:', error);
+    return res.status(500).json({
+      messages: [],
+      status: 'error',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
 };
 
-// Отправка сообщения в конкретный чат
-export const sendMessage = (req: Request, res: Response) => {
-  const chatId = req.params.chatId;
-  const message = req.body;
-  
-  // Добавляем сообщение в очередь
-  addMessageToQueue(chatId, message);
-  
-  res.json({
-    status: 'success',
-    message: 'Message sent'
-  });
-};
-
-// Периодическая очистка устаревших клиентов
+// Периодическая очистка устаревших ожидающих клиентов
+// Обратите внимание, что в Serverless Functions этот интервал не будет работать постоянно
+// В продакшене лучше использовать внешнее хранилище данных
 setInterval(() => {
   const now = Date.now();
   
-  Object.keys(waitingClients).forEach(chatId => {
-    waitingClients[chatId] = waitingClients[chatId].filter(client => {
-      const isExpired = now - client.timestamp > MAX_WAIT_TIME;
-      
-      if (isExpired) {
-        client.res.json({
-          messages: [],
-          status: 'timeout'
-        });
-      }
-      
-      return !isExpired;
-    });
+  Object.keys(waitingResponses).forEach(chatId => {
+    if (waitingResponses[chatId]) {
+      waitingResponses[chatId] = waitingResponses[chatId].filter(item => {
+        const isExpired = now - item.timestamp > MAX_WAIT_TIME;
+        
+        if (isExpired) {
+          item.resolve({
+            messages: [],
+            status: 'timeout'
+          });
+        }
+        
+        return !isExpired;
+      });
+    }
   });
-}, 10000); // Проверка каждые 10 секунд
+}, 5000);

@@ -10,16 +10,18 @@ interface UseLongPollingOptions {
 interface PollingResponse {
   messages: any[];
   status: string;
+  error?: string;
 }
 
 /**
  * Хук для использования long polling вместо WebSocket
+ * Адаптирован для работы с Vercel Serverless Functions
  */
 const useLongPolling = (chatId: string | null, options: UseLongPollingOptions = {}) => {
   const {
     onMessage,
     onStatusChange,
-    pollingInterval = 1000,
+    pollingInterval = 2000, // Увеличиваем интервал для Vercel
     enabled = true
   } = options;
 
@@ -27,6 +29,9 @@ const useLongPolling = (chatId: string | null, options: UseLongPollingOptions = 
   const [error, setError] = useState<Error | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const pollingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Получаем базовый URL из переменных окружения
+  const apiUrl = import.meta.env.VITE_API_URL || '/api';
 
   // Обновление статуса с уведомлением
   const updateStatus = useCallback((newStatus: string) => {
@@ -46,7 +51,8 @@ const useLongPolling = (chatId: string | null, options: UseLongPollingOptions = 
     try {
       updateStatus('sending');
       
-      const response = await fetch(`/api/polling/chat/${chatId}/messages`, {
+      // Используем новый путь для Vercel Serverless Functions
+      const response = await fetch(`${apiUrl}/chat/${chatId}/messages`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -64,7 +70,7 @@ const useLongPolling = (chatId: string | null, options: UseLongPollingOptions = 
       setError(err instanceof Error ? err : new Error(String(err)));
       updateStatus('error');
     }
-  }, [chatId, updateStatus]);
+  }, [chatId, updateStatus, apiUrl]);
 
   // Функция для получения сообщений через long polling
   const pollMessages = useCallback(async () => {
@@ -83,7 +89,8 @@ const useLongPolling = (chatId: string | null, options: UseLongPollingOptions = 
       
       updateStatus('polling');
       
-      const response = await fetch(`/api/polling/chat/${chatId}/messages`, {
+      // Используем новый путь для Vercel Serverless Functions
+      const response = await fetch(`${apiUrl}/chat/${chatId}/messages`, {
         signal: abortControllerRef.current.signal
       });
       
@@ -124,7 +131,7 @@ const useLongPolling = (chatId: string | null, options: UseLongPollingOptions = 
         pollMessages();
       }, 5000); // Пробуем через 5 секунд
     }
-  }, [chatId, enabled, onMessage, pollingInterval, updateStatus]);
+  }, [chatId, enabled, onMessage, pollingInterval, updateStatus, apiUrl]);
 
   // Запускаем long polling при монтировании компонента
   useEffect(() => {
