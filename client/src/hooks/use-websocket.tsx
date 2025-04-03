@@ -200,9 +200,9 @@ export const useWebSocket = (
       onStatusChange?.('connecting');
       
       // Создаем WebSocket соединение
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/ws`;
-      const ws = new WebSocket(wsUrl);
+      // Используем относительный URL для большей надежности
+      const wsUrl = '/ws';
+      const ws = new WebSocket(`${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}${wsUrl}`);
       
       ws.onopen = () => {
         console.log('WebSocket status changed: open');
@@ -233,14 +233,20 @@ export const useWebSocket = (
       
       ws.onerror = (event) => {
         console.error('WebSocket error:', event);
-        setStatus('error');
-        onStatusChange?.('error');
+        // Не устанавливаем статус 'error', так как это может вызывать многократные ошибки
+        // Вместо этого полагаемся на onclose, который будет вызван после ошибки
+        // Просто логируем ошибку, но не меняем статус
       };
       
       ws.onclose = (event) => {
         console.log('WebSocket status changed: closed', event.code, event.reason);
-        setStatus('closed');
-        onStatusChange?.('closed');
+        
+        // Если закрытие было нормальным (1000 - нормальное закрытие)
+        if (event.code === 1000) {
+          setStatus('closed');
+          onStatusChange?.('closed');
+          return;
+        }
         
         // Увеличиваем счетчик попыток переподключения
         reconnectCountRef.current += 1;
@@ -248,6 +254,9 @@ export const useWebSocket = (
         // Пробуем переподключиться, если не превысили лимит попыток
         if (reconnectCountRef.current <= maxReconnectAttempts) {
           console.log(`Attempting to reconnect (${reconnectCountRef.current}/${maxReconnectAttempts})`);
+          // Устанавливаем статус 'connecting' для индикации попытки переподключения
+          setStatus('connecting');
+          onStatusChange?.('connecting');
           setTimeout(createWebSocket, reconnectInterval);
         } else {
           console.log(`Max reconnect attempts (${maxReconnectAttempts}) reached, switching to polling mode`);

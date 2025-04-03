@@ -16,27 +16,18 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
   const [message, setMessage] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [hasFocus, setHasFocus] = useState(false);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Auto-resize textarea based on content
-  const autoResize = () => {
-    const textarea = textareaRef.current;
-    if (textarea) {
-      textarea.style.height = "auto";
-      textarea.style.height = textarea.scrollHeight + "px";
+  // Функция для фокусировки на поле ввода
+  const focusInput = () => {
+    if (inputRef.current) {
+      inputRef.current.focus();
     }
   };
   
   // Автоматически фокусируем поле ввода при загрузке компонента
   useEffect(() => {
-    const focusInput = () => {
-      if (textareaRef.current) {
-        console.log("Focusing textarea element");
-        textareaRef.current.focus();
-      }
-    };
-    
     // Фокусируем несколько раз с разными задержками для надежности
     focusInput(); // Мгновенный фокус
     
@@ -54,9 +45,7 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
     };
   }, []);
   
-  useEffect(() => {
-    autoResize();
-  }, [message]);
+  // Убираем эффект autoResize, так как теперь используем input вместо textarea
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,9 +83,9 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
       setUploadedFiles([]);
       setPendingFiles(false);
       
-      // Reset height
-      if (textareaRef.current) {
-        textareaRef.current.style.height = "auto";
+      // Очищаем поле ввода
+      if (inputRef.current) {
+        inputRef.current.value = "";
       }
     } else if (uploadedFiles.length > 0 && !message.trim()) {
       // Если есть файлы, но нет сообщения - показываем предупреждение
@@ -411,7 +400,7 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
         )}
         
         <form id="chat-form" className="relative bg-black" onSubmit={handleSubmit}>
-          <div className={`chat-input-container rounded-full border ${hasFocus ? 'border-[#19c37d] border-opacity-20 shadow-sm shadow-[#19c37d]/10' : 'border-gray-600'} bg-[#101010] flex items-center pr-2 transition-all duration-300`}>
+          <div className="rounded-full border border-gray-600 bg-[#101010] flex items-center pr-2">
             {/* Кнопка прикрепления файла */}
             <button
               type="button"
@@ -432,28 +421,22 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
               />
             </button>
             
-            {/* Поле ввода */}
-            <div className="relative flex-1">
-              <textarea 
-                ref={textareaRef}
-                // Используем useEffect для фокусировки вместо инлайн-колбэка
-                autoFocus={true}
-                id="message-input" 
-                rows={1} 
-                className={`chat-input flex-1 w-full bg-transparent text-white border-none px-3 py-3 focus:outline-none resize-none ${hasFocus ? 'active-input' : ''}`}
-                placeholder="Чем еще могу помочь?"
-                style={{ maxHeight: "200px", minHeight: "24px" }}
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                onFocus={() => setHasFocus(true)}
-                onBlur={() => setHasFocus(false)}
-                onKeyDown={handleKeyDown}
-                disabled={isLoading || isRecording}
-              />
-              {hasFocus && message.length === 0 && (
-                <div className="text-cursor absolute left-[14px] top-[14px] h-4 w-0.5 bg-gray-400 animate-pulse" />
-              )}
-            </div>
+            {/* Поле ввода - упрощенная структура */}
+            <input 
+              ref={inputRef}
+              autoFocus={true}
+              id="message-input" 
+              type="text"
+              className="flex-1 bg-transparent text-white border-none px-4 py-3 focus:outline-none rounded-full"
+              placeholder="Опишите вашу задачу..."
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyDown={handleKeyDown}
+              disabled={isLoading || isRecording}
+            />
+            {hasFocus && message.length === 0 && (
+              <div className="text-cursor absolute left-[14px] top-[14px] h-4 w-0.5 bg-gray-400 animate-pulse" />
+            )}
             
             {/* Кнопка отправки голосового сообщения */}
             <button 
@@ -473,11 +456,11 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
             <button 
               type="submit" 
               id="send-button"
-              className="primary p-2 rounded-full text-gray-400 hover:text-white disabled:hover:text-gray-500 disabled:opacity-40 focus:outline-none"
+              className="p-2 rounded-full text-gray-400 hover:text-white"
               disabled={((!message.trim() || (!message.trim() && uploadedFiles.length > 0)) && !isRecording) || isLoading}
               title={uploadedFiles.length > 0 && !message.trim() ? "Необходимо добавить текстовое сообщение" : "Отправить сообщение"}
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M22 2L11 13M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </button>
